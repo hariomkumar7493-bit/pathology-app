@@ -11,7 +11,8 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      const userData = await api.login(email, password);
+      const response = await api.login(email, password);
+      const userData = response.user || response;
       setUser(userData);
       localStorage.setItem('pathlab_user', JSON.stringify(userData));
       return { success: true };
@@ -22,7 +23,8 @@ export function AuthProvider({ children }) {
 
   const register = async (name, email, password) => {
     try {
-      const userData = await api.register(name, email, password);
+      const response = await api.register(name, email, password);
+      const userData = response.user || response;
       setUser(userData);
       localStorage.setItem('pathlab_user', JSON.stringify(userData));
       return { success: true };
