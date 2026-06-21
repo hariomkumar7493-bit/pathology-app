@@ -313,19 +313,19 @@ export default function QuickReport() {
                   <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{cat}</p>
                   {catTests.map(test => (
                     <button
-                      key={test.id}
+                      key={test._id}
                       type="button"
-                      onClick={() => toggleTest(test.id)}
+                      onClick={() => toggleTest(test._id)}
                       className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left mb-0.5 transition-all ${
-                        selectedTests.includes(test.id)
+                        selectedTests.includes(test._id)
                           ? 'bg-primary-50 text-primary-700'
                           : 'text-gray-600 hover:bg-gray-50'
                       }`}
                     >
                       <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
-                        selectedTests.includes(test.id) ? 'bg-primary-600 border-primary-600' : 'border-gray-300'
+                        selectedTests.includes(test._id) ? 'bg-primary-600 border-primary-600' : 'border-gray-300'
                       }`}>
-                        {selectedTests.includes(test.id) && <Check className="w-2.5 h-2.5 text-white" />}
+                        {selectedTests.includes(test._id) && <Check className="w-2.5 h-2.5 text-white" />}
                       </div>
                       <span className="truncate">{test.name}</span>
                     </button>

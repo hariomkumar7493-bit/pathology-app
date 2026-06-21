@@ -50,8 +50,8 @@ export default function Reports() {
       setViewReport(full);
       // Initialize edit results
       const init = {};
-      (full.results || []).forEach(r => {
-        init[r.id] = { result_value: r.result_value || '', is_abnormal: r.is_abnormal };
+      (full.results || []).forEach((r, idx) => {
+        init[idx] = { result_value: r.result_value || '', is_abnormal: r.is_abnormal };
       });
       setEditResults(init);
     } catch (err) {
@@ -102,7 +102,7 @@ export default function Reports() {
     if (selectedIds.length === filteredReports.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(filteredReports.map(r => r.id));
+      setSelectedIds(filteredReports.map(r => r._id));
     }
   };
 
@@ -142,7 +142,7 @@ export default function Reports() {
     try {
       await api.deleteReport(reportId);
       loadReports();
-      if (viewReport?.id === reportId) setViewReport(null);
+      if (viewReport?._id === reportId) setViewReport(null);
       addToast('Report deleted successfully', 'success');
     } catch (err) {
       addToast('Failed to delete: ' + err.message, 'error');
@@ -212,9 +212,9 @@ export default function Reports() {
         result_value: val.result_value,
         is_abnormal: val.is_abnormal,
       }));
-      await api.updateReportResults(viewReport.id, { results: resultsArr, status: 'Completed' });
+      await api.updateReportResults(viewReport._id, { results: resultsArr, status: 'Completed' });
       // Refresh report
-      const updated = await api.getReport(viewReport.id);
+      const updated = await api.getReport(viewReport._id);
       setViewReport(updated);
       setEditMode(false);
       loadReports();
@@ -323,9 +323,9 @@ export default function Reports() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredReports.map((report) => (
-                <tr key={report.id} className={`hover:bg-gray-50 transition-colors ${selectedIds.includes(report.id) ? 'bg-primary-50' : ''}`}>
+                <tr key={report._id} className={`hover:bg-gray-50 transition-colors ${selectedIds.includes(report._id) ? 'bg-primary-50' : ''}`}>
                   <td className="px-4 py-4">
-                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300" checked={selectedIds.includes(report.id)} onChange={() => toggleSelect(report.id)} />
+                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300" checked={selectedIds.includes(report._id)} onChange={() => toggleSelect(report._id)} />
                   </td>
                   <td className="px-4 py-4">
                     <span className="text-sm font-mono font-medium text-gray-700">{report.ref_no}</span>
@@ -363,21 +363,21 @@ export default function Reports() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => handleViewReport(report.id)}
+                        onClick={() => handleViewReport(report._id)}
                         className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                         title="View / Print"
                       >
                         <Eye className="w-4 h-4 text-gray-500" />
                       </button>
                       <button
-                        onClick={() => { handleViewReport(report.id); setTimeout(() => setEditMode(true), 500); }}
+                        onClick={() => { handleViewReport(report._id); setTimeout(() => setEditMode(true), 500); }}
                         className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Edit Results"
                       >
                         <Edit3 className="w-4 h-4 text-blue-500" />
                       </button>
                       <button
-                        onClick={() => handleDeleteReport(report.id)}
+                        onClick={() => handleDeleteReport(report._id)}
                         className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete Report"
                       >
@@ -458,18 +458,18 @@ export default function Reports() {
                       <div className="col-span-3 text-center">Ref Range</div>
                       <div className="col-span-1 text-center">Abn</div>
                     </div>
-                    {(viewReport.results || []).map((r) => {
+                    {(viewReport.results || []).map((r, idx) => {
                       const refRange = viewReport.gender === 'Female' ? r.ref_range_female : r.ref_range_male;
-                      const abnFlag = editResults[r.id]?.is_abnormal || false;
+                      const abnFlag = editResults[idx]?.is_abnormal || false;
                       return (
-                        <div key={r.id} className={`grid grid-cols-12 items-center px-4 py-1.5 border-b border-gray-100 last:border-0 ${abnFlag ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
+                        <div key={idx} className={`grid grid-cols-12 items-center px-4 py-1.5 border-b border-gray-100 last:border-0 ${abnFlag ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
                           <div className="col-span-4 text-xs text-gray-700">{r.param_name}</div>
                           <div className="col-span-3">
                             <input
                               type="text"
                               className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'}`}
-                              value={editResults[r.id]?.result_value || ''}
-                              onChange={e => handleResultChange(r.id, e.target.value, r.ref_range_male, r.ref_range_female)}
+                              value={editResults[idx]?.result_value || ''}
+                              onChange={e => handleResultChange(idx, e.target.value, r.ref_range_male, r.ref_range_female)}
                             />
                           </div>
                           <div className="col-span-1 text-xs text-gray-500 text-center">{r.unit || ''}</div>
@@ -501,7 +501,7 @@ export default function Reports() {
       {/* Hidden bulk print container */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }} ref={bulkPrintRef}>
         {bulkPrintData.map((rpt, idx) => (
-          <div key={rpt.id} className={idx < bulkPrintData.length - 1 ? 'page-break' : ''}>
+          <div key={rpt._id || idx} className={idx < bulkPrintData.length - 1 ? 'page-break' : ''}>
             <PrintableReport report={rpt} />
           </div>
         ))}
