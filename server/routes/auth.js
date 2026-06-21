@@ -49,4 +49,48 @@ router.post('/login', async (req, res) => {
   }
 });
 
+router.post('/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email and password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const db = getDB();
+    const usersCollection = db.collection('users');
+
+    const existingUser = await usersCollection.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = {
+      name,
+      email,
+      password: hashedPassword,
+      role: 'user',
+      created_at: new Date()
+    };
+
+    const result = await usersCollection.insertOne(newUser);
+    const { password: _, ...userWithoutPassword } = { ...newUser, _id: result.insertedId };
+
+    const token = jwt.sign(
+      { userId: result.insertedId, email, role: 'user' },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({ user: userWithoutPassword, token });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

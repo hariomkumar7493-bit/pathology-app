@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Activity, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -18,16 +20,34 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const result = await login(email, password);
+      let result;
+      if (isSignUp) {
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters');
+          setLoading(false);
+          return;
+        }
+        result = await register(name, email, password);
+      } else {
+        result = await login(email, password);
+      }
       if (result.success) {
         navigate('/dashboard');
       } else {
         setError(result.error);
       }
     } catch (err) {
-      setError('Login failed. Make sure the server is running.');
+      setError(isSignUp ? 'Registration failed. Please try again.' : 'Login failed. Make sure the server is running.');
     }
     setLoading(false);
+  };
+
+  const toggleMode = () => {
+    setIsSignUp(!isSignUp);
+    setError('');
+    setName('');
+    setEmail('');
+    setPassword('');
   };
 
   return (
@@ -95,8 +115,8 @@ export default function Login() {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">Welcome back</h2>
-            <p className="text-gray-500 mt-2">Sign in to your account to continue</p>
+            <h2 className="text-2xl font-bold text-gray-900">{isSignUp ? 'Create an account' : 'Welcome back'}</h2>
+            <p className="text-gray-500 mt-2">{isSignUp ? 'Sign up to get started' : 'Sign in to your account to continue'}</p>
           </div>
 
           {error && (
@@ -106,6 +126,23 @@ export default function Login() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {isSignUp && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="input-field pl-11"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
               <div className="relative">
@@ -129,7 +166,7 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder={isSignUp ? 'Min 6 characters' : 'Enter your password'}
                   className="input-field pl-11 pr-11"
                   required
                 />
@@ -143,15 +180,17 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
-                <span className="text-sm text-gray-600">Remember me</span>
-              </label>
-              <a href="#" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-                Forgot password?
-              </a>
-            </div>
+            {!isSignUp && (
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
+                  <span className="text-sm text-gray-600">Remember me</span>
+                </label>
+                <a href="#" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                  Forgot password?
+                </a>
+              </div>
+            )}
 
             <button
               type="submit"
@@ -161,18 +200,26 @@ export default function Login() {
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                'Sign In'
+                isSignUp ? 'Sign Up' : 'Sign In'
               )}
             </button>
           </form>
 
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-            <p className="text-xs font-medium text-gray-500 mb-2">Demo Credentials:</p>
-            <div className="space-y-1 text-xs text-gray-600">
-              <p><span className="font-medium">Admin:</span> admin@pathlab.com / admin123</p>
-              <p><span className="font-medium">Patient:</span> user@pathlab.com / user123</p>
+          <p className="mt-6 text-center text-sm text-gray-600">
+            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <button onClick={toggleMode} className="text-primary-600 hover:text-primary-700 font-medium">
+              {isSignUp ? 'Sign In' : 'Sign Up'}
+            </button>
+          </p>
+
+          {!isSignUp && (
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <p className="text-xs font-medium text-gray-500 mb-2">Demo Credentials:</p>
+              <div className="space-y-1 text-xs text-gray-600">
+                <p><span className="font-medium">Admin:</span> admin@pathlab.com / admin123</p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

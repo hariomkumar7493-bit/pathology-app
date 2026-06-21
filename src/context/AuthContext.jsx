@@ -20,13 +20,24 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const register = async (name, email, password) => {
+    try {
+      const userData = await api.register(name, email, password);
+      setUser(userData);
+      localStorage.setItem('pathlab_user', JSON.stringify(userData));
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message || 'Registration failed' };
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('pathlab_user');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

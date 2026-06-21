@@ -37,6 +37,13 @@ export const api = {
     }
     return response;
   },
+  register: async (name, email, password) => {
+    const response = await request('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
+    if (response.token) {
+      setToken(response.token);
+    }
+    return response;
+  },
   logout: () => {
     removeToken();
     return Promise.resolve();
