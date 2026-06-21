@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, Printer, Save, Zap, TestTubes, Search } from 'lucide-react';
+import { Check, Printer, Save, Zap, TestTubes, Search, Download } from 'lucide-react';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
@@ -79,14 +79,14 @@ export default function QuickReport() {
     }));
   };
 
-  // Group parameters by test_name then group_name
+  // Group parameters by category_name then group_name (same category in same box)
   const groupedParams = {};
   parameters.forEach(p => {
-    const testKey = p.test_name || 'Test';
-    const groupKey = p.group_name || 'Results';
-    if (!groupedParams[testKey]) groupedParams[testKey] = {};
-    if (!groupedParams[testKey][groupKey]) groupedParams[testKey][groupKey] = [];
-    groupedParams[testKey][groupKey].push(p);
+    const catKey = p.category_name || p.test_name || 'Test';
+    const groupKey = p.group_name || p.test_name || 'Results';
+    if (!groupedParams[catKey]) groupedParams[catKey] = {};
+    if (!groupedParams[catKey][groupKey]) groupedParams[catKey][groupKey] = [];
+    groupedParams[catKey][groupKey].push(p);
   });
 
   const handleSaveAndPrint = async () => {
@@ -154,6 +154,63 @@ export default function QuickReport() {
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
+  };
+
+  const handleSaveAndDownloadPdf = async () => {
+    if (!form.patient_name) { addToast('Patient name is required', 'warning'); return; }
+    if (selectedTests.length === 0) { addToast('Select at least one test', 'warning'); return; }
+
+    setSaving(true);
+    try {
+      const resultArr = Object.entries(results).map(([paramId, val]) => ({
+        parameter_id: parseInt(paramId),
+        result_value: val.result_value,
+        is_abnormal: val.is_abnormal,
+      }));
+
+      const res = await api.createQuickReport({
+        patient_name: form.patient_name,
+        age: parseInt(form.age) || 0,
+        gender: form.gender,
+        phone: form.phone,
+        referred_by: form.referred_by,
+        test_ids: selectedTests,
+        results: resultArr,
+        date_of_collection: form.date_of_collection,
+      });
+
+      setSavedReportId(res.reportId);
+      const fullReport = await api.getReport(res.reportId);
+      setPrintData(fullReport);
+      addToast('Report saved successfully', 'success');
+
+      // Download as PDF after render
+      setTimeout(() => {
+        const printContent = printRef.current;
+        if (!printContent) return;
+        const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+        const fileName = `${form.patient_name}_${dateStr}`;
+        const pdfWindow = window.open('', '_blank', 'width=800,height=600');
+        pdfWindow.document.write(`
+          <html><head><title>${fileName}</title>
+          <style>
+            @page { margin: 10mm; size: A4; }
+            body { font-family: 'Times New Roman', serif; margin: 0; padding: 10mm; color: #000; font-size: 12px; }
+            table { border-collapse: collapse; width: 100%; }
+            h2 { text-align: center; font-size: 16px; text-decoration: underline; margin-bottom: 12px; }
+            th { text-align: left; padding: 4px 6px; }
+            td { padding: 2px 6px; vertical-align: top; }
+          </style></head>
+          <body>${printContent.innerHTML}</body></html>
+        `);
+        pdfWindow.document.close();
+        pdfWindow.focus();
+        setTimeout(() => { pdfWindow.print(); }, 300);
+      }, 500);
+    } catch (err) {
+      addToast('Error: ' + err.message, 'error');
+    }
+    setSaving(false);
   };
 
   const handleReset = () => {
@@ -288,57 +345,58 @@ export default function QuickReport() {
             </div>
           ) : (
             <>
-              <div className="card overflow-hidden p-0">
-                <div className="bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 hidden sm:block">
-                  <div className="grid grid-cols-12 text-xs font-semibold text-gray-500 uppercase">
-                    <div className="col-span-4">Test Description</div>
-                    <div className="col-span-3 text-center">Result</div>
-                    <div className="col-span-1 text-center">Unit</div>
-                    <div className="col-span-3 text-center">Ref. Range</div>
-                    <div className="col-span-1 text-center">Abn</div>
+              {Object.entries(groupedParams).map(([categoryName, groups]) => (
+                <div key={categoryName} className="card overflow-hidden p-0">
+                  <div className="bg-primary-50 px-3 sm:px-4 py-2 border-b border-primary-100">
+                    <span className="text-sm font-bold text-primary-800">{categoryName}</span>
+                  </div>
+                  <div className="bg-gray-50 px-3 sm:px-4 py-2 border-b border-gray-200 hidden sm:block">
+                    <div className="grid grid-cols-12 text-xs font-semibold text-gray-500 uppercase">
+                      <div className="col-span-4">Test Description</div>
+                      <div className="col-span-3 text-center">Result</div>
+                      <div className="col-span-1 text-center">Unit</div>
+                      <div className="col-span-3 text-center">Ref. Range</div>
+                      <div className="col-span-1 text-center">Abn</div>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {Object.entries(groups).map(([groupName, params]) => (
+                      <div key={groupName}>
+                        <div className="px-3 sm:px-4 py-2 bg-gray-50">
+                          <span className="text-xs font-bold text-gray-700">{groupName}</span>
+                        </div>
+                        {params.map(param => {
+                          const refRange = form.gender === 'Female' ? param.ref_range_female : param.ref_range_male;
+                          const abnFlag = results[param.id]?.is_abnormal || false;
+                          return (
+                            <div key={param.id} className={`grid grid-cols-12 items-center px-3 sm:px-4 py-1.5 sm:py-2 ${abnFlag ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
+                              <div className="col-span-4 text-xs text-gray-700 pl-1 sm:pl-2 truncate">{param.param_name}</div>
+                              <div className="col-span-3">
+                                <input
+                                  type="text"
+                                  className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'}`}
+                                  value={results[param.id]?.result_value || ''}
+                                  onChange={e => updateResult(param.id, e.target.value, param.ref_range_male, param.ref_range_female)}
+                                />
+                              </div>
+                              <div className="col-span-1 text-xs text-gray-500 text-center hidden sm:block">{param.unit || ''}</div>
+                              <div className="col-span-3 text-xs text-gray-500 text-center hidden sm:block">{refRange || ''}</div>
+                              <div className="col-span-1 text-center">
+                                <span className={`inline-block w-3 h-3 rounded-full ${abnFlag ? 'bg-red-500' : 'bg-green-400'}`} title={abnFlag ? 'Abnormal' : 'Normal'}></span>
+                              </div>
+                              {/* Mobile-only: show unit and ref range below */}
+                              <div className="col-span-12 sm:hidden flex justify-between text-xs text-gray-500 px-1 pb-1">
+                                <span>Unit: {param.unit || '-'}</span>
+                                <span>Ref: {refRange || '-'}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="divide-y divide-gray-100">
-                  {Object.entries(groupedParams).map(([testName, groups]) => (
-                    <div key={testName}>
-                      {Object.entries(groups).map(([groupName, params]) => (
-                        <div key={groupName}>
-                          <div className="px-3 sm:px-4 py-2 bg-gray-50">
-                            <span className="text-xs font-bold text-gray-700">{groupName}</span>
-                          </div>
-                          {params.map(param => {
-                            const refRange = form.gender === 'Female' ? param.ref_range_female : param.ref_range_male;
-                            const abnFlag = results[param.id]?.is_abnormal || false;
-                            return (
-                              <div key={param.id} className={`grid grid-cols-12 items-center px-3 sm:px-4 py-1.5 sm:py-2 ${abnFlag ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
-                                <div className="col-span-4 text-xs text-gray-700 pl-1 sm:pl-2 truncate">{param.param_name}</div>
-                                <div className="col-span-3">
-                                  <input
-                                    type="text"
-                                    className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'}`}
-                                    value={results[param.id]?.result_value || ''}
-                                    onChange={e => updateResult(param.id, e.target.value, param.ref_range_male, param.ref_range_female)}
-                                  />
-                                </div>
-                                <div className="col-span-1 text-xs text-gray-500 text-center hidden sm:block">{param.unit || ''}</div>
-                                <div className="col-span-3 text-xs text-gray-500 text-center hidden sm:block">{refRange || ''}</div>
-                                <div className="col-span-1 text-center">
-                                  <span className={`inline-block w-3 h-3 rounded-full ${abnFlag ? 'bg-red-500' : 'bg-green-400'}`} title={abnFlag ? 'Abnormal' : 'Normal'}></span>
-                                </div>
-                                {/* Mobile-only: show unit and ref range below */}
-                                <div className="col-span-12 sm:hidden flex justify-between text-xs text-gray-500 px-1 pb-1">
-                                  <span>Unit: {param.unit || '-'}</span>
-                                  <span>Ref: {refRange || '-'}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              ))}
 
               {/* Action Buttons */}
               <div className="flex gap-3">
@@ -351,6 +409,10 @@ export default function QuickReport() {
                       Save & Print Report
                     </>
                   )}
+                </button>
+                <button onClick={handleSaveAndDownloadPdf} disabled={saving} className="btn-secondary flex items-center gap-2 flex-1 justify-center py-3 disabled:opacity-50">
+                  <Download className="w-4 h-4" />
+                  Save & Download PDF
                 </button>
               </div>
             </>

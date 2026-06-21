@@ -14,7 +14,7 @@ export default function Layout() {
       )}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-      <main className="lg:ml-64 pt-20 p-4 sm:p-6 lg:p-8">
+      <main className="lg:ml-64 pt-[5.5rem] p-4 sm:p-6 lg:p-8">
         <Outlet />
       </main>
     </div>

@@ -212,14 +212,6 @@ export default function Login() {
             </button>
           </p>
 
-          {!isSignUp && (
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <p className="text-xs font-medium text-gray-500 mb-2">Demo Credentials:</p>
-              <div className="space-y-1 text-xs text-gray-600">
-                <p><span className="font-medium">Admin:</span> admin@pathlab.com / admin123</p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

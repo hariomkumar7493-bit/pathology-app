@@ -175,6 +175,35 @@ export default function Reports() {
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
   };
 
+  const handleDownloadPdf = (report) => {
+    const printContent = printRef.current;
+    if (!printContent) return;
+
+    const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+    const fileName = `${report.patient_name}_${dateStr}`;
+
+    const pdfWindow = window.open('', '_blank', 'width=800,height=600');
+    pdfWindow.document.write(`
+      <html>
+        <head>
+          <title>${fileName}</title>
+          <style>
+            @page { margin: 10mm; size: A4; }
+            body { font-family: 'Times New Roman', serif; margin: 0; padding: 10mm; color: #000; font-size: 12px; }
+            table { border-collapse: collapse; width: 100%; }
+            h2 { text-align: center; font-size: 16px; text-decoration: underline; margin-bottom: 12px; }
+            th { text-align: left; padding: 4px 6px; }
+            td { padding: 2px 6px; vertical-align: top; }
+          </style>
+        </head>
+        <body>${printContent.innerHTML}</body>
+      </html>
+    `);
+    pdfWindow.document.close();
+    pdfWindow.focus();
+    setTimeout(() => { pdfWindow.print(); }, 300);
+  };
+
   const handleSaveResults = async () => {
     setSaving(true);
     try {
@@ -379,11 +408,11 @@ export default function Reports() {
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900 truncate">
                     Report #{viewReport.ref_no} - {viewReport.patient_name}
                   </h2>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap shrink-0">
                     {!editMode && (
                       <button onClick={() => setEditMode(true)} className="btn-secondary flex items-center gap-1 text-xs">
                         <Edit3 className="w-3.5 h-3.5" /> Edit Results
@@ -399,6 +428,9 @@ export default function Reports() {
                         </button>
                       </>
                     )}
+                    <button onClick={() => handleDownloadPdf(viewReport)} className="btn-secondary flex items-center gap-1 text-xs">
+                      <Download className="w-3.5 h-3.5" /> PDF
+                    </button>
                     <button onClick={handlePrint} className="btn-primary flex items-center gap-1 text-xs">
                       <Printer className="w-3.5 h-3.5" /> Print
                     </button>
