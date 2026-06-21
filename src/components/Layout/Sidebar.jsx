@@ -7,7 +7,8 @@ import {
   Settings,
   LogOut, 
   Activity,
-  X
+  X,
+  FlaskConical
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -18,8 +19,12 @@ const navItems = [
   { path: '/quick-report', icon: Zap, label: 'Quick Report' },
 ];
 
+const adminNavItems = [
+  { path: '/test-management', icon: FlaskConical, label: 'Test Management' },
+];
+
 export default function Sidebar({ open, onClose }) {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   return (
     <aside className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-30 flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
@@ -60,6 +65,31 @@ export default function Sidebar({ open, onClose }) {
             {item.label}
           </NavLink>
         ))}
+
+        {user?.role === 'admin' && (
+          <>
+            <div className="mt-4 mb-2 px-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Admin</p>
+            </div>
+            {adminNavItems.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    isActive
+                      ? 'bg-primary-50 text-primary-700 border-l-3 border-primary-600'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`
+                }
+              >
+                <item.icon className="w-5 h-5" />
+                {item.label}
+              </NavLink>
+            ))}
+          </>
+        )}
       </nav>
 
       {/* Footer */}

@@ -65,6 +65,12 @@ export const api = {
   getCategories: () => request('/tests/categories'),
   getTestParameters: (id) => request(`/tests/${id}/parameters`),
   getBulkParameters: (testIds) => request('/tests/parameters/bulk', { method: 'POST', body: JSON.stringify({ testIds }) }),
+  createTest: (data) => request('/tests', { method: 'POST', body: JSON.stringify(data) }),
+  updateTest: (id, data) => request(`/tests/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTest: (id) => request(`/tests/${id}`, { method: 'DELETE' }),
+  createCategory: (data) => request('/tests/categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateCategory: (id, data) => request(`/tests/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCategory: (id) => request(`/tests/categories/${id}`, { method: 'DELETE' }),
 
   // Reports
   getReports: () => request('/reports'),

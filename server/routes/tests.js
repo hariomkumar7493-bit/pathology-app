@@ -112,4 +112,146 @@ router.post('/parameters/bulk', async (req, res) => {
   }
 });
 
+// ========== ADMIN: Category CRUD ==========
+
+// POST create category
+router.post('/categories', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Category name is required' });
+
+    const db = getDB();
+    const categoriesCollection = db.collection('test_categories');
+    
+    const existing = await categoriesCollection.findOne({ name: name.toUpperCase() });
+    if (existing) return res.status(400).json({ error: 'Category already exists' });
+
+    const result = await categoriesCollection.insertOne({ name: name.toUpperCase() });
+    const newCat = await categoriesCollection.findOne({ _id: result.insertedId });
+    res.status(201).json(newCat);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT update category
+router.put('/categories/:id', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Category name is required' });
+
+    const db = getDB();
+    const categoriesCollection = db.collection('test_categories');
+    
+    await categoriesCollection.updateOne(
+      { _id: new ObjectId(req.params.id) },
+      { $set: { name: name.toUpperCase() } }
+    );
+    res.json({ message: 'Category updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE category
+router.delete('/categories/:id', async (req, res) => {
+  try {
+    const db = getDB();
+    const categoriesCollection = db.collection('test_categories');
+    const testsCollection = db.collection('tests');
+
+    // Check if any tests use this category
+    const testsUsingCat = await testsCollection.countDocuments({ category_id: new ObjectId(req.params.id) });
+    if (testsUsingCat > 0) {
+      return res.status(400).json({ error: `Cannot delete: ${testsUsingCat} test(s) use this category` });
+    }
+
+    await categoriesCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    res.json({ message: 'Category deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ========== ADMIN: Test CRUD ==========
+
+// POST create test
+router.post('/', async (req, res) => {
+  try {
+    const { name, category_id, specimen, parameters } = req.body;
+    if (!name) return res.status(400).json({ error: 'Test name is required' });
+
+    const db = getDB();
+    const testsCollection = db.collection('tests');
+
+    const test = {
+      name,
+      category_id: category_id ? new ObjectId(category_id) : null,
+      specimen: specimen || 'BLOOD',
+      parameters: (parameters || []).map((p, idx) => ({
+        id: p.id || idx + 1,
+        param_name: p.param_name || '',
+        unit: p.unit || '',
+        ref_range_male: p.ref_range_male || '',
+        ref_range_female: p.ref_range_female || '',
+        group_name: p.group_name || name,
+        sort_order: p.sort_order || idx + 1,
+      })),
+    };
+
+    const result = await testsCollection.insertOne(test);
+    const newTest = await testsCollection.findOne({ _id: result.insertedId });
+    res.status(201).json(newTest);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT update test
+router.put('/:id', async (req, res) => {
+  try {
+    const { name, category_id, specimen, parameters } = req.body;
+    const db = getDB();
+    const testsCollection = db.collection('tests');
+
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (category_id !== undefined) updateData.category_id = category_id ? new ObjectId(category_id) : null;
+    if (specimen !== undefined) updateData.specimen = specimen;
+    if (parameters !== undefined) {
+      updateData.parameters = parameters.map((p, idx) => ({
+        id: p.id || idx + 1,
+        param_name: p.param_name || '',
+        unit: p.unit || '',
+        ref_range_male: p.ref_range_male || '',
+        ref_range_female: p.ref_range_female || '',
+        group_name: p.group_name || '',
+        sort_order: p.sort_order || idx + 1,
+      }));
+    }
+
+    await testsCollection.updateOne(
+      { _id: new ObjectId(req.params.id) },
+      { $set: updateData }
+    );
+
+    const updated = await testsCollection.findOne({ _id: new ObjectId(req.params.id) });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE test
+router.delete('/:id', async (req, res) => {
+  try {
+    const db = getDB();
+    const testsCollection = db.collection('tests');
+    await testsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    res.json({ message: 'Test deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

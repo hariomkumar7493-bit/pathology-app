@@ -8,6 +8,7 @@ import Patients from './pages/Patients';
 import Reports from './pages/Reports';
 import QuickReport from './pages/QuickReport';
 import Settings from './pages/Settings';
+import TestManagement from './pages/TestManagement';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
@@ -36,6 +37,7 @@ function AppRoutes() {
         <Route path="reports" element={<Reports />} />
         <Route path="quick-report" element={<QuickReport />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="test-management" element={<TestManagement />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
