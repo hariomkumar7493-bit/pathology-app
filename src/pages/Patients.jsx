@@ -59,7 +59,7 @@ export default function Patients() {
       // If tests are selected, create a report
       if (selectedTests.length > 0) {
         await api.createReport({
-          patient_id: patient.id,
+          patient_id: patient._id,
           test_ids: selectedTests,
         });
       }
@@ -81,7 +81,7 @@ export default function Patients() {
     try {
       await api.deletePatient(id);
       loadData();
-      if (selectedPatient?.id === id) setSelectedPatient(null);
+      if (selectedPatient?._id === id) setSelectedPatient(null);
       addToast('Patient deleted successfully', 'success');
     } catch (err) {
       addToast('Failed to delete: ' + err.message, 'error');
@@ -106,7 +106,7 @@ export default function Patients() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.updatePatient(editPatient.id, { ...editForm, age: parseInt(editForm.age) || 0 });
+      await api.updatePatient(editPatient._id, { ...editForm, age: parseInt(editForm.age) || 0 });
       setEditPatient(null);
       loadData();
       addToast('Patient updated successfully', 'success');
@@ -170,7 +170,7 @@ export default function Patients() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredPatients.map((patient) => (
-                <tr key={patient.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedPatient(patient)}>
+                <tr key={patient._id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedPatient(patient)}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -213,7 +213,7 @@ export default function Patients() {
                         <Edit3 className="w-4 h-4 text-blue-500" />
                       </button>
                       <button
-                        onClick={(e) => handleDeletePatient(patient.id, e)}
+                        onClick={(e) => handleDeletePatient(patient._id, e)}
                         className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete Patient"
                       >
@@ -293,19 +293,19 @@ export default function Patients() {
                       <div className="grid grid-cols-2 gap-1.5">
                         {catTests.map(test => (
                           <button
-                            key={test.id}
+                            key={test._id}
                             type="button"
-                            onClick={() => toggleTest(test.id)}
+                            onClick={() => toggleTest(test._id)}
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-all ${
-                              selectedTests.includes(test.id)
+                              selectedTests.includes(test._id)
                                 ? 'bg-primary-50 text-primary-700 ring-1 ring-primary-300'
                                 : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                             }`}
                           >
                             <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
-                              selectedTests.includes(test.id) ? 'bg-primary-600 border-primary-600' : 'border-gray-300'
+                              selectedTests.includes(test._id) ? 'bg-primary-600 border-primary-600' : 'border-gray-300'
                             }`}>
-                              {selectedTests.includes(test.id) && <Check className="w-3 h-3 text-white" />}
+                              {selectedTests.includes(test._id) && <Check className="w-3 h-3 text-white" />}
                             </div>
                             <span className="truncate">{test.name}</span>
                           </button>
