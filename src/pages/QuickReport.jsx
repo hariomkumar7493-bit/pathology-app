@@ -14,6 +14,7 @@ export default function QuickReport() {
   const [printData, setPrintData] = useState(null);
   const [testSearch, setTestSearch] = useState('');
   const printRef = useRef();
+  const pdfRef = useRef();
   const { addToast } = useToast();
 
   const [form, setForm] = useState({
@@ -186,22 +187,22 @@ export default function QuickReport() {
 
       // Download as PDF after render
       setTimeout(() => {
-        const printContent = printRef.current;
-        if (!printContent) return;
+        const pdfContent = pdfRef.current;
+        if (!pdfContent) return;
         const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
         const fileName = `${form.patient_name}_${dateStr}`;
         const pdfWindow = window.open('', '_blank', 'width=800,height=600');
         pdfWindow.document.write(`
           <html><head><title>${fileName}</title>
           <style>
-            @page { margin: 10mm; size: A4; }
-            body { font-family: 'Times New Roman', serif; margin: 0; padding: 10mm; color: #000; font-size: 12px; }
+            @page { margin: 8mm; size: A4; }
+            body { font-family: 'Times New Roman', serif; margin: 0; padding: 8mm; color: #000; font-size: 12px; }
             table { border-collapse: collapse; width: 100%; }
             h2 { text-align: center; font-size: 16px; text-decoration: underline; margin-bottom: 12px; }
             th { text-align: left; padding: 4px 6px; }
             td { padding: 2px 6px; vertical-align: top; }
           </style></head>
-          <body>${printContent.innerHTML}</body></html>
+          <body>${pdfContent.innerHTML}</body></html>
         `);
         pdfWindow.document.close();
         pdfWindow.focus();
@@ -422,7 +423,11 @@ export default function QuickReport() {
 
       {/* Hidden Print Component */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-        <PrintableReport ref={printRef} report={printData} />
+        <PrintableReport ref={printRef} report={printData} mode="print" />
+      </div>
+      {/* Hidden PDF Component */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        <PrintableReport ref={pdfRef} report={printData} mode="pdf" />
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ export default function Reports() {
   const [bulkPrintData, setBulkPrintData] = useState([]);
   const bulkPrintRef = useRef();
   const printRef = useRef();
+  const pdfRef = useRef();
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -176,8 +177,8 @@ export default function Reports() {
   };
 
   const handleDownloadPdf = (report) => {
-    const printContent = printRef.current;
-    if (!printContent) return;
+    const pdfContent = pdfRef.current;
+    if (!pdfContent) return;
 
     const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
     const fileName = `${report.patient_name}_${dateStr}`;
@@ -188,15 +189,15 @@ export default function Reports() {
         <head>
           <title>${fileName}</title>
           <style>
-            @page { margin: 10mm; size: A4; }
-            body { font-family: 'Times New Roman', serif; margin: 0; padding: 10mm; color: #000; font-size: 12px; }
+            @page { margin: 8mm; size: A4; }
+            body { font-family: 'Times New Roman', serif; margin: 0; padding: 8mm; color: #000; font-size: 12px; }
             table { border-collapse: collapse; width: 100%; }
             h2 { text-align: center; font-size: 16px; text-decoration: underline; margin-bottom: 12px; }
             th { text-align: left; padding: 4px 6px; }
             td { padding: 2px 6px; vertical-align: top; }
           </style>
         </head>
-        <body>${printContent.innerHTML}</body>
+        <body>${pdfContent.innerHTML}</body>
       </html>
     `);
     pdfWindow.document.close();
@@ -494,7 +495,14 @@ export default function Reports() {
       {/* Hidden print ref for non-edit mode */}
       {viewReport && editMode && (
         <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-          <PrintableReport ref={printRef} report={viewReport} />
+          <PrintableReport ref={printRef} report={viewReport} mode="print" />
+        </div>
+      )}
+
+      {/* Hidden PDF ref */}
+      {viewReport && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+          <PrintableReport ref={pdfRef} report={viewReport} mode="pdf" />
         </div>
       )}
 
