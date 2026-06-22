@@ -79,4 +79,6 @@ export const api = {
   updateReportResults: (id, data) => request(`/reports/${id}/results`, { method: 'PUT', body: JSON.stringify(data) }),
   createQuickReport: (data) => request('/reports/quick', { method: 'POST', body: JSON.stringify(data) }),
   deleteReport: (id) => request(`/reports/${id}`, { method: 'DELETE' }),
+  addTestToReport: (reportId, testId) => request(`/reports/${reportId}/tests`, { method: 'POST', body: JSON.stringify({ test_id: testId }) }),
+  removeTestFromReport: (reportId, testId) => request(`/reports/${reportId}/tests/${testId}`, { method: 'DELETE' }),
 };

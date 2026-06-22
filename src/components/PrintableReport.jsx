@@ -153,17 +153,15 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
                     {params.map((param, idx) => {
                       const isAbn = param.is_abnormal;
                       const resultUnit = [param.result_value, param.unit].filter(Boolean).join(' ');
+                      const rowBold = isAbn ? 'bold' : 'normal';
+                      const rowColor = isAbn && isPdf ? '#c00' : '#000';
                       return (
-                        <tr key={idx} style={{ borderBottom: '1px dotted #ccc' }}>
+                        <tr key={idx} style={{ borderBottom: '1px dotted #ccc', fontWeight: rowBold, color: rowColor }}>
                           <td style={{ padding: '3px 6px 3px 12px' }}>{param.param_name}</td>
-                          <td style={{
-                            padding: '3px 6px', textAlign: 'center',
-                            fontWeight: isAbn ? 'bold' : 'normal',
-                            color: isAbn && isPdf ? '#c00' : '#000',
-                          }}>
+                          <td style={{ padding: '3px 6px', textAlign: 'center' }}>
                             {resultUnit}
                           </td>
-                          <td style={{ padding: '3px 6px', textAlign: 'center', color: '#555' }}>
+                          <td style={{ padding: '3px 6px', textAlign: 'center', color: isAbn ? rowColor : '#555' }}>
                             {getRefDisplay(param)}
                           </td>
                         </tr>

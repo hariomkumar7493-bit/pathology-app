@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Printer, X, Save, Trash2, Edit3 } from 'lucide-react';
+import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Printer, X, Save, Trash2, Edit3, Plus, TestTubes } from 'lucide-react';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
@@ -16,6 +16,9 @@ export default function Reports() {
   const [saving, setSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkPrintData, setBulkPrintData] = useState([]);
+  const [showAddTest, setShowAddTest] = useState(false);
+  const [allTests, setAllTests] = useState([]);
+  const [addTestSearch, setAddTestSearch] = useState('');
   const bulkPrintRef = useRef();
   const printRef = useRef();
   const pdfRef = useRef();
@@ -230,6 +233,39 @@ export default function Reports() {
       addToast('Failed to save: ' + err.message, 'error');
     }
     setSaving(false);
+  };
+
+  const handleAddTest = async (testId) => {
+    try {
+      await api.addTestToReport(viewReport._id, testId);
+      const updated = await api.getReport(viewReport._id);
+      setViewReport(updated);
+      setShowAddTest(false);
+      setAddTestSearch('');
+      addToast('Test added successfully', 'success');
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  const handleRemoveTest = async (testId) => {
+    if (!window.confirm('Remove this test and all its results from the report?')) return;
+    try {
+      await api.removeTestFromReport(viewReport._id, testId);
+      const updated = await api.getReport(viewReport._id);
+      setViewReport(updated);
+      addToast('Test removed successfully', 'success');
+    } catch (err) {
+      addToast(err.message, 'error');
+    }
+  };
+
+  const openAddTest = async () => {
+    if (allTests.length === 0) {
+      const tests = await api.getTests();
+      setAllTests(tests);
+    }
+    setShowAddTest(true);
   };
 
   const statusCounts = {
@@ -454,6 +490,67 @@ export default function Reports() {
                   <div><span className="text-gray-500">Ref By:</span> <span className="font-medium">{viewReport.referred_by || 'SELF'}</span></div>
                   <div><span className="text-gray-500">Status:</span> <span className={`font-medium ${viewReport.status === 'Completed' ? 'text-green-600' : 'text-yellow-600'}`}>{viewReport.status}</span></div>
                 </div>
+
+                {/* Manage Tests */}
+                {editMode && (
+                  <div className="mb-4 border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                        <TestTubes className="w-4 h-4 text-primary-600" /> Tests in Report
+                      </h4>
+                      <button onClick={openAddTest} className="btn-secondary flex items-center gap-1 text-xs py-1 px-2">
+                        <Plus className="w-3.5 h-3.5" /> Add Test
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(viewReport.tests || []).map(t => (
+                        <div key={t.test_id} className="flex items-center gap-1.5 bg-primary-50 text-primary-700 text-xs font-medium px-2.5 py-1.5 rounded-full">
+                          <span>{t.test_name}</span>
+                          <button
+                            onClick={() => handleRemoveTest(t.test_id)}
+                            className="hover:bg-primary-200 rounded-full p-0.5 transition-colors"
+                            title="Remove test"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Add Test Dropdown */}
+                    {showAddTest && (
+                      <div className="mt-3 border rounded-lg p-2 bg-white shadow-sm">
+                        <div className="relative mb-2">
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Search tests..."
+                            className="input-field text-xs pl-7 py-1.5"
+                            value={addTestSearch}
+                            onChange={e => setAddTestSearch(e.target.value)}
+                            autoFocus
+                          />
+                        </div>
+                        <div className="max-h-40 overflow-y-auto space-y-0.5">
+                          {allTests
+                            .filter(t => t.name.toLowerCase().includes(addTestSearch.toLowerCase()))
+                            .filter(t => !(viewReport.tests || []).find(rt => rt.test_id === t._id))
+                            .map(t => (
+                              <button
+                                key={t._id}
+                                onClick={() => handleAddTest(t._id)}
+                                className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-primary-50 hover:text-primary-700 transition-colors"
+                              >
+                                {t.name}
+                              </button>
+                            ))}
+                        </div>
+                        <button onClick={() => { setShowAddTest(false); setAddTestSearch(''); }} className="mt-2 text-xs text-gray-500 hover:text-gray-700">
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Results Table */}
                 {editMode ? (

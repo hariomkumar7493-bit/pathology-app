@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, Printer, Save, Zap, TestTubes, Search, Download } from 'lucide-react';
+import { Check, Printer, Save, Zap, TestTubes, Search, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
@@ -13,6 +13,7 @@ export default function QuickReport() {
   const [savedReportId, setSavedReportId] = useState(null);
   const [printData, setPrintData] = useState(null);
   const [testSearch, setTestSearch] = useState('');
+  const [collapsedGroups, setCollapsedGroups] = useState({});
   const printRef = useRef();
   const pdfRef = useRef();
   const { addToast } = useToast();
@@ -374,12 +375,19 @@ export default function QuickReport() {
                     </div>
                   </div>
                   <div className="divide-y divide-gray-100">
-                    {Object.entries(groups).map(([groupName, params]) => (
+                    {Object.entries(groups).map(([groupName, params]) => {
+                      const groupKey = `${categoryName}__${groupName}`;
+                      const isCollapsed = collapsedGroups[groupKey];
+                      return (
                       <div key={groupName}>
-                        <div className="px-3 sm:px-4 py-2 bg-gray-50">
+                        <div
+                          className="px-3 sm:px-4 py-2 bg-gray-50 flex items-center justify-between cursor-pointer select-none hover:bg-gray-100 transition-colors"
+                          onClick={() => setCollapsedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
+                        >
                           <span className="text-xs font-bold text-gray-700">{groupName}</span>
+                          {isCollapsed ? <ChevronDown className="w-3.5 h-3.5 text-gray-500" /> : <ChevronUp className="w-3.5 h-3.5 text-gray-500" />}
                         </div>
-                        {params.map(param => {
+                        {!isCollapsed && params.map(param => {
                           const refRange = form.gender === 'Female' ? param.ref_range_female : param.ref_range_male;
                           const abnFlag = results[param.id]?.is_abnormal || false;
                           return (
@@ -407,7 +415,8 @@ export default function QuickReport() {
                           );
                         })}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}

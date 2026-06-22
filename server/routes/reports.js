@@ -332,4 +332,91 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// POST add test to report
+router.post('/:id/tests', async (req, res) => {
+  try {
+    const { test_id } = req.body;
+    const db = getDB();
+    const reportsCollection = db.collection('reports');
+    const testsCollection = db.collection('tests');
+    const categoriesCollection = db.collection('test_categories');
+
+    const report = await reportsCollection.findOne({ _id: new ObjectId(req.params.id) });
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+
+    const test = await testsCollection.findOne({ _id: new ObjectId(test_id) });
+    if (!test) return res.status(404).json({ error: 'Test not found' });
+
+    // Check if test already in report
+    const existing = (report.tests || []).find(t => t.test_id.toString() === test_id);
+    if (existing) return res.status(400).json({ error: 'Test already in report' });
+
+    const category = await categoriesCollection.findOne({ _id: test.category_id });
+
+    // Add test entry
+    const newTest = { test_id: test._id, test_name: test.name, specimen: test.specimen };
+
+    // Add result entries for all parameters
+    const newResults = (test.parameters || []).map(param => ({
+      test_id: test._id,
+      param_name: param.param_name,
+      result_value: '',
+      is_abnormal: false,
+      unit: param.unit,
+      ref_range_male: param.ref_range_male,
+      ref_range_female: param.ref_range_female,
+      group_name: param.group_name,
+      sort_order: param.sort_order,
+    }));
+
+    await reportsCollection.updateOne(
+      { _id: new ObjectId(req.params.id) },
+      {
+        $push: {
+          tests: newTest,
+          results: { $each: newResults }
+        },
+        $set: {
+          investigation: [...(report.tests || []), newTest].map(t => t.test_name).join(', ')
+        }
+      }
+    );
+
+    res.json({ message: 'Test added successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE remove test from report
+router.delete('/:id/tests/:testId', async (req, res) => {
+  try {
+    const db = getDB();
+    const reportsCollection = db.collection('reports');
+    const report = await reportsCollection.findOne({ _id: new ObjectId(req.params.id) });
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+
+    const testId = new ObjectId(req.params.testId);
+
+    // Remove test and its results
+    const updatedTests = (report.tests || []).filter(t => t.test_id.toString() !== req.params.testId);
+    const updatedResults = (report.results || []).filter(r => r.test_id.toString() !== req.params.testId);
+
+    await reportsCollection.updateOne(
+      { _id: new ObjectId(req.params.id) },
+      {
+        $set: {
+          tests: updatedTests,
+          results: updatedResults,
+          investigation: updatedTests.map(t => t.test_name).join(', ')
+        }
+      }
+    );
+
+    res.json({ message: 'Test removed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
