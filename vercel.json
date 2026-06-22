@@ -1,5 +1,15 @@
 {
+  "functions": {
+    "api/pdf.js": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
   "rewrites": [
+    {
+      "source": "/api/pdf",
+      "destination": "/api/pdf.js"
+    },
     {
       "source": "/api/:path*",
       "destination": "/api/index.js"

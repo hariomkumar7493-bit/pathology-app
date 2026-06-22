@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronDown, ChevronUp, ChevronRight, Share2 } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
@@ -332,7 +330,8 @@ export default function QuickReport() {
     setSaving(true);
     try {
       // Auto-save if not already saved
-      if (!printData) {
+      let reportData = printData;
+      if (!reportData) {
         const resultArr = Object.entries(results).map(([uid, val]) => {
           const param = parameters.find(p => p.uid === uid);
           return { parameter_id: param?.id || parseInt(uid), param_name: param?.param_name || '', result_value: val.result_value, is_abnormal: val.is_abnormal };
@@ -343,78 +342,26 @@ export default function QuickReport() {
         });
         setSavedReportId(res.reportId);
         setPrintData(res.report);
+        reportData = res.report;
         addToast('Report saved', 'success');
       }
 
-      // Wait for pdfRef to render
-      await new Promise(r => setTimeout(r, 500));
-      const pdfContent = pdfRef.current;
-      if (!pdfContent) { addToast('Report not ready, try again', 'error'); setSaving(false); return; }
-
       addToast('Generating PDF...', 'info');
-      const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
+      const letterheadUrl = `${window.location.origin}/letterhead.png`;
 
-      // Build the exact same HTML as PDF download in a hidden iframe
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:fixed;left:0;top:0;width:210mm;height:297mm;opacity:0;z-index:-9999;border:none;';
-      document.body.appendChild(iframe);
-
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-      iframeDoc.open();
-      iframeDoc.write(`
-        <html><head>
-        <style>
-          @page { margin: 0; size: A4; }
-          html, body { height: 100%; margin: 0; box-sizing: border-box; }
-          body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          table { border-collapse: collapse; width: 100%; }
-          thead { display: table-header-group; }
-          tfoot { display: table-footer-group; }
-          thead td, tfoot td { padding: 0; }
-          .page-header { position: fixed; top: 0; left: 0; right: 0; z-index: 2; }
-          .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; }
-          .letterhead-bg { position: absolute; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; }
-        </style></head>
-        <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${pdfContent.outerHTML}</body></html>
-      `);
-      iframeDoc.close();
-
-      // Wait for images to load inside iframe
-      await new Promise(resolve => {
-        const imgs = iframeDoc.images;
-        if (imgs.length === 0) { resolve(); return; }
-        let loaded = 0;
-        const check = () => { loaded++; if (loaded >= imgs.length) resolve(); };
-        for (let i = 0; i < imgs.length; i++) {
-          if (imgs[i].complete) check(); else { imgs[i].onload = check; imgs[i].onerror = check; }
-        }
-        setTimeout(resolve, 3000); // fallback timeout
+      // Generate PDF on server using Puppeteer (works on all devices)
+      const pdfRes = await fetch('/api/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report: reportData, letterheadUrl }),
       });
 
-      const canvas = await html2canvas(iframeDoc.body, {
-        scale: 2,
-        useCORS: true,
-        width: iframeDoc.body.scrollWidth,
-        height: iframeDoc.body.scrollHeight,
-        windowWidth: iframeDoc.body.scrollWidth,
-      });
-
-      document.body.removeChild(iframe);
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.85);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = 210;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      let yOffset = 0;
-      const pageHeight = 297;
-      while (yOffset < pdfHeight) {
-        if (yOffset > 0) pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, -yOffset, pdfWidth, pdfHeight);
-        yOffset += pageHeight;
+      if (!pdfRes.ok) {
+        const err = await pdfRes.json().catch(() => ({ error: 'PDF generation failed' }));
+        throw new Error(err.error || 'PDF generation failed');
       }
 
-      const pdfBlob = pdf.output('blob');
+      const pdfBlob = await pdfRes.blob();
       const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${form.patient_name || 'Report'}_${dateStr}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
