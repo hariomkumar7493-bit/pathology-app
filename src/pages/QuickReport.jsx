@@ -323,10 +323,18 @@ export default function QuickReport() {
               />
             </div>
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {Object.entries(filteredTestsByCategory).map(([cat, catTests]) => (
+              {Object.entries(filteredTestsByCategory).map(([cat, catTests]) => {
+                const isCatCollapsed = collapsedGroups[`cat__${cat}`];
+                return (
                 <div key={cat}>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">{cat}</p>
-                  {catTests.map(test => (
+                  <div
+                    className="flex items-center justify-between cursor-pointer select-none py-1 hover:bg-gray-50 rounded px-1"
+                    onClick={() => setCollapsedGroups(prev => ({ ...prev, [`cat__${cat}`]: !prev[`cat__${cat}`] }))}
+                  >
+                    <p className="text-[10px] font-bold text-gray-400 uppercase">{cat}</p>
+                    {isCatCollapsed ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronUp className="w-3.5 h-3.5 text-gray-400" />}
+                  </div>
+                  {!isCatCollapsed && catTests.map(test => (
                     <button
                       key={test._id}
                       type="button"
@@ -346,7 +354,8 @@ export default function QuickReport() {
                     </button>
                   ))}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
