@@ -48,8 +48,10 @@ export default function QuickReport() {
       return;
     }
     api.getBulkParameters(selectedTests).then((params) => {
+      // Add unique key to each param (test_name + id) to avoid collisions across tests
+      const withUid = params.map(p => ({ ...p, uid: `${p.test_name}__${p.id}` }));
       // Filter params to only include selected sub-groups
-      const filtered = params.filter(p => {
+      const filtered = withUid.filter(p => {
         const testId = selectedTests.find(tid => {
           const t = tests.find(tt => tt._id === tid);
           return t && (t.name === p.test_name || t.name === p.category_name);
@@ -63,7 +65,7 @@ export default function QuickReport() {
       setParameters(filtered);
       const init = {};
       filtered.forEach(p => {
-        if (!results[p.id]) init[p.id] = { result_value: '', is_abnormal: false };
+        if (!results[p.uid]) init[p.uid] = { result_value: '', is_abnormal: false };
       });
       setResults(prev => ({ ...prev, ...init }));
     }).catch(console.error);
@@ -166,10 +168,10 @@ export default function QuickReport() {
 
     setSaving(true);
     try {
-      const resultArr = Object.entries(results).map(([paramId, val]) => {
-        const param = parameters.find(p => String(p.id || p.sort_order) === paramId);
+      const resultArr = Object.entries(results).map(([uid, val]) => {
+        const param = parameters.find(p => p.uid === uid);
         return {
-          parameter_id: parseInt(paramId),
+          parameter_id: param?.id || parseInt(uid),
           param_name: param?.param_name || '',
           result_value: val.result_value,
           is_abnormal: val.is_abnormal,
@@ -243,10 +245,10 @@ export default function QuickReport() {
 
     setSaving(true);
     try {
-      const resultArr = Object.entries(results).map(([paramId, val]) => {
-        const param = parameters.find(p => String(p.id || p.sort_order) === paramId);
+      const resultArr = Object.entries(results).map(([uid, val]) => {
+        const param = parameters.find(p => p.uid === uid);
         return {
-          parameter_id: parseInt(paramId),
+          parameter_id: param?.id || parseInt(uid),
           param_name: param?.param_name || '',
           result_value: val.result_value,
           is_abnormal: val.is_abnormal,
@@ -543,16 +545,16 @@ export default function QuickReport() {
                         </div>
                         {!isCollapsed && params.map(param => {
                           const refRange = form.gender === 'Female' ? param.ref_range_female : param.ref_range_male;
-                          const abnFlag = results[param.id]?.is_abnormal || false;
+                          const abnFlag = results[param.uid]?.is_abnormal || false;
                           return (
-                            <div key={param.id} className={`grid grid-cols-12 items-center px-3 sm:px-4 py-1.5 sm:py-2 ${abnFlag ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
+                            <div key={param.uid} className={`grid grid-cols-12 items-center px-3 sm:px-4 py-1.5 sm:py-2 ${abnFlag ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
                               <div className="col-span-4 text-xs text-gray-700 pl-1 sm:pl-2 truncate">{param.param_name}</div>
                               <div className="col-span-3">
                                 <input
                                   type="text"
                                   className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'}`}
-                                  value={results[param.id]?.result_value || ''}
-                                  onChange={e => updateResult(param.id, e.target.value, param.ref_range_male, param.ref_range_female)}
+                                  value={results[param.uid]?.result_value || ''}
+                                  onChange={e => updateResult(param.uid, e.target.value, param.ref_range_male, param.ref_range_female)}
                                 />
                               </div>
                               <div className="col-span-1 text-xs text-gray-500 text-center hidden sm:block">{param.unit || ''}</div>
