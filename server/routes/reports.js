@@ -262,15 +262,19 @@ router.post('/quick', async (req, res) => {
     // Build tests and results arrays
     const testsArray = [];
     const resultsArray = [];
+    const categoriesCollection = db.collection('test_categories');
     
     if (test_ids && test_ids.length) {
       for (const testId of test_ids) {
         const test = await testsCollection.findOne({ _id: new ObjectId(testId) });
         if (test) {
+          const category = await categoriesCollection.findOne({ _id: test.category_id });
+          const categoryName = category?.name || null;
           testsArray.push({
             test_id: test._id,
             test_name: test.name,
-            specimen: test.specimen
+            specimen: test.specimen,
+            category_name: categoryName
           });
           
           const parameters = test.parameters || [];
@@ -278,6 +282,8 @@ router.post('/quick', async (req, res) => {
             const resultEntry = results ? results.find(r => r.param_name === param.param_name) : null;
             resultsArray.push({
               test_id: test._id,
+              test_name: test.name,
+              category_name: categoryName,
               param_name: param.param_name,
               result_value: resultEntry ? resultEntry.result_value : '',
               is_abnormal: resultEntry ? resultEntry.is_abnormal : false,
@@ -291,6 +297,12 @@ router.post('/quick', async (req, res) => {
         }
       }
     }
+
+    // Sort results
+    resultsArray.sort((a, b) => {
+      if (a.test_name !== b.test_name) return a.test_name.localeCompare(b.test_name);
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
 
     // Create report
     const report = {
@@ -310,10 +322,19 @@ router.post('/quick', async (req, res) => {
     
     const reportResult = await reportsCollection.insertOne(report);
     
+    // Return full report data so frontend doesn't need a second fetch
     res.status(201).json({ 
       reportId: reportResult.insertedId, 
       patientId, 
-      refNo 
+      refNo,
+      report: {
+        ...report,
+        _id: reportResult.insertedId,
+        patient_name: patient_name,
+        age,
+        gender,
+        referred_by: referred_by || 'SELF',
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -191,17 +191,13 @@ export default function QuickReport() {
       });
 
       setSavedReportId(res.reportId);
-
-      // Fetch the full report for printing
-      const fullReport = await api.getReport(res.reportId);
-      setPrintData(fullReport);
-
+      setPrintData(res.report);
       addToast('Report saved successfully', 'success');
 
-      // Print after small delay
+      // Print after short delay for state to update
       setTimeout(() => {
         handlePrint();
-      }, 300);
+      }, 100);
     } catch (err) {
       addToast('Error: ' + err.message, 'error');
     }
@@ -268,8 +264,7 @@ export default function QuickReport() {
       });
 
       setSavedReportId(res.reportId);
-      const fullReport = await api.getReport(res.reportId);
-      setPrintData(fullReport);
+      setPrintData(res.report);
       addToast('Report saved successfully', 'success');
 
       // Download as PDF after render
