@@ -62,7 +62,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         {/* ===== REPEATING HEADER (every page) ===== */}
         <thead>
-          <tr><td style={{ padding: 0 }}>
+          <tr><td colSpan="3" style={{ padding: 0 }}>
             <div style={{ position: 'relative' }}>
               {/* PDF: Letterhead background for header */}
               {isPdf && (
@@ -110,18 +110,18 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
               </tbody>
             </table>
 
-            {/* Column headers */}
-            <div style={{ display: 'flex', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontSize: '11px', fontWeight: 'bold' }}>
-              <div style={{ width: '45%', padding: '4px 6px' }}>Test Description</div>
-              <div style={{ width: '25%', padding: '4px 6px', textAlign: 'center' }}>RESULT/UNIT</div>
-              <div style={{ width: '30%', padding: '4px 6px', textAlign: 'center' }}>REF. RANGE</div>
-            </div>
           </td></tr>
+          {/* Column headers row */}
+          <tr style={{ borderTop: '2px solid #000', borderBottom: '2px solid #000' }}>
+            <th style={{ width: '45%', padding: '4px 6px', fontSize: '11px', textAlign: 'left' }}>Test Description</th>
+            <th style={{ width: '25%', padding: '4px 6px', fontSize: '11px', textAlign: 'center' }}>RESULT/UNIT</th>
+            <th style={{ width: '30%', padding: '4px 6px', fontSize: '11px', textAlign: 'center' }}>REF. RANGE</th>
+          </tr>
         </thead>
 
         {/* ===== REPEATING FOOTER (every page) ===== */}
         <tfoot>
-          <tr><td style={{ padding: 0 }}>
+          <tr><td colSpan="3" style={{ padding: 0 }}>
             {/* Doctor Signature */}
             <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '12px', marginTop: '16px' }}>
               <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{report.doctor_name || 'DR. C. ASHOK'}</p>
@@ -147,49 +147,49 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
           </td></tr>
         </tfoot>
 
-        {/* ===== MAIN CONTENT (scrollable between header/footer) ===== */}
+        {/* ===== MAIN CONTENT - each item is its own <tr> for proper page breaks ===== */}
         <tbody>
-          <tr><td style={{ padding: 0 }}>
-            {Object.entries(groupedByCategory).map(([catName, groups]) => (
-              <Fragment key={catName}>
-                {/* Category heading */}
-                <div style={{
+          {Object.entries(groupedByCategory).map(([catName, groups]) => (
+            <Fragment key={catName}>
+              {/* Category heading */}
+              <tr>
+                <td colSpan="3" style={{
                   textAlign: 'center', paddingTop: '10px', paddingBottom: '4px',
                   fontWeight: 'bold', fontSize: '12px', borderBottom: '1px solid #333',
                 }}>
                   {catName.toUpperCase()} REPORT
-                </div>
-                {Object.entries(groups).map(([groupName, params]) => (
-                  <Fragment key={groupName}>
-                    {groupName && (
-                      <div style={{ paddingTop: '6px', paddingLeft: '6px', fontWeight: 'bold', fontSize: '11px', color: '#333' }}>
+                </td>
+              </tr>
+              {Object.entries(groups).map(([groupName, params]) => (
+                <Fragment key={groupName}>
+                  {groupName && (
+                    <tr>
+                      <td colSpan="3" style={{ paddingTop: '6px', paddingLeft: '6px', fontWeight: 'bold', fontSize: '11px', color: '#333' }}>
                         {groupName}
-                      </div>
-                    )}
-                    {params.map((param, idx) => {
-                      const isAbn = param.is_abnormal;
-                      const resultUnit = [param.result_value, param.unit].filter(Boolean).join(' ');
-                      const rowBold = isAbn ? 'bold' : 'normal';
-                      const rowColor = isAbn && isPdf ? '#c00' : '#000';
-                      return (
-                        <div key={idx} style={{
-                          display: 'flex', borderBottom: '1px dotted #ccc',
-                          fontWeight: rowBold, color: rowColor, fontSize: '11px',
-                        }}>
-                          <div style={{ width: '45%', padding: '3px 6px 3px 12px' }}>{param.param_name}</div>
-                          <div style={{ width: '25%', padding: '3px 6px', textAlign: 'center' }}>{resultUnit}</div>
-                          <div style={{ width: '30%', padding: '3px 6px', textAlign: 'center', color: isAbn ? rowColor : '#555' }}>{getRefDisplay(param)}</div>
-                        </div>
-                      );
-                    })}
-                  </Fragment>
-                ))}
-              </Fragment>
-            ))}
-
-            {/* End of Report */}
-            <p style={{ textAlign: 'center', margin: '16px 0 8px', fontSize: '10px', color: '#666' }}>------End of Report------</p>
-          </td></tr>
+                      </td>
+                    </tr>
+                  )}
+                  {params.map((param, idx) => {
+                    const isAbn = param.is_abnormal;
+                    const resultUnit = [param.result_value, param.unit].filter(Boolean).join(' ');
+                    const rowBold = isAbn ? 'bold' : 'normal';
+                    const rowColor = isAbn && isPdf ? '#c00' : '#000';
+                    return (
+                      <tr key={idx} style={{ borderBottom: '1px dotted #ccc', fontWeight: rowBold, color: rowColor, fontSize: '11px' }}>
+                        <td style={{ width: '45%', padding: '3px 6px 3px 12px' }}>{param.param_name}</td>
+                        <td style={{ width: '25%', padding: '3px 6px', textAlign: 'center' }}>{resultUnit}</td>
+                        <td style={{ width: '30%', padding: '3px 6px', textAlign: 'center', color: isAbn ? rowColor : '#555' }}>{getRefDisplay(param)}</td>
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              ))}
+            </Fragment>
+          ))}
+          {/* End of Report */}
+          <tr>
+            <td colSpan="3" style={{ textAlign: 'center', padding: '16px 0 8px', fontSize: '10px', color: '#666' }}>------End of Report------</td>
+          </tr>
         </tbody>
       </table>
     </div>
