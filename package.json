@@ -16,7 +16,11 @@
     "electron:dev": "electron .",
     "electron:build": "electron-builder --win",
     "electron:build:portable": "electron-builder --win portable",
-    "electron:build:all": "electron-builder --win nsis portable"
+    "electron:build:all": "electron-builder --win nsis portable",
+    "electron:publish": "electron-builder --win --publish always",
+    "release:patch": "npm version patch && git push && git push --tags",
+    "release:minor": "npm version minor && git push && git push --tags",
+    "release:major": "npm version major && git push && git push --tags"
   },
   "dependencies": {
     "@sparticuz/chromium": "^149.0.0",

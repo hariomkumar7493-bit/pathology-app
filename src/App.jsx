@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
+import UpdateNotification from './components/UpdateNotification';
 
 // Lazy load heavy pages for faster initial load
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -61,6 +62,7 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <AppRoutes />
+          <UpdateNotification />
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>

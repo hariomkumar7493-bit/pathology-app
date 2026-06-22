@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, globalShortcut, crashReporter } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -12,47 +12,172 @@ const isDev = !app.isPackaged;
 
 let mainWindow = null;
 
+// ===== LOGGING SYSTEM =====
+const LOG_DIR = path.join(app.getPath('userData'), 'logs');
+const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5MB per log file
+const MAX_LOG_FILES = 5;
+
+function ensureLogDir() {
+  if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
+}
+
+function getLogFilePath() {
+  const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  return path.join(LOG_DIR, `app-${date}.log`);
+}
+
+function rotateLogs() {
+  try {
+    const files = fs.readdirSync(LOG_DIR)
+      .filter(f => f.startsWith('app-') && f.endsWith('.log'))
+      .sort()
+      .reverse();
+    // Remove old log files beyond MAX_LOG_FILES
+    for (let i = MAX_LOG_FILES; i < files.length; i++) {
+      fs.unlinkSync(path.join(LOG_DIR, files[i]));
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function log(level, message, data = null) {
+  ensureLogDir();
+  const timestamp = new Date().toISOString();
+  const entry = `[${timestamp}] [${level}] ${message}${data ? ' | ' + JSON.stringify(data) : ''}\n`;
+
+  // Write to log file
+  const logPath = getLogFilePath();
+  try {
+    fs.appendFileSync(logPath, entry);
+    // Rotate if file too large
+    const stats = fs.statSync(logPath);
+    if (stats.size > MAX_LOG_SIZE) rotateLogs();
+  } catch (e) { /* ignore */ }
+
+  // Also log to console in dev
+  if (isDev) {
+    const fn = level === 'ERROR' ? console.error : level === 'WARN' ? console.warn : console.log;
+    fn(`[${level}]`, message, data || '');
+  }
+}
+
+// Override console methods to capture all logs
+const origConsoleError = console.error;
+process.on('uncaughtException', (err) => {
+  log('FATAL', 'Uncaught exception', { message: err.message, stack: err.stack });
+});
+process.on('unhandledRejection', (reason) => {
+  log('FATAL', 'Unhandled rejection', { reason: String(reason) });
+});
+
 // ===== AUTO-UPDATER SETUP =====
+let updateRetryCount = 0;
+const MAX_UPDATE_RETRIES = 3;
+const UPDATE_CHECK_INTERVAL = 4 * 60 * 60 * 1000; // 4 hours
+const INITIAL_CHECK_DELAY = 10000; // 10 seconds after launch
+const RETRY_DELAY = 60000; // 1 minute between retries
+
 function setupAutoUpdater() {
-  if (isDev) return; // Skip in development
+  if (isDev) {
+    log('INFO', 'Auto-updater skipped (dev mode)');
+    return;
+  }
 
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+  // Configure updater
+  autoUpdater.autoDownload = true;          // Download immediately when update found
+  autoUpdater.autoInstallOnAppQuit = true;  // Install when user quits
+  autoUpdater.allowDowngrade = false;       // Never downgrade
 
+  // ----- Event: Checking -----
   autoUpdater.on('checking-for-update', () => {
+    log('INFO', 'Checking for updates...');
+    sendToRenderer('update:checking', true);
     sendToRenderer('update:status', 'Checking for updates...');
   });
 
+  // ----- Event: Update available -----
   autoUpdater.on('update-available', (info) => {
-    sendToRenderer('update:status', `Update available: v${info.version}`);
-    sendToRenderer('update:available', info);
+    updateRetryCount = 0; // Reset retries on success
+    log('INFO', 'Update available', { version: info.version, releaseDate: info.releaseDate });
+    sendToRenderer('update:available', {
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes || '',
+    });
+    sendToRenderer('update:status', `Downloading v${info.version}...`);
   });
 
-  autoUpdater.on('update-not-available', () => {
+  // ----- Event: No update -----
+  autoUpdater.on('update-not-available', (info) => {
+    updateRetryCount = 0;
+    log('INFO', 'App is up to date', { version: info.version });
+    sendToRenderer('update:not-available', { version: info.version });
     sendToRenderer('update:status', 'App is up to date');
   });
 
+  // ----- Event: Download progress -----
   autoUpdater.on('download-progress', (progress) => {
+    const percent = Math.round(progress.percent);
+    const speedMB = (progress.bytesPerSecond / (1024 * 1024)).toFixed(1);
+    const transferredMB = (progress.transferred / (1024 * 1024)).toFixed(1);
+    const totalMB = (progress.total / (1024 * 1024)).toFixed(1);
+    log('INFO', `Download progress: ${percent}%`, { speedMB, transferredMB, totalMB });
     sendToRenderer('update:progress', {
-      percent: Math.round(progress.percent),
-      transferred: progress.transferred,
-      total: progress.total,
+      percent,
+      speed: speedMB,
+      transferred: transferredMB,
+      total: totalMB,
     });
+    sendToRenderer('update:status', `Downloading: ${percent}% (${transferredMB}/${totalMB} MB)`);
   });
 
+  // ----- Event: Downloaded -----
   autoUpdater.on('update-downloaded', (info) => {
+    log('INFO', 'Update downloaded, ready to install', { version: info.version });
+    sendToRenderer('update:downloaded', {
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes || '',
+    });
     sendToRenderer('update:status', `Update v${info.version} ready. Restart to install.`);
-    sendToRenderer('update:downloaded', info);
   });
 
+  // ----- Event: Error -----
   autoUpdater.on('error', (err) => {
+    updateRetryCount++;
+    log('ERROR', 'Auto-update error', {
+      message: err.message,
+      stack: err.stack,
+      retryCount: updateRetryCount,
+    });
+    sendToRenderer('update:error', {
+      message: err.message,
+      retryCount: updateRetryCount,
+      willRetry: updateRetryCount < MAX_UPDATE_RETRIES,
+    });
     sendToRenderer('update:status', `Update error: ${err.message}`);
+
+    // Retry with backoff if we haven't exceeded max retries
+    if (updateRetryCount < MAX_UPDATE_RETRIES) {
+      const delay = RETRY_DELAY * updateRetryCount;
+      log('INFO', `Will retry update check in ${delay / 1000}s`);
+      setTimeout(() => {
+        log('INFO', `Retrying update check (attempt ${updateRetryCount + 1})`);
+        autoUpdater.checkForUpdates().catch(() => {});
+      }, delay);
+    }
   });
 
-  // Check for updates every 4 hours
-  setInterval(() => autoUpdater.checkForUpdates(), 4 * 60 * 60 * 1000);
-  // Initial check after 10 seconds
-  setTimeout(() => autoUpdater.checkForUpdates(), 10000);
+  // ----- Periodic checks -----
+  setInterval(() => {
+    log('INFO', 'Periodic update check');
+    autoUpdater.checkForUpdates().catch(() => {});
+  }, UPDATE_CHECK_INTERVAL);
+
+  // ----- Initial check after launch -----
+  setTimeout(() => {
+    log('INFO', 'Initial update check');
+    autoUpdater.checkForUpdates().catch(() => {});
+  }, INITIAL_CHECK_DELAY);
 }
 
 function sendToRenderer(channel, data) {
@@ -63,6 +188,8 @@ function sendToRenderer(channel, data) {
 
 // ===== WINDOW CREATION =====
 function createWindow() {
+  log('INFO', 'Creating main window', { isDev, version: app.getVersion() });
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -84,18 +211,65 @@ function createWindow() {
 
   // Load the appropriate URL
   const loadURL = isDev ? DEV_URL : PRODUCTION_URL;
+  log('INFO', 'Loading URL', { url: loadURL });
   mainWindow.loadURL(loadURL);
+
+  // Log page load errors (network issues on client machines)
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    log('ERROR', 'Page failed to load', { errorCode, errorDescription, url: validatedURL });
+    // Show a user-friendly error page
+    mainWindow.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+      <html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;">
+        <div style="text-align:center;max-width:400px;">
+          <h2 style="color:#ef4444;">Connection Error</h2>
+          <p style="color:#64748b;">Could not connect to PathLab Pro server.</p>
+          <p style="color:#64748b;font-size:14px;">Error: ${errorDescription} (${errorCode})</p>
+          <p style="color:#94a3b8;font-size:13px;">Check your internet connection and try again.</p>
+          <button onclick="location.href='${loadURL}'" style="margin-top:16px;padding:10px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;">
+            Retry
+          </button>
+          <br/><br/>
+          <button onclick="location.href='mailto:support@pathlabpro.com?subject=Connection Error&body=Error: ${errorDescription} (${errorCode})'" style="padding:6px 16px;background:none;color:#3b82f6;border:1px solid #3b82f6;border-radius:6px;cursor:pointer;font-size:13px;">
+            Contact Support
+          </button>
+        </div>
+      </body></html>
+    `)}`);
+  });
+
+  // Capture renderer console errors
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    // level: 0=verbose, 1=info, 2=warning, 3=error
+    if (level >= 2) {
+      const lvl = level === 3 ? 'ERROR' : 'WARN';
+      log(lvl, `[Renderer] ${message}`, { line, source: sourceId });
+    }
+  });
+
+  // Capture renderer crashes
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    log('FATAL', 'Renderer process crashed', details);
+  });
 
   // Show window when ready (prevents white flash)
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.focus();
+    log('INFO', 'Window shown');
   });
 
   // Open DevTools in development
   if (isDev) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
+
+  // Hidden DevTools shortcut for production debugging (Ctrl+Shift+F12)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.control && input.shift && input.key === 'F12') {
+      mainWindow.webContents.toggleDevTools();
+      log('INFO', 'DevTools toggled via shortcut');
+    }
+  });
 
   // Handle external links and popups
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -127,6 +301,7 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    log('INFO', 'Main window closed');
   });
 
   // Setup auto-updater after window is ready
@@ -399,4 +574,88 @@ ipcMain.handle('shell:openExternal', async (event, url) => {
 ipcMain.handle('shell:openPath', async (event, filePath) => {
   const result = await shell.openPath(filePath);
   return result; // empty string on success, error message on failure
+});
+
+// ===== IPC: LOGGING & DIAGNOSTICS =====
+
+// Log from renderer process
+ipcMain.handle('log:write', (event, { level, message, data }) => {
+  log(level || 'INFO', `[Renderer] ${message}`, data);
+  return true;
+});
+
+// Get all log files
+ipcMain.handle('log:getFiles', () => {
+  ensureLogDir();
+  try {
+    return fs.readdirSync(LOG_DIR)
+      .filter(f => f.endsWith('.log'))
+      .map(f => {
+        const stats = fs.statSync(path.join(LOG_DIR, f));
+        return { name: f, size: stats.size, modified: stats.mtime.toISOString() };
+      })
+      .sort((a, b) => b.modified.localeCompare(a.modified));
+  } catch (e) {
+    return [];
+  }
+});
+
+// Read a specific log file
+ipcMain.handle('log:read', (event, fileName) => {
+  try {
+    const filePath = path.join(LOG_DIR, path.basename(fileName)); // prevent path traversal
+    return fs.readFileSync(filePath, 'utf8');
+  } catch (e) {
+    return `Error reading log: ${e.message}`;
+  }
+});
+
+// Open logs folder in Explorer (client can zip and send)
+ipcMain.handle('log:openFolder', () => {
+  ensureLogDir();
+  shell.openPath(LOG_DIR);
+  return LOG_DIR;
+});
+
+// Export all logs to a single file on Desktop
+ipcMain.handle('log:export', async () => {
+  ensureLogDir();
+  try {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: path.join(app.getPath('desktop'), `PathLabPro-logs-${new Date().toISOString().split('T')[0]}.txt`),
+      filters: [{ name: 'Text Files', extensions: ['txt'] }],
+      title: 'Export Logs',
+    });
+    if (result.canceled) return { success: false, canceled: true };
+
+    const logFiles = fs.readdirSync(LOG_DIR)
+      .filter(f => f.endsWith('.log'))
+      .sort();
+    let combined = `PathLab Pro Diagnostic Logs\nVersion: ${app.getVersion()}\nExported: ${new Date().toISOString()}\nOS: ${process.platform} ${process.arch}\n${'='.repeat(60)}\n\n`;
+    for (const f of logFiles) {
+      combined += `\n--- ${f} ---\n`;
+      combined += fs.readFileSync(path.join(LOG_DIR, f), 'utf8');
+    }
+    fs.writeFileSync(result.filePath, combined);
+    return { success: true, filePath: result.filePath };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+});
+
+// Get system diagnostics
+ipcMain.handle('diagnostics:info', () => {
+  return {
+    appVersion: app.getVersion(),
+    electronVersion: process.versions.electron,
+    chromeVersion: process.versions.chrome,
+    nodeVersion: process.versions.node,
+    platform: process.platform,
+    arch: process.arch,
+    osVersion: require('os').release(),
+    totalMemory: Math.round(require('os').totalmem() / (1024 * 1024 * 1024) * 10) / 10 + ' GB',
+    freeMemory: Math.round(require('os').freemem() / (1024 * 1024 * 1024) * 10) / 10 + ' GB',
+    logDir: LOG_DIR,
+    userData: app.getPath('userData'),
+  };
 });

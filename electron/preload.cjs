@@ -55,26 +55,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   update: {
     check: () => ipcRenderer.invoke('update:check'),
     install: () => ipcRenderer.invoke('update:install'),
-    onStatus: (callback) => {
-      const handler = (event, data) => callback(data);
-      ipcRenderer.on('update:status', handler);
-      return () => ipcRenderer.removeListener('update:status', handler);
-    },
-    onAvailable: (callback) => {
-      const handler = (event, data) => callback(data);
-      ipcRenderer.on('update:available', handler);
-      return () => ipcRenderer.removeListener('update:available', handler);
-    },
-    onProgress: (callback) => {
-      const handler = (event, data) => callback(data);
-      ipcRenderer.on('update:progress', handler);
-      return () => ipcRenderer.removeListener('update:progress', handler);
-    },
-    onDownloaded: (callback) => {
-      const handler = (event, data) => callback(data);
-      ipcRenderer.on('update:downloaded', handler);
-      return () => ipcRenderer.removeListener('update:downloaded', handler);
-    },
+    // Subscribe to events (each returns an unsubscribe function)
+    onChecking: (cb) => { const h = (e, d) => cb(d); ipcRenderer.on('update:checking', h); return () => ipcRenderer.removeListener('update:checking', h); },
+    onAvailable: (cb) => { const h = (e, d) => cb(d); ipcRenderer.on('update:available', h); return () => ipcRenderer.removeListener('update:available', h); },
+    onNotAvailable: (cb) => { const h = (e, d) => cb(d); ipcRenderer.on('update:not-available', h); return () => ipcRenderer.removeListener('update:not-available', h); },
+    onProgress: (cb) => { const h = (e, d) => cb(d); ipcRenderer.on('update:progress', h); return () => ipcRenderer.removeListener('update:progress', h); },
+    onDownloaded: (cb) => { const h = (e, d) => cb(d); ipcRenderer.on('update:downloaded', h); return () => ipcRenderer.removeListener('update:downloaded', h); },
+    onError: (cb) => { const h = (e, d) => cb(d); ipcRenderer.on('update:error', h); return () => ipcRenderer.removeListener('update:error', h); },
+    onStatus: (cb) => { const h = (e, d) => cb(d); ipcRenderer.on('update:status', h); return () => ipcRenderer.removeListener('update:status', h); },
   },
 
   // ===== SHELL =====
@@ -82,4 +70,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
     openPath: (filePath) => ipcRenderer.invoke('shell:openPath', filePath),
   },
+
+  // ===== LOGGING & DIAGNOSTICS =====
+  log: {
+    write: (level, message, data) => ipcRenderer.invoke('log:write', { level, message, data }),
+    getFiles: () => ipcRenderer.invoke('log:getFiles'),
+    read: (fileName) => ipcRenderer.invoke('log:read', fileName),
+    openFolder: () => ipcRenderer.invoke('log:openFolder'),
+    export: () => ipcRenderer.invoke('log:export'),
+  },
+  diagnostics: () => ipcRenderer.invoke('diagnostics:info'),
 });
