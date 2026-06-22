@@ -27,7 +27,7 @@ export default function Sidebar({ open, onClose }) {
   const { logout, user } = useAuth();
 
   return (
-    <aside className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-30 flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+    <aside className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-50 flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       {/* Logo */}
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center justify-between">

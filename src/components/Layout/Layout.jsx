@@ -10,7 +10,7 @@ export default function Layout() {
     <div className="min-h-screen bg-gray-50">
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
