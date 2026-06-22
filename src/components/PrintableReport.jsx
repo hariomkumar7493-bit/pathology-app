@@ -41,6 +41,9 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
     return m || f || '';
   };
 
+  // Letterhead image URL (served from public folder)
+  const letterheadUrl = '/letterhead.png';
+
   return (
     <div ref={ref} style={{
       fontFamily: "'Times New Roman', serif",
@@ -50,43 +53,25 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
       display: 'flex', flexDirection: 'column',
     }}>
 
-      {/* ===== PDF HEADER with logo ===== */}
+      {/* ===== PDF: Letterhead background image ===== */}
       {isPdf && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '8px', paddingBottom: '8px', borderBottom: '3px solid #1a4d8f' }}>
-          <div dangerouslySetInnerHTML={{ __html: LOGO_SVG }} />
-          <div style={{ flex: 1, textAlign: 'center' }}>
-            <h1 style={{ fontSize: '26px', fontWeight: 'bold', color: '#1a4d8f', fontStyle: 'italic', margin: '0 0 2px 0', fontFamily: 'Georgia, serif' }}>
-              S &amp; S Diagnostic Center
-            </h1>
-            <p style={{ margin: '1px 0', fontSize: '11px', color: '#333', fontWeight: 'bold' }}>
-              C/o Canara Bank, 1st Floor (Near Firing Range)
-            </p>
-            <p style={{ margin: '1px 0', fontSize: '11px', color: '#333', fontWeight: 'bold' }}>
-              Bariatu, Ranchi - 834009 (JHARKHAND)
-            </p>
-            <p style={{ margin: '1px 0', fontSize: '10px', color: '#555' }}>
-              Founded by : Dr. C. Ashok (MBBS MD Path.)
-            </p>
-          </div>
-        </div>
+        <img
+          src={letterheadUrl}
+          alt=""
+          style={{
+            position: 'absolute', top: 0, left: 0,
+            width: '100%', height: '100%',
+            objectFit: 'fill',
+            pointerEvents: 'none', zIndex: 0,
+          }}
+        />
       )}
+
+      {/* PDF mode: spacing for letterhead header area */}
+      {isPdf && <div style={{ height: '95px' }}></div>}
 
       {/* Print mode: top spacing for pre-printed header */}
       {!isPdf && <div style={{ height: '110px' }}></div>}
-
-      {/* ===== WATERMARK - PDF only ===== */}
-      {isPdf && (
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%',
-          transform: 'translate(-50%, -50%) rotate(-30deg)',
-          fontSize: '52px', fontWeight: 'bold',
-          color: 'rgba(26, 77, 143, 0.05)',
-          whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 0,
-          fontFamily: 'Georgia, serif',
-        }}>
-          S &amp; S DIAGNOSTIC CENTER
-        </div>
-      )}
 
       {/* ===== MAIN CONTENT ===== */}
       <div style={{ position: 'relative', zIndex: 1, flex: 1 }}>
@@ -196,7 +181,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
         {/* PDF Footer Bar */}
         {isPdf && (
           <div style={{ marginTop: '10px', background: '#8B0000', color: '#fff', padding: '5px 10px', fontSize: '9px', textAlign: 'center' }}>
-            (होम कलेक्शन की उपलब्ध है) यहा पर सभी प्रकार पैथोलोजिकल जाँच की सुविधा उपलब्ध है. मो. - 9835310931
+            (होम कलेक्शन फ्री उपलब्ध है) यहा पर सभी प्रकार पैथोलोजिकल जाँच की सुविधा उपलब्ध है. मो. - 9835310931
           </div>
         )}
 

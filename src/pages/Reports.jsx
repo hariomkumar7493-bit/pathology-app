@@ -192,6 +192,8 @@ export default function Reports() {
 
     const pdfWindow = window.open('', '_blank', 'width=800,height=600');
     if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
+    // Fix image URLs to absolute so they load in the new window
+    const htmlContent = pdfContent.outerHTML.replace(/src="\/letterhead\.png"/g, `src="${window.location.origin}/letterhead.png"`);
     pdfWindow.document.write(`
       <html>
         <head>
@@ -206,12 +208,22 @@ export default function Reports() {
             td { padding: 2px 6px; vertical-align: top; }
           </style>
         </head>
-        <body>${pdfContent.outerHTML}</body>
+        <body>${htmlContent}</body>
       </html>
     `);
     pdfWindow.document.close();
     pdfWindow.focus();
-    setTimeout(() => { pdfWindow.print(); }, 400);
+    // Wait for letterhead image to load before printing
+    const imgs = pdfWindow.document.images;
+    if (imgs.length > 0) {
+      let loaded = 0;
+      const tryPrint = () => { loaded++; if (loaded >= imgs.length) setTimeout(() => pdfWindow.print(), 200); };
+      for (let i = 0; i < imgs.length; i++) {
+        if (imgs[i].complete) { tryPrint(); } else { imgs[i].onload = tryPrint; imgs[i].onerror = tryPrint; }
+      }
+    } else {
+      setTimeout(() => { pdfWindow.print(); }, 400);
+    }
   };
 
   const handleSaveResults = async () => {
