@@ -150,13 +150,11 @@ export default function QuickReport() {
           <style>
             @page { margin: 0; size: A4; }
             html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 12mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
-            h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
-            th { text-align: left; padding: 4px 6px; }
-            td { padding: 2px 6px; vertical-align: top; }
+            thead td, tfoot td { padding: 0; }
           </style>
         </head>
         <body>${printContent.outerHTML}</body>
@@ -213,13 +211,11 @@ export default function QuickReport() {
           <style>
             @page { margin: 0; size: A4; }
             html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
-            h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
-            th { text-align: left; padding: 4px 6px; }
-            td { padding: 2px 6px; vertical-align: top; }
+            thead td, tfoot td { padding: 0; }
             .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           </style></head>
           <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${pdfContent.outerHTML}</body></html>
