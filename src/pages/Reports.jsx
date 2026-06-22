@@ -185,7 +185,12 @@ export default function Reports() {
         addToast(`${files.length} PDF(s) downloaded. Attach in WhatsApp.`, 'info');
       }
     } catch (err) {
-      if (err.name !== 'AbortError') addToast('Share failed: ' + err.message, 'error');
+      if (err.name === 'AbortError') { setSaving(false); return; }
+      if (err.name === 'NotAllowedError' || err.message?.includes('user gesture') || err.message?.includes('not allowed')) {
+        addToast('Please try again', 'warning');
+      } else {
+        addToast('Share failed: ' + err.message, 'error');
+      }
     }
     setSaving(false);
   };
@@ -314,7 +319,12 @@ export default function Reports() {
         addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
       }
     } catch (err) {
-      if (err.name !== 'AbortError') addToast('Share failed: ' + err.message, 'error');
+      if (err.name === 'AbortError') return;
+      if (err.name === 'NotAllowedError' || err.message?.includes('user gesture') || err.message?.includes('not allowed')) {
+        addToast('Please try again', 'warning');
+      } else {
+        addToast('Share failed: ' + err.message, 'error');
+      }
     }
   };
 

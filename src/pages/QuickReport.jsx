@@ -329,21 +329,34 @@ export default function QuickReport() {
 
     setSaving(true);
     try {
-      // Auto-save if not already saved
+      // Build report data from form (don't save yet)
       let reportData = printData;
-      if (!reportData) {
-        const resultArr = Object.entries(results).map(([uid, val]) => {
-          const param = parameters.find(p => p.uid === uid);
-          return { parameter_id: param?.id || parseInt(uid), param_name: param?.param_name || '', result_value: val.result_value, is_abnormal: val.is_abnormal };
-        });
-        const res = await api.createQuickReport({
-          patient_name: form.patient_name, age: parseInt(form.age) || 0, gender: form.gender, phone: form.phone,
-          referred_by: form.referred_by, specimen: form.specimen, test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
-        });
-        setSavedReportId(res.reportId);
-        setPrintData(res.report);
-        reportData = res.report;
-        addToast('Report saved', 'success');
+      const needsSave = !reportData;
+      if (needsSave) {
+        reportData = {
+          patient_name: form.patient_name,
+          age: parseInt(form.age) || 0,
+          gender: form.gender,
+          referred_by: form.referred_by,
+          specimen: form.specimen,
+          date_of_collection: form.date_of_collection,
+          date_of_reporting: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          results: Object.entries(results).map(([uid, val]) => {
+            const param = parameters.find(p => p.uid === uid);
+            return {
+              param_name: param?.param_name || '',
+              result_value: val.result_value,
+              is_abnormal: val.is_abnormal,
+              unit: param?.unit || '',
+              ref_range_male: param?.ref_range_male || '',
+              ref_range_female: param?.ref_range_female || '',
+              category_name: param?.category_name || '',
+              group_name: param?.group_name || '',
+              specimen: param?.specimen || form.specimen || 'BLOOD',
+            };
+          }),
+        };
       }
 
       addToast('Generating PDF...', 'info');
@@ -366,14 +379,10 @@ export default function QuickReport() {
       const fileName = `${form.patient_name || 'Report'}_${dateStr}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-      // Only use navigator.share on mobile (desktop loses user gesture after async fetch)
+      // Share first, save only after successful share
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: fileName,
-          text: `Lab Report - ${form.patient_name}`,
-        });
+        await navigator.share({ files: [file], title: fileName, text: `Lab Report - ${form.patient_name}` });
         addToast('Shared successfully', 'success');
       } else {
         // Desktop: download PDF and open WhatsApp desktop app
@@ -384,8 +393,26 @@ export default function QuickReport() {
         window.open(`whatsapp://send?text=${encodeURIComponent(`Lab Report - ${form.patient_name}`)}`, '_self');
         addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
       }
+
+      // Save report only after successful share
+      if (needsSave) {
+        const resultArr = Object.entries(results).map(([uid, val]) => {
+          const param = parameters.find(p => p.uid === uid);
+          return { parameter_id: param?.id || parseInt(uid), param_name: param?.param_name || '', result_value: val.result_value, is_abnormal: val.is_abnormal };
+        });
+        const res = await api.createQuickReport({
+          patient_name: form.patient_name, age: parseInt(form.age) || 0, gender: form.gender, phone: form.phone,
+          referred_by: form.referred_by, specimen: form.specimen, test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
+        });
+        setSavedReportId(res.reportId);
+        setPrintData(res.report);
+        addToast('Report saved', 'success');
+      }
     } catch (err) {
-      if (err.name !== 'AbortError') {
+      if (err.name === 'AbortError') { setSaving(false); return; }
+      if (err.name === 'NotAllowedError' || err.message?.includes('user gesture') || err.message?.includes('not allowed')) {
+        addToast('Please try again', 'warning');
+      } else {
         addToast('Share failed: ' + err.message, 'error');
       }
     }
