@@ -3,10 +3,20 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
+  "author": {
+    "name": "PathLab Pro",
+    "email": "support@pathlabpro.com"
+  },
+  "description": "PathLab Pro - Pathology Laboratory Management System",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "electron .",
+    "electron:build": "electron-builder --win",
+    "electron:build:portable": "electron-builder --win portable",
+    "electron:build:all": "electron-builder --win nsis portable"
   },
   "dependencies": {
     "@sparticuz/chromium": "^149.0.0",
@@ -29,8 +39,53 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
     "vite": "^5.0.8"
+  },
+  "build": {
+    "appId": "com.pathlabpro.app",
+    "productName": "PathLab Pro",
+    "copyright": "Copyright © 2024 PathLab Pro",
+    "directories": {
+      "output": "electron-dist"
+    },
+    "files": [
+      "electron/**/*.cjs"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "PathLabPro-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PathLab Pro",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "PathLabPro-Portable-${version}.${ext}"
+    }
   }
 }
