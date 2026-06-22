@@ -1,0 +1,136 @@
+/**
+ * Electron API utilities for the React app.
+ * 
+ * These functions are safe to call in both web and Electron environments.
+ * They check for `window.electronAPI` before attempting native operations.
+ * 
+ * Usage:
+ *   import { isElectron, getPrinters, printPDF, saveFile } from '../utils/electron';
+ */
+
+// Check if running inside Electron
+export const isElectron = () => !!(window.electronAPI && window.electronAPI.isElectron);
+
+// Get app version (returns null in web)
+export const getAppVersion = async () => {
+  if (!isElectron()) return null;
+  return window.electronAPI.getVersion();
+};
+
+// ===== PRINTER FUNCTIONS =====
+
+// Get list of available printers
+export const getPrinters = async () => {
+  if (!isElectron()) return [];
+  return window.electronAPI.printer.list();
+};
+
+// Print current page to a specific printer
+export const printPage = async (options = {}) => {
+  if (!isElectron()) {
+    window.print();
+    return { success: true };
+  }
+  return window.electronAPI.printer.print(options);
+};
+
+// Print a PDF (base64) directly to a printer (e.g., barcode/label printer)
+export const printPDF = async ({ pdfBase64, printerName, copies = 1, silent = true }) => {
+  if (!isElectron()) return { success: false, errorType: 'Not in Electron' };
+  return window.electronAPI.printer.printPDF({ pdfBase64, printerName, copies, silent });
+};
+
+// ===== FILE OPERATIONS =====
+
+// Save a file with native dialog
+export const saveFile = async (data, options = {}) => {
+  if (!isElectron()) {
+    // Web fallback: trigger download
+    const blob = data instanceof Blob ? data : new Blob([data]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = options.defaultPath || 'file';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return { success: true, filePath: null };
+  }
+
+  const result = await window.electronAPI.file.saveDialog({
+    defaultPath: options.defaultPath || '',
+    filters: options.filters || [{ name: 'All Files', extensions: ['*'] }],
+    title: options.title || 'Save File',
+  });
+
+  if (result.canceled) return { success: false, canceled: true };
+
+  // Write the file
+  let fileData = data;
+  let encoding = 'utf8';
+  if (data instanceof Blob || data instanceof ArrayBuffer) {
+    const buffer = data instanceof Blob ? await data.arrayBuffer() : data;
+    fileData = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+    encoding = 'base64';
+  }
+
+  const writeResult = await window.electronAPI.file.write(result.filePath, fileData, encoding);
+  if (writeResult.success) {
+    return { success: true, filePath: result.filePath };
+  }
+  return { success: false, error: writeResult.error };
+};
+
+// Save a PDF blob to a user-chosen location
+export const savePDF = async (pdfBlob, defaultFileName = 'report.pdf') => {
+  return saveFile(pdfBlob, {
+    defaultPath: defaultFileName,
+    filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
+    title: 'Save PDF Report',
+  });
+};
+
+// Open file in explorer/finder
+export const showInFolder = async (filePath) => {
+  if (!isElectron()) return;
+  return window.electronAPI.file.openInExplorer(filePath);
+};
+
+// ===== AUTO-UPDATE =====
+
+// Check for updates manually
+export const checkForUpdates = async () => {
+  if (!isElectron()) return { updateAvailable: false };
+  return window.electronAPI.update.check();
+};
+
+// Install downloaded update (restarts app)
+export const installUpdate = () => {
+  if (!isElectron()) return;
+  window.electronAPI.update.install();
+};
+
+// Subscribe to update events (returns cleanup function)
+export const onUpdateStatus = (callback) => {
+  if (!isElectron()) return () => {};
+  return window.electronAPI.update.onStatus(callback);
+};
+
+export const onUpdateDownloaded = (callback) => {
+  if (!isElectron()) return () => {};
+  return window.electronAPI.update.onDownloaded(callback);
+};
+
+export const onUpdateProgress = (callback) => {
+  if (!isElectron()) return () => {};
+  return window.electronAPI.update.onProgress(callback);
+};
+
+// ===== SHELL =====
+
+export const openExternal = async (url) => {
+  if (!isElectron()) {
+    window.open(url, '_blank');
+    return;
+  }
+  return window.electronAPI.shell.openExternal(url);
+};
