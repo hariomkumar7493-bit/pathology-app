@@ -134,17 +134,19 @@ export default function QuickReport() {
   const handlePrint = () => {
     const printContent = printRef.current;
     if (!printContent) return;
+    const patientName = form.patient_name || 'Report';
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) { addToast('Popup blocked. Please allow popups.', 'warning'); return; }
     printWindow.document.write(`
       <html>
         <head>
-          <title>Lab Report</title>
+          <title>${patientName} - Lab Report</title>
           <style>
-            @page { margin: 10mm; size: A4; }
-            body { font-family: 'Times New Roman', serif; margin: 0; padding: 10mm; color: #000; font-size: 12px; }
+            @page { margin: 0; size: A4; }
+            body { font-family: 'Times New Roman', serif; margin: 0; padding: 12mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
-            h2 { text-align: center; font-size: 16px; text-decoration: underline; margin-bottom: 12px; }
+            h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
             th { text-align: left; padding: 4px 6px; }
             td { padding: 2px 6px; vertical-align: top; }
           </style>
@@ -154,7 +156,7 @@ export default function QuickReport() {
     `);
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
   };
 
   const handleSaveAndDownloadPdf = async () => {
@@ -192,13 +194,14 @@ export default function QuickReport() {
         const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
         const fileName = `${form.patient_name}_${dateStr}`;
         const pdfWindow = window.open('', '_blank', 'width=800,height=600');
+        if (!pdfWindow) { addToast('Popup blocked. Please allow popups.', 'warning'); return; }
         pdfWindow.document.write(`
           <html><head><title>${fileName}</title>
           <style>
-            @page { margin: 8mm; size: A4; }
-            body { font-family: 'Times New Roman', serif; margin: 0; padding: 8mm; color: #000; font-size: 12px; }
+            @page { margin: 0; size: A4; }
+            body { font-family: 'Times New Roman', serif; margin: 0; padding: 10mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
-            h2 { text-align: center; font-size: 16px; text-decoration: underline; margin-bottom: 12px; }
+            h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
             th { text-align: left; padding: 4px 6px; }
             td { padding: 2px 6px; vertical-align: top; }
           </style></head>
@@ -206,8 +209,8 @@ export default function QuickReport() {
         `);
         pdfWindow.document.close();
         pdfWindow.focus();
-        setTimeout(() => { pdfWindow.print(); }, 300);
-      }, 500);
+        setTimeout(() => { pdfWindow.print(); }, 400);
+      }, 800);
     } catch (err) {
       addToast('Error: ' + err.message, 'error');
     }

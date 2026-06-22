@@ -116,13 +116,14 @@ export default function Reports() {
         const el = bulkPrintRef.current;
         if (!el) return;
         const printWindow = window.open('', '_blank', 'width=800,height=600');
+        if (!printWindow) { addToast('Popup blocked. Please allow popups.', 'warning'); return; }
         printWindow.document.write(`
-          <html><head><title>Bulk Print</title>
+          <html><head><title>Lab Reports - Bulk Print</title>
           <style>
-            @page { margin: 10mm; size: A4; }
-            body { font-family: 'Times New Roman', serif; margin: 0; padding: 0; color: #000; font-size: 12px; }
+            @page { margin: 0; size: A4; }
+            body { font-family: 'Times New Roman', serif; margin: 0; padding: 12mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
-            h2 { text-align: center; font-size: 16px; text-decoration: underline; margin-bottom: 12px; }
+            h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
             th { text-align: left; padding: 4px 6px; }
             td { padding: 2px 6px; vertical-align: top; }
             .page-break { page-break-after: always; }
@@ -131,8 +132,8 @@ export default function Reports() {
         `);
         printWindow.document.close();
         printWindow.focus();
-        setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
-      }, 500);
+        setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
+      }, 800);
     } catch (err) {
       addToast('Failed to load reports: ' + err.message, 'error');
     }
@@ -155,15 +156,16 @@ export default function Reports() {
     if (!printContent) return;
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) { addToast('Popup blocked. Please allow popups.', 'warning'); return; }
     printWindow.document.write(`
       <html>
         <head>
-          <title>Lab Report - ${viewReport?.patient_name || ''}</title>
+          <title>${viewReport?.patient_name || 'Report'} - Lab Report</title>
           <style>
-            @page { margin: 10mm; size: A4; }
-            body { font-family: 'Times New Roman', serif; margin: 0; padding: 10mm; color: #000; font-size: 12px; }
+            @page { margin: 0; size: A4; }
+            body { font-family: 'Times New Roman', serif; margin: 0; padding: 12mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
-            h2 { text-align: center; font-size: 16px; text-decoration: underline; margin-bottom: 12px; }
+            h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
             th { text-align: left; padding: 4px 6px; }
             td { padding: 2px 6px; vertical-align: top; }
           </style>
@@ -173,7 +175,7 @@ export default function Reports() {
     `);
     printWindow.document.close();
     printWindow.focus();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
   };
 
   const handleDownloadPdf = (report) => {
@@ -184,15 +186,16 @@ export default function Reports() {
     const fileName = `${report.patient_name}_${dateStr}`;
 
     const pdfWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!pdfWindow) { addToast('Popup blocked. Please allow popups.', 'warning'); return; }
     pdfWindow.document.write(`
       <html>
         <head>
           <title>${fileName}</title>
           <style>
-            @page { margin: 8mm; size: A4; }
-            body { font-family: 'Times New Roman', serif; margin: 0; padding: 8mm; color: #000; font-size: 12px; }
+            @page { margin: 0; size: A4; }
+            body { font-family: 'Times New Roman', serif; margin: 0; padding: 10mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
-            h2 { text-align: center; font-size: 16px; text-decoration: underline; margin-bottom: 12px; }
+            h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
             th { text-align: left; padding: 4px 6px; }
             td { padding: 2px 6px; vertical-align: top; }
           </style>
@@ -202,7 +205,7 @@ export default function Reports() {
     `);
     pdfWindow.document.close();
     pdfWindow.focus();
-    setTimeout(() => { pdfWindow.print(); }, 300);
+    setTimeout(() => { pdfWindow.print(); }, 400);
   };
 
   const handleSaveResults = async () => {
