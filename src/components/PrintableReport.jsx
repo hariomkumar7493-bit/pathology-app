@@ -7,7 +7,7 @@ import { forwardRef, Fragment } from 'react';
   - thead/tfoot = invisible spacers to reserve space on each page.
 */
 
-const HEADER_H = 275;
+const BASE_HEADER_H = 275;
 const FOOTER_H_PDF = 130;
 const FOOTER_H_PRINT = 105;
 
@@ -16,6 +16,11 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
 
   const isPdf = mode === 'pdf';
   const footerH = isPdf ? FOOTER_H_PDF : FOOTER_H_PRINT;
+
+  // Add extra height for long investigation text (approx 80 chars per line, 14px per extra line)
+  const invLen = (report.investigation || '').length;
+  const extraLines = Math.max(0, Math.ceil(invLen / 80) - 1);
+  const HEADER_H = BASE_HEADER_H + (extraLines * 14);
 
   const formatDate = (d) => {
     if (!d) return '';
@@ -45,7 +50,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
     <div ref={ref} style={{ fontFamily: "'Times New Roman', serif", color: '#000', fontSize: '12px', lineHeight: '1.5', width: '100%' }}>
 
       {/* HEADER - position:fixed applied via CSS class in print window, NOT inline */}
-      <div className="page-header">
+      <div className="page-header" style={{ height: `${HEADER_H}px` }}>
         <div style={{ height: '140px' }}></div>
         <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px', textDecoration: 'underline', letterSpacing: '1px' }}>
           LABORATORY INVESTIGATION REPORT
@@ -98,7 +103,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
 
       {/* TABLE: invisible thead/tfoot spacers + content in tbody */}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead><tr><td style={{ height: `${HEADER_H}px`, padding: 0, border: 'none' }}></td></tr></thead>
+        <thead><tr><td style={{ height: `${HEADER_H + 5}px`, padding: 0, border: 'none' }}></td></tr></thead>
         <tfoot><tr><td style={{ height: `${footerH}px`, padding: 0, border: 'none' }}></td></tr></tfoot>
         <tbody>
           {Object.entries(groupedByCategory).map(([catName, groups]) => {
