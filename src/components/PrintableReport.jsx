@@ -63,53 +63,31 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
         {/* ===== REPEATING HEADER (every page) ===== */}
         <thead>
           <tr><td colSpan="3" style={{ padding: 0 }}>
-            <div style={{ position: 'relative' }}>
-              {/* PDF: Letterhead background for header */}
-              {isPdf && (
-                <img
-                  src={letterheadUrl}
-                  alt=""
-                  style={{
-                    position: 'absolute', top: 0, left: '-10mm', right: '-10mm',
-                    width: 'calc(100% + 20mm)', height: headerHeight,
-                    objectFit: 'cover', objectPosition: 'top',
-                    pointerEvents: 'none',
-                  }}
-                />
-              )}
-              {/* Spacing for letterhead */}
-              <div style={{ height: headerHeight }}></div>
-            </div>
-
+            {/* Spacing for letterhead (print: blank for pre-printed, pdf: letterhead image) */}
+            <div style={{ height: headerHeight }}></div>
             {/* Title */}
-            <h2 style={{ textAlign: 'center', fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', textDecoration: 'underline', letterSpacing: '1px', marginTop: '0' }}>
+            <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: 'bold', marginBottom: '10px', textDecoration: 'underline', letterSpacing: '1px' }}>
               LABORATORY INVESTIGATION REPORT
-            </h2>
-
-            {/* Patient Info */}
-            <table style={{ width: '100%', marginBottom: '8px', fontSize: '11px', borderCollapse: 'collapse' }}>
-              <tbody>
-                <tr>
-                  <td style={{ width: '45%' }}><strong>Patient Name</strong> : {report.patient_name || ''}</td>
-                  <td style={{ width: '25%', textAlign: 'center' }}><strong>Age/Sex</strong> : {report.age || ''} Yrs/{(report.gender || '')[0] || ''}</td>
-                  <td style={{ width: '30%', textAlign: 'right' }}><strong>Date of Collection</strong> : {formatDate(report.date_of_collection)}</td>
-                </tr>
-                <tr>
-                  <td><strong>Ref. by</strong> : {report.referred_by || 'SELF'}</td>
-                  <td></td>
-                  <td style={{ textAlign: 'right' }}><strong>Date of Reporting</strong> : {formatDate(report.date_of_reporting || report.created_at)}</td>
-                </tr>
-                <tr>
-                  <td><strong>Specimen</strong> : {specimens.join(', ') || report.specimen || 'BLOOD'}</td>
-                  <td></td>
-                  <td style={{ textAlign: 'right' }}><strong>Ref No</strong> : {report.ref_no || ''}</td>
-                </tr>
-                <tr>
-                  <td colSpan="3"><strong>Investigation</strong> : {report.investigation || ''}</td>
-                </tr>
-              </tbody>
-            </table>
-
+            </div>
+            {/* Patient Info - using flex rows instead of nested table */}
+            <div style={{ fontSize: '11px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ width: '45%' }}><strong>Patient Name</strong> : {report.patient_name || ''}</span>
+                <span style={{ width: '25%', textAlign: 'center' }}><strong>Age/Sex</strong> : {report.age || ''} Yrs/{(report.gender || '')[0] || ''}</span>
+                <span style={{ width: '30%', textAlign: 'right' }}><strong>Date of Collection</strong> : {formatDate(report.date_of_collection)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ width: '45%' }}><strong>Ref. by</strong> : {report.referred_by || 'SELF'}</span>
+                <span style={{ width: '25%' }}></span>
+                <span style={{ width: '30%', textAlign: 'right' }}><strong>Date of Reporting</strong> : {formatDate(report.date_of_reporting || report.created_at)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ width: '45%' }}><strong>Specimen</strong> : {specimens.join(', ') || report.specimen || 'BLOOD'}</span>
+                <span style={{ width: '25%' }}></span>
+                <span style={{ width: '30%', textAlign: 'right' }}><strong>Ref No</strong> : {report.ref_no || ''}</span>
+              </div>
+              <div><strong>Investigation</strong> : {report.investigation || ''}</div>
+            </div>
           </td></tr>
           {/* Column headers row */}
           <tr style={{ borderTop: '2px solid #000', borderBottom: '2px solid #000' }}>

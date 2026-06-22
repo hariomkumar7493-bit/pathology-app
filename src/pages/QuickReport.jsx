@@ -207,8 +207,7 @@ export default function QuickReport() {
         const fileName = `${form.patient_name}_${dateStr}`;
         const pdfWindow = window.open('', '_blank', 'width=800,height=600');
         if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
-        // Fix image URLs to absolute so they load in the new window
-        const htmlContent = pdfContent.outerHTML.replace(/src="\/letterhead\.png"/g, `src="${window.location.origin}/letterhead.png"`);
+        const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
         pdfWindow.document.write(`
           <html><head><title>${fileName}</title>
           <style>
@@ -221,8 +220,9 @@ export default function QuickReport() {
             h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
             th { text-align: left; padding: 4px 6px; }
             td { padding: 2px 6px; vertical-align: top; }
+            .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           </style></head>
-          <body>${htmlContent}</body></html>
+          <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${pdfContent.outerHTML}</body></html>
         `);
         pdfWindow.document.close();
         pdfWindow.focus();
