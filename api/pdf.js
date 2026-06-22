@@ -124,10 +124,12 @@ function buildReportHtml(report, letterheadUrl) {
   <!-- FOOTER -->
   <div class="page-footer" style="height:${FOOTER_H}px;">
     <div style="text-align:right;padding-right:20px;margin-bottom:8px;">
-      <img src="${signatureUrl}" alt="signature" style="height:13px;margin-left:auto;display:block;object-fit:contain;" />
-      <p style="font-weight:bold;font-size:13px;margin:0;text-decoration:underline;">${report.doctor_name || 'DR. C. ASHOK'}</p>
-      <p style="font-size:11px;margin:0;">${report.doctor_designation || 'MBBS MD (PATH)'}</p>
-      <p style="font-size:11px;margin:0;">(PATHOLOGIST)</p>
+      <div style="display:inline-block;text-align:left;">
+        <img src="${signatureUrl}" alt="signature" style="height:13px;display:block;margin-left:25px;object-fit:contain;" />
+        <p style="font-weight:bold;font-size:13px;margin:0;text-decoration:underline;">${report.doctor_name || 'DR. C. ASHOK'}</p>
+        <p style="font-size:11px;margin:0;">${report.doctor_designation || 'MBBS MD (PATH)'}</p>
+        <p style="font-size:11px;margin:0;">(PATHOLOGIST)</p>
+      </div>
     </div>
     <div style="border-top:1px solid #999;padding-top:3px;font-size:9px;color:#666;">
       <p style="margin:1px 0;">1. Result of tests may vary from Lab to Lab and also in some parameters from time to time for the same patient</p>

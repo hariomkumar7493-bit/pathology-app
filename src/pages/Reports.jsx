@@ -145,6 +145,51 @@ export default function Reports() {
     }
   };
 
+  const handleBulkShare = async () => {
+    if (selectedIds.length === 0) { addToast('Select at least one report', 'warning'); return; }
+    setSaving(true);
+    try {
+      addToast('Generating PDFs...', 'info');
+      const reportsData = await Promise.all(selectedIds.map(id => api.getReport(id)));
+      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const files = [];
+
+      for (const report of reportsData) {
+        const pdfRes = await fetch('/api/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ report, letterheadUrl }),
+        });
+        if (!pdfRes.ok) continue;
+        const pdfBlob = await pdfRes.blob();
+        const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+        const fileName = `${report.patient_name || 'Report'}_${dateStr}.pdf`;
+        files.push(new File([pdfBlob], fileName, { type: 'application/pdf' }));
+      }
+
+      if (files.length === 0) { addToast('Failed to generate PDFs', 'error'); setSaving(false); return; }
+
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile && navigator.canShare && navigator.canShare({ files })) {
+        await navigator.share({ files, title: 'Lab Reports', text: 'Lab Reports' });
+        addToast('Shared successfully', 'success');
+      } else {
+        // Desktop: download all PDFs and open WhatsApp
+        for (const file of files) {
+          const url = URL.createObjectURL(file);
+          const a = document.createElement('a');
+          a.href = url; a.download = file.name; a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+        window.open(`whatsapp://send?text=${encodeURIComponent(`Lab Reports (${files.length} files)`)}`, '_self');
+        addToast(`${files.length} PDF(s) downloaded. Attach in WhatsApp.`, 'info');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') addToast('Share failed: ' + err.message, 'error');
+    }
+    setSaving(false);
+  };
+
   const handleDeleteReport = async (reportId) => {
     if (!window.confirm('Are you sure you want to delete this report?')) return;
     try {
@@ -343,10 +388,16 @@ export default function Reports() {
           <p className="text-gray-500 text-sm mt-1">View, edit, and print test reports</p>
         </div>
         {selectedIds.length > 0 && (
-          <button onClick={handleBulkPrint} className="btn-primary flex items-center gap-2 w-fit">
-            <Printer className="w-4 h-4" />
-            Print Selected ({selectedIds.length})
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={handleBulkPrint} className="btn-primary flex items-center gap-2 w-fit">
+              <Printer className="w-4 h-4" />
+              Print ({selectedIds.length})
+            </button>
+            <button onClick={handleBulkShare} disabled={saving} className="flex items-center gap-2 w-fit px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium">
+              <Share2 className="w-4 h-4" />
+              {saving ? 'Sharing...' : `WhatsApp (${selectedIds.length})`}
+            </button>
+          </div>
         )}
       </div>
 
