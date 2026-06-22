@@ -74,6 +74,7 @@ function buildReportHtml(report, letterheadUrl) {
   return `<!DOCTYPE html>
 <html>
 <head>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&display=swap" rel="stylesheet">
 <style>
   @page { margin: 0; size: A4; }
   html, body { height: 100%; margin: 0; box-sizing: border-box; }
@@ -132,7 +133,7 @@ function buildReportHtml(report, letterheadUrl) {
       <p style="margin:1px 0;">1. Result of tests may vary from Lab to Lab and also in some parameters from time to time for the same patient</p>
       <p style="margin:1px 0;">2. The Report is not valid for medico legal purpose</p>
     </div>
-    <div style="margin-top:6px;background:#8B0000;color:#fff;padding:4px 10px;font-size:9px;text-align:center;">
+    <div style="margin-top:6px;background:#8B0000;color:#fff;padding:4px 10px;font-size:9px;text-align:center;font-family:'Noto Sans Devanagari',sans-serif;">
       (होम कलेक्शन फ्री उपलब्ध है) यहा पर सभी प्रकार पैथोलोजिकल जाँच की सुविधा उपलब्ध है. मो. - 9835310931
     </div>
   </div>
