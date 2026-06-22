@@ -374,12 +374,12 @@ export default function QuickReport() {
         });
         addToast('Shared successfully', 'success');
       } else {
-        // Desktop fallback: download PDF and open WhatsApp web
+        // Desktop fallback: download PDF and open WhatsApp desktop app
         const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url; a.download = fileName; a.click();
         URL.revokeObjectURL(url);
-        window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(`Lab Report - ${form.patient_name}`)}`, '_blank');
+        window.open(`whatsapp://send?text=${encodeURIComponent(`Lab Report - ${form.patient_name}`)}`, '_self');
         addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
       }
     } catch (err) {

@@ -263,7 +263,7 @@ export default function Reports() {
         const a = document.createElement('a');
         a.href = url; a.download = fileName; a.click();
         URL.revokeObjectURL(url);
-        window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(`Lab Report - ${report.patient_name}`)}`, '_blank');
+        window.open(`whatsapp://send?text=${encodeURIComponent(`Lab Report - ${report.patient_name}`)}`, '_self');
         addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
       }
     } catch (err) {
