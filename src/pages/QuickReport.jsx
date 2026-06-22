@@ -327,9 +327,30 @@ export default function QuickReport() {
   };
 
   const handleShareWhatsApp = async () => {
-    if (!printData) { addToast('Save the report first', 'warning'); return; }
-    
+    if (!form.patient_name) { addToast('Patient name is required', 'warning'); return; }
+    if (selectedTests.length === 0) { addToast('Select at least one test', 'warning'); return; }
+
+    setSaving(true);
     try {
+      // Auto-save if not already saved
+      let reportData = printData;
+      if (!reportData) {
+        const resultArr = Object.entries(results).map(([uid, val]) => {
+          const param = parameters.find(p => p.uid === uid);
+          return { parameter_id: param?.id || parseInt(uid), param_name: param?.param_name || '', result_value: val.result_value, is_abnormal: val.is_abnormal };
+        });
+        const res = await api.createQuickReport({
+          patient_name: form.patient_name, age: parseInt(form.age) || 0, gender: form.gender, phone: form.phone,
+          referred_by: form.referred_by, specimen: form.specimen, test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
+        });
+        setSavedReportId(res.reportId);
+        setPrintData(res.report);
+        reportData = res.report;
+        addToast('Report saved', 'success');
+      }
+
+      // Wait for render
+      await new Promise(r => setTimeout(r, 300));
       addToast('Generating PDF...', 'info');
       const el = shareRef.current;
       if (!el) { addToast('Report not ready', 'error'); return; }
@@ -397,6 +418,7 @@ export default function QuickReport() {
         addToast('Share failed: ' + err.message, 'error');
       }
     }
+    setSaving(false);
   };
 
   // Group tests by category for selection
@@ -665,12 +687,10 @@ export default function QuickReport() {
                   Save & Download PDF
                 </button>
               </div>
-              {printData && (
-                <button onClick={handleShareWhatsApp} className="w-full mt-2 flex items-center gap-2 justify-center py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors">
-                  <Share2 className="w-4 h-4" />
-                  Share on WhatsApp
-                </button>
-              )}
+              <button onClick={handleShareWhatsApp} disabled={saving} className="w-full mt-2 flex items-center gap-2 justify-center py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors disabled:opacity-50">
+                <Share2 className="w-4 h-4" />
+                Share on WhatsApp
+              </button>
             </>
           )}
         </div>
