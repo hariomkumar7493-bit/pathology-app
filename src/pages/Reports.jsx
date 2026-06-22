@@ -19,6 +19,7 @@ export default function Reports() {
   const [showAddTest, setShowAddTest] = useState(false);
   const [allTests, setAllTests] = useState([]);
   const [addTestSearch, setAddTestSearch] = useState('');
+  const [shareReady, setShareReady] = useState(null); // { files: File[], label: string }
   const bulkPrintRef = useRef();
   const printRef = useRef();
   const pdfRef = useRef();
@@ -169,30 +170,39 @@ export default function Reports() {
 
       if (files.length === 0) { addToast('Failed to generate PDFs', 'error'); setSaving(false); return; }
 
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      if (isMobile && navigator.canShare && navigator.canShare({ files })) {
-        await navigator.share({ files, title: 'Lab Reports', text: 'Lab Reports' });
-        addToast('Shared successfully', 'success');
-      } else {
-        // Desktop: download all PDFs and open WhatsApp
-        for (const file of files) {
-          const url = URL.createObjectURL(file);
-          const a = document.createElement('a');
-          a.href = url; a.download = file.name; a.click();
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        }
-        window.open(`whatsapp://send?text=${encodeURIComponent(`Lab Reports (${files.length} files)`)}`, '_self');
-        addToast(`${files.length} PDF(s) downloaded. Attach in WhatsApp.`, 'info');
-      }
+      // Store files and show "Tap to Share" button (fresh user gesture needed)
+      setShareReady({ files, label: `Lab Reports (${files.length})` });
+      addToast('PDFs ready! Tap "Tap to Share" to send.', 'success');
     } catch (err) {
-      if (err.name === 'AbortError') { setSaving(false); return; }
-      if (err.name === 'NotAllowedError' || err.message?.includes('user gesture') || err.message?.includes('not allowed')) {
-        addToast('Please try again', 'warning');
-      } else {
-        addToast('Share failed: ' + err.message, 'error');
-      }
+      addToast('Share failed: ' + err.message, 'error');
     }
     setSaving(false);
+  };
+
+  // Called by the "Tap to Share" button — fresh user gesture
+  const handleShareNow = async () => {
+    if (!shareReady) return;
+    const { files, label } = shareReady;
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile && navigator.canShare && navigator.canShare({ files })) {
+      try {
+        await navigator.share({ files, title: label, text: label });
+        addToast('Shared successfully', 'success');
+      } catch (err) {
+        if (err.name === 'AbortError') { setShareReady(null); return; }
+        addToast('Share failed: ' + err.message, 'error');
+      }
+    } else {
+      for (const file of files) {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = url; a.download = file.name; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      window.open(`whatsapp://send?text=${encodeURIComponent(label)}`, '_self');
+      addToast('PDF(s) downloaded. Attach in WhatsApp.', 'info');
+    }
+    setShareReady(null);
   };
 
   const handleDeleteReport = async (reportId) => {
@@ -288,7 +298,6 @@ export default function Reports() {
       addToast('Generating PDF...', 'info');
       const letterheadUrl = `${window.location.origin}/letterhead.png`;
 
-      // Generate PDF on server using Puppeteer (works on all devices)
       const pdfRes = await fetch('/api/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -305,26 +314,11 @@ export default function Reports() {
       const fileName = `${report.patient_name || 'Report'}_${dateStr}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-      // Only use navigator.share on mobile (desktop loses user gesture after async fetch)
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: fileName, text: `Lab Report - ${report.patient_name}` });
-        addToast('Shared successfully', 'success');
-      } else {
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement('a');
-        a.href = url; a.download = fileName; a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        window.open(`whatsapp://send?text=${encodeURIComponent(`Lab Report - ${report.patient_name}`)}`, '_self');
-        addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
-      }
+      // Store file and show "Tap to Share" button
+      setShareReady({ files: [file], label: `Lab Report - ${report.patient_name}` });
+      addToast('PDF ready! Tap "Tap to Share" to send.', 'success');
     } catch (err) {
-      if (err.name === 'AbortError') return;
-      if (err.name === 'NotAllowedError' || err.message?.includes('user gesture') || err.message?.includes('not allowed')) {
-        addToast('Please try again', 'warning');
-      } else {
-        addToast('Share failed: ' + err.message, 'error');
-      }
+      addToast('Share failed: ' + err.message, 'error');
     }
   };
 
@@ -740,6 +734,28 @@ export default function Reports() {
           </div>
         ))}
       </div>
+
+      {/* Floating "Tap to Share" button */}
+      {shareReady && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-end sm:items-center justify-center" onClick={() => setShareReady(null)}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+            <p className="text-center text-gray-700 font-medium mb-1">
+              {shareReady.files.length} PDF{shareReady.files.length > 1 ? 's' : ''} ready
+            </p>
+            <p className="text-center text-gray-400 text-sm mb-4">Tap below to share via WhatsApp</p>
+            <button
+              onClick={handleShareNow}
+              className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold text-lg hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <Share2 className="w-5 h-5" />
+              Tap to Share
+            </button>
+            <button onClick={() => setShareReady(null)} className="w-full mt-2 py-2 text-gray-500 text-sm hover:text-gray-700">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -64,13 +64,20 @@ router.get('/', async (req, res) => {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Map recent reports (patient_name is already stored on report from quick-report creation)
-    const recentReportsFormatted = recentReports.map(r => ({
-      id: r._id,
-      patient_name: r.patient_name || 'Unknown',
-      investigation: r.investigation || '',
-      status: r.status,
-      ref_no: r.ref_no,
+    // Map recent reports - look up patient name from patients collection
+    const recentReportsFormatted = await Promise.all(recentReports.map(async (r) => {
+      let patientName = r.patient_name;
+      if (!patientName && r.patient_id) {
+        const patient = await patientsCollection.findOne({ _id: r.patient_id });
+        patientName = patient?.name;
+      }
+      return {
+        id: r._id,
+        patient_name: patientName || 'Unknown',
+        investigation: r.investigation || '',
+        status: r.status,
+        ref_no: r.ref_no,
+      };
     }));
 
     res.json({

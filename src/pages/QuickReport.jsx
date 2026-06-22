@@ -16,6 +16,7 @@ export default function QuickReport() {
   const [printData, setPrintData] = useState(null);
   const [testSearch, setTestSearch] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [shareReady, setShareReady] = useState(null); // { files: File[], label: string, needsSave: bool, saveData: obj }
   const printRef = useRef();
   const pdfRef = useRef();
   const { addToast } = useToast();
@@ -362,7 +363,6 @@ export default function QuickReport() {
       addToast('Generating PDF...', 'info');
       const letterheadUrl = `${window.location.origin}/letterhead.png`;
 
-      // Generate PDF on server using Puppeteer (works on all devices)
       const pdfRes = await fetch('/api/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -379,23 +379,46 @@ export default function QuickReport() {
       const fileName = `${form.patient_name || 'Report'}_${dateStr}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-      // Share first, save only after successful share
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: fileName, text: `Lab Report - ${form.patient_name}` });
-        addToast('Shared successfully', 'success');
-      } else {
-        // Desktop: download PDF and open WhatsApp desktop app
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement('a');
-        a.href = url; a.download = fileName; a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        window.open(`whatsapp://send?text=${encodeURIComponent(`Lab Report - ${form.patient_name}`)}`, '_self');
-        addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
-      }
+      // Store file and show "Tap to Share" modal
+      setShareReady({ files: [file], label: `Lab Report - ${form.patient_name}`, needsSave });
+      addToast('PDF ready! Tap "Tap to Share" to send.', 'success');
+    } catch (err) {
+      addToast('Share failed: ' + err.message, 'error');
+    }
+    setSaving(false);
+  };
 
-      // Save report only after successful share
-      if (needsSave) {
+  // Called by the "Tap to Share" button — fresh user gesture
+  const handleShareNow = async () => {
+    if (!shareReady) return;
+    const { files, label, needsSave } = shareReady;
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    let shared = false;
+    if (isMobile && navigator.canShare && navigator.canShare({ files })) {
+      try {
+        await navigator.share({ files, title: label, text: label });
+        shared = true;
+        addToast('Shared successfully', 'success');
+      } catch (err) {
+        if (err.name === 'AbortError') { setShareReady(null); return; }
+        addToast('Share failed: ' + err.message, 'error');
+      }
+    }
+    if (!shared) {
+      for (const file of files) {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = url; a.download = file.name; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      window.open(`whatsapp://send?text=${encodeURIComponent(label)}`, '_self');
+      addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
+      shared = true;
+    }
+
+    // Save report after successful share
+    if (shared && needsSave) {
+      try {
         const resultArr = Object.entries(results).map(([uid, val]) => {
           const param = parameters.find(p => p.uid === uid);
           return { parameter_id: param?.id || parseInt(uid), param_name: param?.param_name || '', result_value: val.result_value, is_abnormal: val.is_abnormal };
@@ -407,16 +430,11 @@ export default function QuickReport() {
         setSavedReportId(res.reportId);
         setPrintData(res.report);
         addToast('Report saved', 'success');
-      }
-    } catch (err) {
-      if (err.name === 'AbortError') { setSaving(false); return; }
-      if (err.name === 'NotAllowedError' || err.message?.includes('user gesture') || err.message?.includes('not allowed')) {
-        addToast('Please try again', 'warning');
-      } else {
-        addToast('Share failed: ' + err.message, 'error');
+      } catch (err) {
+        addToast('Failed to save report: ' + err.message, 'error');
       }
     }
-    setSaving(false);
+    setShareReady(null);
   };
 
   // Group tests by category for selection
@@ -702,6 +720,28 @@ export default function QuickReport() {
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
         <PrintableReport ref={pdfRef} report={printData} mode="pdf" />
       </div>
+
+      {/* Floating "Tap to Share" modal */}
+      {shareReady && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-end sm:items-center justify-center" onClick={() => setShareReady(null)}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl p-6 w-full sm:max-w-sm shadow-xl" onClick={e => e.stopPropagation()}>
+            <p className="text-center text-gray-700 font-medium mb-1">
+              {shareReady.files.length} PDF{shareReady.files.length > 1 ? 's' : ''} ready
+            </p>
+            <p className="text-center text-gray-400 text-sm mb-4">Tap below to share via WhatsApp</p>
+            <button
+              onClick={handleShareNow}
+              className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold text-lg hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <Share2 className="w-5 h-5" />
+              Tap to Share
+            </button>
+            <button onClick={() => setShareReady(null)} className="w-full mt-2 py-2 text-gray-500 text-sm hover:text-gray-700">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
