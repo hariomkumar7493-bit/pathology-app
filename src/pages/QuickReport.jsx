@@ -689,7 +689,7 @@ export default function QuickReport() {
               </div>
               <button onClick={handleShareWhatsApp} disabled={saving} className="w-full mt-2 flex items-center gap-2 justify-center py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors disabled:opacity-50">
                 <Share2 className="w-4 h-4" />
-                Share on WhatsApp
+                Save & Share on WhatsApp
               </button>
             </>
           )}
