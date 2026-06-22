@@ -3,6 +3,8 @@ import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronD
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
+import { isElectron } from '../utils/electron';
+import { electronPrint, electronGeneratePDF } from '../utils/electronPrint';
 
 export default function QuickReport() {
   const [tests, setTests] = useState([]);
@@ -205,10 +207,18 @@ export default function QuickReport() {
     setSaving(false);
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const printContent = printRef.current;
     if (!printContent) return;
     const patientName = form.patient_name || 'Report';
+
+    // Electron: print directly without popup
+    if (isElectron()) {
+      const success = await electronPrint(printContent, { patientName });
+      if (success) { addToast('Sent to printer', 'success'); }
+      else { addToast('Print failed', 'error'); }
+      return;
+    }
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { window.alert('Popup blocked!\\n\\nTo fix:\\n1. Click the blocked popup icon in the address bar\\n2. Select "Always allow popups"\\n3. Click the button again'); return; }
@@ -360,24 +370,32 @@ export default function QuickReport() {
         };
       }
 
-      addToast('Generating PDF...', 'info');
-      const letterheadUrl = `${window.location.origin}/letterhead.png`;
-
-      const pdfRes = await fetch('/api/pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: reportData, letterheadUrl }),
-      });
-
-      if (!pdfRes.ok) {
-        const err = await pdfRes.json().catch(() => ({ error: 'PDF generation failed' }));
-        throw new Error(err.error || 'PDF generation failed');
-      }
-
-      const pdfBlob = await pdfRes.blob();
       const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${form.patient_name || 'Report'}_${dateStr}.pdf`;
-      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      let file;
+
+      // Electron: generate PDF locally (instant, no server)
+      if (isElectron()) {
+        addToast('Generating PDF...', 'info');
+        const pdfContent = pdfRef.current;
+        file = await electronGeneratePDF(pdfContent, { patientName: form.patient_name, letterheadUrl, fileName });
+        if (!file) throw new Error('Local PDF generation failed');
+      } else {
+        // Web: use server endpoint
+        addToast('Generating PDF...', 'info');
+        const pdfRes = await fetch('/api/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ report: reportData, letterheadUrl }),
+        });
+        if (!pdfRes.ok) {
+          const err = await pdfRes.json().catch(() => ({ error: 'PDF generation failed' }));
+          throw new Error(err.error || 'PDF generation failed');
+        }
+        const pdfBlob = await pdfRes.blob();
+        file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+      }
 
       // Store file and show "Tap to Share" modal
       setShareReady({ files: [file], label: `Lab Report - ${form.patient_name}`, needsSave });

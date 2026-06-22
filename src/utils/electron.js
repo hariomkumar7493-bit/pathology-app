@@ -17,6 +17,43 @@ export const getAppVersion = async () => {
   return window.electronAPI.getVersion();
 };
 
+// ===== LOCAL PDF GENERATION (instant in Electron, no server roundtrip) =====
+
+// Generate PDF from HTML string — returns base64 PDF data
+export const generatePDFLocal = async (html, fileName = 'report.pdf') => {
+  if (!isElectron()) return null; // Fallback to server in web
+  const result = await window.electronAPI.pdf.generate(html, fileName);
+  if (!result.success) throw new Error(result.error);
+  // Convert base64 to Blob
+  const byteChars = atob(result.data);
+  const byteArray = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+  return new File([byteArray], fileName, { type: 'application/pdf' });
+};
+
+// Generate PDF and save to Downloads folder — returns file path
+export const generateAndSavePDF = async (html, fileName = 'report.pdf') => {
+  if (!isElectron()) return null;
+  const result = await window.electronAPI.pdf.generateAndSave(html, fileName);
+  if (!result.success) throw new Error(result.error);
+  return result.filePath;
+};
+
+// Print HTML directly to printer (silent, no dialog)
+export const printDirect = async (html, options = {}) => {
+  if (!isElectron()) {
+    // Web fallback: use window.print()
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+      printWin.document.write(html);
+      printWin.document.close();
+      setTimeout(() => printWin.print(), 400);
+    }
+    return { success: true };
+  }
+  return window.electronAPI.pdf.printDirect(html, options);
+};
+
 // ===== PRINTER FUNCTIONS =====
 
 // Get list of available printers

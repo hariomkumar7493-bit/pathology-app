@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Production URL - your deployed web application
-const PRODUCTION_URL = 'https://app.pathlabpro.com';
+const PRODUCTION_URL = 'https://patholabpro.online';
 // Development URL - local React dev server (matches vite.config.js port)
 const DEV_URL = 'http://localhost:3000';
 
@@ -97,17 +97,20 @@ function createWindow() {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
 
-  // Handle external links - open in default browser
+  // Handle external links and popups
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // Allow whatsapp:// protocol
     if (url.startsWith('whatsapp://')) {
       shell.openExternal(url);
       return { action: 'deny' };
     }
+    // Allow popups for app domain (needed for print windows)
+    if (url.includes('patholabpro.online') || url.includes('localhost') || url === 'about:blank') {
+      return { action: 'allow' };
+    }
+    // External URLs - open in default browser
     if (url.startsWith('http://') || url.startsWith('https://')) {
-      if (!url.includes('pathlabpro.com') && !url.includes('localhost')) {
-        shell.openExternal(url);
-        return { action: 'deny' };
-      }
+      shell.openExternal(url);
     }
     return { action: 'deny' };
   });
@@ -270,6 +273,104 @@ ipcMain.handle('printer:printPDF', async (event, { pdfBase64, printerName, copie
     });
   } catch (err) {
     try { fs.unlinkSync(tempPath); } catch (e) {}
+    return { success: false, errorType: err.message };
+  }
+});
+
+// ===== IPC: LOCAL PDF GENERATION (instant, no server needed) =====
+ipcMain.handle('pdf:generate', async (event, { html, fileName }) => {
+  try {
+    const pdfWin = new BrowserWindow({
+      show: false,
+      width: 794,  // A4 width in px at 96dpi
+      height: 1123, // A4 height in px at 96dpi
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+
+    // Load HTML content directly
+    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+    // Wait for images/fonts to load
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const pdfBuffer = await pdfWin.webContents.printToPDF({
+      printBackground: true,
+      preferCSSPageSize: true,
+      pageSize: 'A4',
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    });
+
+    pdfWin.close();
+
+    // Return as base64
+    return { success: true, data: pdfBuffer.toString('base64'), fileName };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// Generate PDF and save directly to Downloads folder
+ipcMain.handle('pdf:generateAndSave', async (event, { html, fileName }) => {
+  try {
+    const pdfWin = new BrowserWindow({
+      show: false,
+      width: 794,
+      height: 1123,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+
+    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const pdfBuffer = await pdfWin.webContents.printToPDF({
+      printBackground: true,
+      preferCSSPageSize: true,
+      pageSize: 'A4',
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+    });
+
+    pdfWin.close();
+
+    // Save to Downloads folder
+    const downloadsPath = app.getPath('downloads');
+    const filePath = path.join(downloadsPath, fileName || 'report.pdf');
+    fs.writeFileSync(filePath, pdfBuffer);
+
+    return { success: true, filePath, data: pdfBuffer.toString('base64') };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// Print page directly without dialog
+ipcMain.handle('pdf:printDirect', async (event, { html, printerName, copies, silent }) => {
+  try {
+    const printWin = new BrowserWindow({
+      show: false,
+      width: 794,
+      height: 1123,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+
+    await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    return new Promise((resolve) => {
+      printWin.webContents.print(
+        {
+          silent: silent !== false,
+          printBackground: true,
+          deviceName: printerName || '',
+          copies: copies || 1,
+          pageSize: 'A4',
+        },
+        (success, errorType) => {
+          printWin.close();
+          resolve({ success, errorType });
+        }
+      );
+    });
+  } catch (err) {
     return { success: false, errorType: err.message };
   }
 });

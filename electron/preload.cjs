@@ -37,6 +37,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openInExplorer: (filePath) => ipcRenderer.invoke('file:openInExplorer', filePath),
   },
 
+  // ===== LOCAL PDF (instant, no server needed) =====
+  pdf: {
+    generate: (html, fileName) => ipcRenderer.invoke('pdf:generate', { html, fileName }),
+    generateAndSave: (html, fileName) => ipcRenderer.invoke('pdf:generateAndSave', { html, fileName }),
+    printDirect: (html, options) => ipcRenderer.invoke('pdf:printDirect', { html, ...options }),
+  },
+
   // ===== PRINTER ACCESS =====
   printer: {
     list: () => ipcRenderer.invoke('printer:list'),
