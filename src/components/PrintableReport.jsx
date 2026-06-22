@@ -46,7 +46,9 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
       fontFamily: "'Times New Roman', serif",
       padding: '0', color: '#000', fontSize: '12px', lineHeight: '1.5',
       width: '100%', position: 'relative',
-      minHeight: isPdf ? '265mm' : 'auto',
+      minHeight: isPdf ? '277mm' : '273mm',
+      maxHeight: isPdf ? '277mm' : '273mm',
+      overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
     }}>
 

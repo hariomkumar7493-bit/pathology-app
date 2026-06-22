@@ -116,7 +116,7 @@ export default function Reports() {
         const el = bulkPrintRef.current;
         if (!el) return;
         const printWindow = window.open('', '_blank', 'width=800,height=600');
-        if (!printWindow) { addToast('Popup blocked. Please allow popups.', 'warning'); return; }
+        if (!printWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
         printWindow.document.write(`
           <html><head><title>Lab Reports - Bulk Print</title>
           <style>
@@ -133,8 +133,8 @@ export default function Reports() {
         `);
         printWindow.document.close();
         printWindow.focus();
-        setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
-      }, 800);
+        setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
+      }, 400);
     } catch (err) {
       addToast('Failed to load reports: ' + err.message, 'error');
     }
@@ -157,7 +157,7 @@ export default function Reports() {
     if (!printContent) return;
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) { addToast('Popup blocked. Please allow popups.', 'warning'); return; }
+    if (!printWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
     printWindow.document.write(`
       <html>
         <head>
@@ -188,7 +188,7 @@ export default function Reports() {
     const fileName = `${report.patient_name}_${dateStr}`;
 
     const pdfWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!pdfWindow) { addToast('Popup blocked. Please allow popups.', 'warning'); return; }
+    if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
     pdfWindow.document.write(`
       <html>
         <head>

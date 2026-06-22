@@ -96,11 +96,15 @@ export default function QuickReport() {
 
     setSaving(true);
     try {
-      const resultArr = Object.entries(results).map(([paramId, val]) => ({
-        parameter_id: parseInt(paramId),
-        result_value: val.result_value,
-        is_abnormal: val.is_abnormal,
-      }));
+      const resultArr = Object.entries(results).map(([paramId, val]) => {
+        const param = parameters.find(p => String(p.id || p.sort_order) === paramId);
+        return {
+          parameter_id: parseInt(paramId),
+          param_name: param?.param_name || '',
+          result_value: val.result_value,
+          is_abnormal: val.is_abnormal,
+        };
+      });
 
       const res = await api.createQuickReport({
         patient_name: form.patient_name,
@@ -124,7 +128,7 @@ export default function QuickReport() {
       // Print after small delay
       setTimeout(() => {
         handlePrint();
-      }, 500);
+      }, 300);
     } catch (err) {
       addToast('Error: ' + err.message, 'error');
     }
@@ -137,7 +141,7 @@ export default function QuickReport() {
     const patientName = form.patient_name || 'Report';
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) { addToast('Popup blocked. Please allow popups.', 'warning'); return; }
+    if (!printWindow) { window.alert('Popup blocked!\\n\\nTo fix:\\n1. Click the blocked popup icon in the address bar\\n2. Select "Always allow popups"\\n3. Click the button again'); return; }
     printWindow.document.write(`
       <html>
         <head>
@@ -166,11 +170,15 @@ export default function QuickReport() {
 
     setSaving(true);
     try {
-      const resultArr = Object.entries(results).map(([paramId, val]) => ({
-        parameter_id: parseInt(paramId),
-        result_value: val.result_value,
-        is_abnormal: val.is_abnormal,
-      }));
+      const resultArr = Object.entries(results).map(([paramId, val]) => {
+        const param = parameters.find(p => String(p.id || p.sort_order) === paramId);
+        return {
+          parameter_id: parseInt(paramId),
+          param_name: param?.param_name || '',
+          result_value: val.result_value,
+          is_abnormal: val.is_abnormal,
+        };
+      });
 
       const res = await api.createQuickReport({
         patient_name: form.patient_name,
@@ -195,7 +203,7 @@ export default function QuickReport() {
         const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
         const fileName = `${form.patient_name}_${dateStr}`;
         const pdfWindow = window.open('', '_blank', 'width=800,height=600');
-        if (!pdfWindow) { addToast('Popup blocked. Please allow popups.', 'warning'); return; }
+        if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
         pdfWindow.document.write(`
           <html><head><title>${fileName}</title>
           <style>
@@ -212,7 +220,7 @@ export default function QuickReport() {
         pdfWindow.document.close();
         pdfWindow.focus();
         setTimeout(() => { pdfWindow.print(); }, 400);
-      }, 800);
+      }, 400);
     } catch (err) {
       addToast('Error: ' + err.message, 'error');
     }
