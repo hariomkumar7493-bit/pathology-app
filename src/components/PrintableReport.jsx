@@ -68,10 +68,10 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
       )}
 
       {/* PDF mode: spacing for letterhead header area */}
-      {isPdf && <div style={{ height: '95px' }}></div>}
+      {isPdf && <div style={{ height: '140px' }}></div>}
 
       {/* Print mode: top spacing for pre-printed header */}
-      {!isPdf && <div style={{ height: '110px' }}></div>}
+      {!isPdf && <div style={{ height: '140px' }}></div>}
 
       {/* ===== MAIN CONTENT ===== */}
       <div style={{ position: 'relative', zIndex: 1, flex: 1 }}>
