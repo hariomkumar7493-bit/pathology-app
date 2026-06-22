@@ -24,7 +24,6 @@ export default function Reports() {
   const bulkPrintRef = useRef();
   const printRef = useRef();
   const pdfRef = useRef();
-  const shareRef = useRef();
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -239,22 +238,56 @@ export default function Reports() {
     if (!report) return;
     try {
       addToast('Generating PDF...', 'info');
-      const el = shareRef.current;
-      if (!el) { addToast('Report not ready', 'error'); return; }
+      const pdfContent = pdfRef.current;
+      if (!pdfContent) { addToast('Report not ready', 'error'); return; }
 
-      el.parentElement.style.position = 'fixed';
-      el.parentElement.style.left = '0';
-      el.parentElement.style.top = '0';
-      el.parentElement.style.width = '210mm';
-      el.parentElement.style.opacity = '0';
-      el.parentElement.style.zIndex = '-9999';
+      const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
 
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, width: el.scrollWidth, height: el.scrollHeight });
+      // Build exact same HTML as PDF download in a hidden iframe
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;left:0;top:0;width:210mm;height:297mm;opacity:0;z-index:-9999;border:none;';
+      document.body.appendChild(iframe);
 
-      el.parentElement.style.position = 'absolute';
-      el.parentElement.style.left = '-9999px';
-      el.parentElement.style.opacity = '1';
-      el.parentElement.style.zIndex = '';
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      iframeDoc.open();
+      iframeDoc.write(`
+        <html><head>
+        <style>
+          @page { margin: 0; size: A4; }
+          html, body { height: 100%; margin: 0; box-sizing: border-box; }
+          body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          table { border-collapse: collapse; width: 100%; }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
+          thead td, tfoot td { padding: 0; }
+          .page-header { position: fixed; top: 0; left: 0; right: 0; z-index: 2; }
+          .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; }
+          .letterhead-bg { position: absolute; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; }
+        </style></head>
+        <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${pdfContent.outerHTML}</body></html>
+      `);
+      iframeDoc.close();
+
+      // Wait for images to load inside iframe
+      await new Promise(resolve => {
+        const imgs = iframeDoc.images;
+        if (imgs.length === 0) { resolve(); return; }
+        let loaded = 0;
+        const check = () => { loaded++; if (loaded >= imgs.length) resolve(); };
+        for (let i = 0; i < imgs.length; i++) {
+          if (imgs[i].complete) check(); else { imgs[i].onload = check; imgs[i].onerror = check; }
+        }
+        setTimeout(resolve, 3000);
+      });
+
+      const canvas = await html2canvas(iframeDoc.body, {
+        scale: 2, useCORS: true,
+        width: iframeDoc.body.scrollWidth,
+        height: iframeDoc.body.scrollHeight,
+        windowWidth: iframeDoc.body.scrollWidth,
+      });
+
+      document.body.removeChild(iframe);
 
       const imgData = canvas.toDataURL('image/jpeg', 0.85);
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -684,13 +717,6 @@ export default function Reports() {
       {viewReport && (
         <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
           <PrintableReport ref={pdfRef} report={viewReport} mode="pdf" />
-        </div>
-      )}
-
-      {/* Hidden Share Component (for WhatsApp PDF generation) */}
-      {viewReport && (
-        <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm' }}>
-          <PrintableReport ref={shareRef} report={viewReport} mode="pdf" />
         </div>
       )}
 

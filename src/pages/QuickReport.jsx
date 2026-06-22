@@ -20,7 +20,6 @@ export default function QuickReport() {
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const printRef = useRef();
   const pdfRef = useRef();
-  const shareRef = useRef();
   const { addToast } = useToast();
 
   const [form, setForm] = useState({
@@ -333,8 +332,7 @@ export default function QuickReport() {
     setSaving(true);
     try {
       // Auto-save if not already saved
-      let reportData = printData;
-      if (!reportData) {
+      if (!printData) {
         const resultArr = Object.entries(results).map(([uid, val]) => {
           const param = parameters.find(p => p.uid === uid);
           return { parameter_id: param?.id || parseInt(uid), param_name: param?.param_name || '', result_value: val.result_value, is_abnormal: val.is_abnormal };
@@ -345,36 +343,63 @@ export default function QuickReport() {
         });
         setSavedReportId(res.reportId);
         setPrintData(res.report);
-        reportData = res.report;
         addToast('Report saved', 'success');
       }
 
-      // Wait for render
-      await new Promise(r => setTimeout(r, 300));
+      // Wait for pdfRef to render
+      await new Promise(r => setTimeout(r, 500));
+      const pdfContent = pdfRef.current;
+      if (!pdfContent) { addToast('Report not ready, try again', 'error'); setSaving(false); return; }
+
       addToast('Generating PDF...', 'info');
-      const el = shareRef.current;
-      if (!el) { addToast('Report not ready', 'error'); return; }
+      const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
 
-      // Make visible temporarily for html2canvas
-      el.parentElement.style.position = 'fixed';
-      el.parentElement.style.left = '0';
-      el.parentElement.style.top = '0';
-      el.parentElement.style.width = '210mm';
-      el.parentElement.style.opacity = '0';
-      el.parentElement.style.zIndex = '-9999';
+      // Build the exact same HTML as PDF download in a hidden iframe
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;left:0;top:0;width:210mm;height:297mm;opacity:0;z-index:-9999;border:none;';
+      document.body.appendChild(iframe);
 
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        width: el.scrollWidth,
-        height: el.scrollHeight,
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      iframeDoc.open();
+      iframeDoc.write(`
+        <html><head>
+        <style>
+          @page { margin: 0; size: A4; }
+          html, body { height: 100%; margin: 0; box-sizing: border-box; }
+          body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          table { border-collapse: collapse; width: 100%; }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
+          thead td, tfoot td { padding: 0; }
+          .page-header { position: fixed; top: 0; left: 0; right: 0; z-index: 2; }
+          .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; }
+          .letterhead-bg { position: absolute; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; }
+        </style></head>
+        <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${pdfContent.outerHTML}</body></html>
+      `);
+      iframeDoc.close();
+
+      // Wait for images to load inside iframe
+      await new Promise(resolve => {
+        const imgs = iframeDoc.images;
+        if (imgs.length === 0) { resolve(); return; }
+        let loaded = 0;
+        const check = () => { loaded++; if (loaded >= imgs.length) resolve(); };
+        for (let i = 0; i < imgs.length; i++) {
+          if (imgs[i].complete) check(); else { imgs[i].onload = check; imgs[i].onerror = check; }
+        }
+        setTimeout(resolve, 3000); // fallback timeout
       });
 
-      // Hide again
-      el.parentElement.style.position = 'absolute';
-      el.parentElement.style.left = '-9999px';
-      el.parentElement.style.opacity = '1';
-      el.parentElement.style.zIndex = '';
+      const canvas = await html2canvas(iframeDoc.body, {
+        scale: 2,
+        useCORS: true,
+        width: iframeDoc.body.scrollWidth,
+        height: iframeDoc.body.scrollHeight,
+        windowWidth: iframeDoc.body.scrollWidth,
+      });
+
+      document.body.removeChild(iframe);
 
       const imgData = canvas.toDataURL('image/jpeg', 0.85);
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -405,12 +430,9 @@ export default function QuickReport() {
         // Desktop fallback: download PDF and open WhatsApp web
         const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.click();
+        a.href = url; a.download = fileName; a.click();
         URL.revokeObjectURL(url);
-        const waUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(`Lab Report - ${form.patient_name}`)}`;
-        window.open(waUrl, '_blank');
+        window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(`Lab Report - ${form.patient_name}`)}`, '_blank');
         addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
       }
     } catch (err) {
@@ -703,10 +725,6 @@ export default function QuickReport() {
       {/* Hidden PDF Component */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
         <PrintableReport ref={pdfRef} report={printData} mode="pdf" />
-      </div>
-      {/* Hidden Share Component (for WhatsApp PDF generation) */}
-      <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm' }}>
-        <PrintableReport ref={shareRef} report={printData} mode="pdf" />
       </div>
     </div>
   );
