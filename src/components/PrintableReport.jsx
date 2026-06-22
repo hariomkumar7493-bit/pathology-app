@@ -7,9 +7,9 @@ import { forwardRef, Fragment } from 'react';
   - thead/tfoot = invisible spacers to reserve space on each page.
 */
 
-const HEADER_H = 230;
-const FOOTER_H_PDF = 110;
-const FOOTER_H_PRINT = 100;
+const HEADER_H = 260;
+const FOOTER_H_PDF = 130;
+const FOOTER_H_PRINT = 105;
 
 const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
   if (!report) return null;
