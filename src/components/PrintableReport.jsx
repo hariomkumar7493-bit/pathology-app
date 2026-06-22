@@ -7,7 +7,7 @@ import { forwardRef, Fragment } from 'react';
   - thead/tfoot = invisible spacers to reserve space on each page.
 */
 
-const HEADER_H = 250;
+const HEADER_H = 230;
 const FOOTER_H_PDF = 110;
 const FOOTER_H_PRINT = 100;
 
@@ -66,7 +66,6 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
             <span style={{ width: '25%' }}></span>
             <span style={{ width: '30%', textAlign: 'right' }}><strong>Ref No</strong> : {report.ref_no || ''}</span>
           </div>
-          <div><strong>Investigation</strong> : {report.investigation || ''}</div>
         </div>
         <div style={{ display: 'flex', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontWeight: 'bold', fontSize: '11px' }}>
           <div style={{ width: '45%', padding: '4px 6px' }}>Test Description</div>
@@ -98,6 +97,14 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
         <thead><tr><td style={{ height: `${HEADER_H}px`, padding: 0, border: 'none' }}></td></tr></thead>
         <tfoot><tr><td style={{ height: `${footerH}px`, padding: 0, border: 'none' }}></td></tr></tfoot>
         <tbody>
+          {/* Investigation row - only on page 1, NOT in fixed header (variable length) */}
+          {report.investigation && (
+            <tr>
+              <td style={{ fontSize: '11px', padding: '2px 6px 6px' }}>
+                <strong>Investigation</strong> : {report.investigation}
+              </td>
+            </tr>
+          )}
           {Object.entries(groupedByCategory).map(([catName, groups]) => (
             <Fragment key={catName}>
               <tr>
