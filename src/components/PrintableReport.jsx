@@ -159,7 +159,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
                           <td style={{
                             padding: '3px 6px', textAlign: 'center',
                             fontWeight: isAbn ? 'bold' : 'normal',
-                            color: isAbn ? '#c00' : '#000',
+                            color: isAbn && isPdf ? '#c00' : '#000',
                           }}>
                             {resultUnit}
                           </td>

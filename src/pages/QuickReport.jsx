@@ -144,14 +144,15 @@ export default function QuickReport() {
           <title>${patientName} - Lab Report</title>
           <style>
             @page { margin: 0; size: A4; }
-            body { font-family: 'Times New Roman', serif; margin: 0; padding: 12mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            html, body { height: 100%; margin: 0; box-sizing: border-box; }
+            body { font-family: 'Times New Roman', serif; padding: 12mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
             h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
             th { text-align: left; padding: 4px 6px; }
             td { padding: 2px 6px; vertical-align: top; }
           </style>
         </head>
-        <body>${printContent.innerHTML}</body>
+        <body>${printContent.outerHTML}</body>
       </html>
     `);
     printWindow.document.close();
@@ -199,13 +200,14 @@ export default function QuickReport() {
           <html><head><title>${fileName}</title>
           <style>
             @page { margin: 0; size: A4; }
-            body { font-family: 'Times New Roman', serif; margin: 0; padding: 10mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            html, body { height: 100%; margin: 0; box-sizing: border-box; }
+            body { font-family: 'Times New Roman', serif; padding: 10mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
             h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
             th { text-align: left; padding: 4px 6px; }
             td { padding: 2px 6px; vertical-align: top; }
           </style></head>
-          <body>${pdfContent.innerHTML}</body></html>
+          <body>${pdfContent.outerHTML}</body></html>
         `);
         pdfWindow.document.close();
         pdfWindow.focus();
