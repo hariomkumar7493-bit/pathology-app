@@ -255,14 +255,16 @@ export default function Reports() {
       const fileName = `${report.patient_name || 'Report'}_${dateStr}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      // Only use navigator.share on mobile (desktop loses user gesture after async fetch)
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: fileName, text: `Lab Report - ${report.patient_name}` });
         addToast('Shared successfully', 'success');
       } else {
         const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url; a.download = fileName; a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
         window.open(`whatsapp://send?text=${encodeURIComponent(`Lab Report - ${report.patient_name}`)}`, '_self');
         addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
       }

@@ -366,7 +366,9 @@ export default function QuickReport() {
       const fileName = `${form.patient_name || 'Report'}_${dateStr}.pdf`;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      // Only use navigator.share on mobile (desktop loses user gesture after async fetch)
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
           title: fileName,
@@ -374,11 +376,11 @@ export default function QuickReport() {
         });
         addToast('Shared successfully', 'success');
       } else {
-        // Desktop fallback: download PDF and open WhatsApp desktop app
+        // Desktop: download PDF and open WhatsApp desktop app
         const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url; a.download = fileName; a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
         window.open(`whatsapp://send?text=${encodeURIComponent(`Lab Report - ${form.patient_name}`)}`, '_self');
         addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
       }
