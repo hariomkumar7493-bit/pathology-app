@@ -1,20 +1,21 @@
 import { forwardRef, Fragment } from 'react';
 
 /*
-  PROVEN PATTERN for repeating header/footer on every printed page in Chrome:
-  1. A table with thead (invisible spacer) and tfoot (invisible spacer) to RESERVE space
-  2. position:fixed divs for the VISIBLE header and footer content (appear on every page)
-  3. The table body contains actual test results that flow between pages
+  Pattern: position:fixed applied via CSS class in print windows only (not inline).
+  - .page-header / .page-footer: NO inline position:fixed (would break in-app view).
+  - Print/PDF windows add CSS: .page-header { position:fixed; top:0; ... }
+  - thead/tfoot = invisible spacers to reserve space on each page.
 */
+
+const HEADER_H = 250;
+const FOOTER_H_PDF = 110;
+const FOOTER_H_PRINT = 100;
 
 const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
   if (!report) return null;
 
   const isPdf = mode === 'pdf';
-
-  // Heights must match between spacers and fixed elements
-  const HEADER_HEIGHT = isPdf ? '250px' : '250px';
-  const FOOTER_HEIGHT = isPdf ? '110px' : '100px';
+  const footerH = isPdf ? FOOTER_H_PDF : FOOTER_H_PRINT;
 
   const formatDate = (d) => {
     if (!d) return '';
@@ -22,7 +23,6 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
     return dt.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  // Group results by category_name, then by group_name within each category
   const groupedByCategory = {};
   (report.results || []).forEach((r) => {
     const catKey = r.category_name || 'General';
@@ -32,10 +32,8 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
     groupedByCategory[catKey][groupKey].push(r);
   });
 
-  // Get unique specimens
   const specimens = [...new Set((report.results || []).map(r => r.specimen).filter(Boolean))];
 
-  // Build ref range display
   const getRefDisplay = (param) => {
     const m = param.ref_range_male;
     const f = param.ref_range_female;
@@ -46,20 +44,12 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
   return (
     <div ref={ref} style={{ fontFamily: "'Times New Roman', serif", color: '#000', fontSize: '12px', lineHeight: '1.5', width: '100%' }}>
 
-      {/* ===== FIXED HEADER - appears on every page ===== */}
-      <div className="page-header" style={{
-        position: 'fixed', top: 0, left: '10mm', right: '10mm',
-        height: HEADER_HEIGHT, zIndex: 2,
-      }}>
-        {/* Letterhead space (140px for the pre-printed/image area) */}
+      {/* HEADER - position:fixed applied via CSS class in print window, NOT inline */}
+      <div className="page-header">
         <div style={{ height: '140px' }}></div>
-
-        {/* Title */}
         <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px', textDecoration: 'underline', letterSpacing: '1px' }}>
           LABORATORY INVESTIGATION REPORT
         </div>
-
-        {/* Patient Info */}
         <div style={{ fontSize: '11px', marginBottom: '6px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ width: '45%' }}><strong>Patient Name</strong> : {report.patient_name || ''}</span>
@@ -78,8 +68,6 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
           </div>
           <div><strong>Investigation</strong> : {report.investigation || ''}</div>
         </div>
-
-        {/* Column headers */}
         <div style={{ display: 'flex', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontWeight: 'bold', fontSize: '11px' }}>
           <div style={{ width: '45%', padding: '4px 6px' }}>Test Description</div>
           <div style={{ width: '25%', padding: '4px 6px', textAlign: 'center' }}>RESULT/UNIT</div>
@@ -87,25 +75,17 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
         </div>
       </div>
 
-      {/* ===== FIXED FOOTER - appears on every page ===== */}
-      <div className="page-footer" style={{
-        position: 'fixed', bottom: 0, left: '10mm', right: '10mm',
-        height: FOOTER_HEIGHT, zIndex: 2,
-      }}>
-        {/* Doctor Signature */}
+      {/* FOOTER - position:fixed applied via CSS class in print window, NOT inline */}
+      <div className="page-footer">
         <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '8px' }}>
           <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{report.doctor_name || 'DR. C. ASHOK'}</p>
           <p style={{ fontSize: '11px', margin: 0 }}>{report.doctor_designation || 'MBBS MD (PATH)'}</p>
           <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>
         </div>
-
-        {/* Disclaimer */}
         <div style={{ borderTop: '1px solid #999', paddingTop: '3px', fontSize: '9px', color: '#666' }}>
           <p style={{ margin: '1px 0' }}>1. Result of tests may vary from Lab to Lab and also in some parameters from time to time for the same patient</p>
           <p style={{ margin: '1px 0' }}>2. The Report is not valid for medico legal purpose</p>
         </div>
-
-        {/* PDF Footer Bar */}
         {isPdf && (
           <div style={{ marginTop: '6px', background: '#8B0000', color: '#fff', padding: '4px 10px', fontSize: '9px', textAlign: 'center' }}>
             (होम कलेक्शन फ्री उपलब्ध है) यहा पर सभी प्रकार पैथोलोजिकल जाँच की सुविधा उपलब्ध है. मो. - 9835310931
@@ -113,13 +93,10 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
         )}
       </div>
 
-      {/* ===== TABLE with invisible spacers + content ===== */}
+      {/* TABLE: invisible thead/tfoot spacers + content in tbody */}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        {/* thead = invisible spacer to reserve header space on each page */}
-        <thead><tr><td style={{ height: HEADER_HEIGHT, padding: 0, border: 'none' }}></td></tr></thead>
-        {/* tfoot = invisible spacer to reserve footer space on each page */}
-        <tfoot><tr><td style={{ height: FOOTER_HEIGHT, padding: 0, border: 'none' }}></td></tr></tfoot>
-        {/* tbody = actual content */}
+        <thead><tr><td style={{ height: `${HEADER_H}px`, padding: 0, border: 'none' }}></td></tr></thead>
+        <tfoot><tr><td style={{ height: `${footerH}px`, padding: 0, border: 'none' }}></td></tr></tfoot>
         <tbody>
           {Object.entries(groupedByCategory).map(([catName, groups]) => (
             <Fragment key={catName}>
