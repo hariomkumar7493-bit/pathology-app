@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, Printer, Save, Zap, TestTubes, Search, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
@@ -7,6 +7,8 @@ import { useToast } from '../context/ToastContext';
 export default function QuickReport() {
   const [tests, setTests] = useState([]);
   const [selectedTests, setSelectedTests] = useState([]);
+  const [selectedGroups, setSelectedGroups] = useState({}); // { testId: ['group1', 'group2'] }
+  const [expandedTests, setExpandedTests] = useState({}); // { testId: true/false }
   const [parameters, setParameters] = useState([]);
   const [results, setResults] = useState({});
   const [saving, setSaving] = useState(false);
@@ -31,6 +33,13 @@ export default function QuickReport() {
     api.getTests().then(setTests).catch(console.error);
   }, []);
 
+  // Get unique sub-groups for a test
+  const getTestGroups = (test) => {
+    const params = test.parameters || [];
+    const groups = [...new Set(params.map(p => p.group_name || test.name))];
+    return groups;
+  };
+
   // Load parameters when tests are selected
   useEffect(() => {
     if (selectedTests.length === 0) {
@@ -38,20 +47,79 @@ export default function QuickReport() {
       return;
     }
     api.getBulkParameters(selectedTests).then((params) => {
-      setParameters(params);
-      // Initialize result values
+      // Filter params to only include selected sub-groups
+      const filtered = params.filter(p => {
+        const testId = selectedTests.find(tid => {
+          const t = tests.find(tt => tt._id === tid);
+          return t && (t.name === p.test_name || t.name === p.category_name);
+        });
+        if (!testId) return true; // include if we can't determine
+        const selGroups = selectedGroups[testId];
+        if (!selGroups || selGroups.length === 0) return true;
+        const groupName = p.group_name || p.test_name;
+        return selGroups.includes(groupName);
+      });
+      setParameters(filtered);
       const init = {};
-      params.forEach(p => {
+      filtered.forEach(p => {
         if (!results[p.id]) init[p.id] = { result_value: '', is_abnormal: false };
       });
       setResults(prev => ({ ...prev, ...init }));
     }).catch(console.error);
-  }, [selectedTests]);
+  }, [selectedTests, selectedGroups]);
 
+  // Toggle entire test (all sub-groups)
   const toggleTest = (testId) => {
-    setSelectedTests(prev =>
-      prev.includes(testId) ? prev.filter(id => id !== testId) : [...prev, testId]
-    );
+    const test = tests.find(t => t._id === testId);
+    const allGroups = test ? getTestGroups(test) : [];
+    const isSelected = selectedTests.includes(testId);
+
+    if (isSelected) {
+      // Deselect test and all its groups
+      setSelectedTests(prev => prev.filter(id => id !== testId));
+      setSelectedGroups(prev => { const n = { ...prev }; delete n[testId]; return n; });
+    } else {
+      // Select test with all groups
+      setSelectedTests(prev => [...prev, testId]);
+      setSelectedGroups(prev => ({ ...prev, [testId]: [...allGroups] }));
+    }
+  };
+
+  // Toggle a single sub-group within a test
+  const toggleSubGroup = (testId, groupName) => {
+    const test = tests.find(t => t._id === testId);
+    const allGroups = test ? getTestGroups(test) : [];
+    const currentGroups = selectedGroups[testId] || [];
+    const isGroupSelected = currentGroups.includes(groupName);
+
+    let newGroups;
+    if (isGroupSelected) {
+      newGroups = currentGroups.filter(g => g !== groupName);
+    } else {
+      newGroups = [...currentGroups, groupName];
+    }
+
+    if (newGroups.length === 0) {
+      // No groups selected -> deselect the test entirely
+      setSelectedTests(prev => prev.filter(id => id !== testId));
+      setSelectedGroups(prev => { const n = { ...prev }; delete n[testId]; return n; });
+    } else {
+      // At least one group selected -> ensure test is in selectedTests
+      if (!selectedTests.includes(testId)) {
+        setSelectedTests(prev => [...prev, testId]);
+      }
+      setSelectedGroups(prev => ({ ...prev, [testId]: newGroups }));
+    }
+  };
+
+  // Check state for a test checkbox (all, some, none)
+  const getTestCheckState = (testId) => {
+    if (!selectedTests.includes(testId)) return 'none';
+    const test = tests.find(t => t._id === testId);
+    const allGroups = test ? getTestGroups(test) : [];
+    const selGroups = selectedGroups[testId] || [];
+    if (selGroups.length >= allGroups.length) return 'all';
+    return 'partial';
   };
 
   // Auto-detect abnormal based on reference range
@@ -247,6 +315,8 @@ export default function QuickReport() {
   const handleReset = () => {
     setForm({ patient_name: '', age: '', gender: '', phone: '', referred_by: 'SELF', date_of_collection: new Date().toISOString().split('T')[0] });
     setSelectedTests([]);
+    setSelectedGroups({});
+    setExpandedTests({});
     setParameters([]);
     setResults({});
     setSavedReportId(null);
@@ -322,7 +392,7 @@ export default function QuickReport() {
             </div>
           </div>
 
-          {/* Test Selection */}
+          {/* Test Selection - Hierarchical Tree */}
           <div className="card">
             <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
               <TestTubes className="w-4 h-4 text-primary-600" />
@@ -338,37 +408,87 @@ export default function QuickReport() {
                 onChange={e => setTestSearch(e.target.value)}
               />
             </div>
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            <div className="space-y-1 max-h-[400px] overflow-y-auto pr-1">
               {Object.entries(filteredTestsByCategory).map(([cat, catTests]) => {
                 const isCatCollapsed = collapsedGroups[`cat__${cat}`];
                 return (
-                <div key={cat}>
+                <div key={cat} className="mb-1">
                   <div
-                    className="flex items-center justify-between cursor-pointer select-none py-1 hover:bg-gray-50 rounded px-1"
+                    className="flex items-center gap-1 cursor-pointer select-none py-1.5 hover:bg-gray-50 rounded px-1"
                     onClick={() => setCollapsedGroups(prev => ({ ...prev, [`cat__${cat}`]: !prev[`cat__${cat}`] }))}
                   >
+                    {isCatCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
                     <p className="text-xs font-bold text-gray-700 uppercase">{cat}</p>
-                    {isCatCollapsed ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronUp className="w-3.5 h-3.5 text-gray-400" />}
                   </div>
-                  {!isCatCollapsed && catTests.map(test => (
-                    <button
-                      key={test._id}
-                      type="button"
-                      onClick={() => toggleTest(test._id)}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left mb-0.5 transition-all ${
-                        selectedTests.includes(test._id)
-                          ? 'bg-primary-50 text-primary-700'
-                          : 'text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
-                        selectedTests.includes(test._id) ? 'bg-primary-600 border-primary-600' : 'border-gray-300'
+                  {!isCatCollapsed && catTests.map(test => {
+                    const groups = getTestGroups(test);
+                    const hasSubGroups = groups.length > 1;
+                    const checkState = getTestCheckState(test._id);
+                    const isExpanded = expandedTests[test._id];
+
+                    return (
+                    <div key={test._id} className="ml-2">
+                      {/* Test Row */}
+                      <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-xs transition-all ${
+                        checkState !== 'none' ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50'
                       }`}>
-                        {selectedTests.includes(test._id) && <Check className="w-2.5 h-2.5 text-white" />}
+                        {/* Expand Arrow */}
+                        {hasSubGroups ? (
+                          <button
+                            type="button"
+                            className="p-0.5 hover:bg-gray-200 rounded flex-shrink-0"
+                            onClick={(e) => { e.stopPropagation(); setExpandedTests(prev => ({ ...prev, [test._id]: !prev[test._id] })); }}
+                          >
+                            {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                          </button>
+                        ) : (
+                          <span className="w-4" />
+                        )}
+                        {/* Test Checkbox */}
+                        <button
+                          type="button"
+                          className="flex items-center gap-2 flex-1 text-left"
+                          onClick={() => toggleTest(test._id)}
+                        >
+                          <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+                            checkState === 'all' ? 'bg-primary-600 border-primary-600' :
+                            checkState === 'partial' ? 'bg-primary-400 border-primary-400' : 'border-gray-300'
+                          }`}>
+                            {checkState === 'all' && <Check className="w-2.5 h-2.5 text-white" />}
+                            {checkState === 'partial' && <Minus className="w-2.5 h-2.5 text-white" />}
+                          </div>
+                          <span className="truncate font-medium">{test.name}</span>
+                        </button>
                       </div>
-                      <span className="truncate">{test.name}</span>
-                    </button>
-                  ))}
+
+                      {/* Sub-groups (expanded) */}
+                      {hasSubGroups && isExpanded && (
+                        <div className="ml-6 border-l border-gray-200 pl-2 my-0.5">
+                          {groups.map(groupName => {
+                            const isGroupSelected = (selectedGroups[test._id] || []).includes(groupName);
+                            return (
+                              <button
+                                key={groupName}
+                                type="button"
+                                onClick={() => toggleSubGroup(test._id, groupName)}
+                                className={`w-full flex items-center gap-2 px-2 py-1 rounded text-xs text-left mb-0.5 transition-all ${
+                                  isGroupSelected ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'
+                                }`}
+                              >
+                                <div className={`w-3 h-3 rounded-sm border flex items-center justify-center flex-shrink-0 ${
+                                  isGroupSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
+                                }`}>
+                                  {isGroupSelected && <Check className="w-2 h-2 text-white" />}
+                                </div>
+                                <span className="truncate">{groupName}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    );
+                  })}
                 </div>
                 );
               })}

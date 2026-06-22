@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Phone, Mail, Calendar, X, TestTubes, Check, Trash2, Edit3 } from 'lucide-react';
+import { Search, Plus, Phone, Mail, Calendar, X, TestTubes, Check, Minus, Trash2, Edit3, ChevronDown, ChevronRight } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
 
@@ -16,6 +16,8 @@ export default function Patients() {
   const [form, setForm] = useState({ name: '', age: '', gender: '', phone: '', email: '', address: '', referred_by: 'SELF' });
   const [editForm, setEditForm] = useState({ name: '', age: '', gender: '', phone: '', email: '', address: '', referred_by: '' });
   const [selectedTests, setSelectedTests] = useState([]);
+  const [selectedGroups, setSelectedGroups] = useState({}); // { testId: ['group1', ...] }
+  const [expandedTests, setExpandedTests] = useState({}); // { testId: true/false }
   const [saving, setSaving] = useState(false);
   const { addToast } = useToast();
 
@@ -41,10 +43,46 @@ export default function Patients() {
       p.phone?.includes(searchTerm)
   );
 
+  // Get unique sub-groups for a test
+  const getTestGroups = (test) => {
+    const params = test.parameters || [];
+    return [...new Set(params.map(p => p.group_name || test.name))];
+  };
+
   const toggleTest = (testId) => {
-    setSelectedTests(prev =>
-      prev.includes(testId) ? prev.filter(id => id !== testId) : [...prev, testId]
-    );
+    const test = tests.find(t => t._id === testId);
+    const allGroups = test ? getTestGroups(test) : [];
+    const isSelected = selectedTests.includes(testId);
+    if (isSelected) {
+      setSelectedTests(prev => prev.filter(id => id !== testId));
+      setSelectedGroups(prev => { const n = { ...prev }; delete n[testId]; return n; });
+    } else {
+      setSelectedTests(prev => [...prev, testId]);
+      setSelectedGroups(prev => ({ ...prev, [testId]: [...allGroups] }));
+    }
+  };
+
+  const toggleSubGroup = (testId, groupName) => {
+    const test = tests.find(t => t._id === testId);
+    const currentGroups = selectedGroups[testId] || [];
+    const isGroupSelected = currentGroups.includes(groupName);
+    let newGroups = isGroupSelected ? currentGroups.filter(g => g !== groupName) : [...currentGroups, groupName];
+    if (newGroups.length === 0) {
+      setSelectedTests(prev => prev.filter(id => id !== testId));
+      setSelectedGroups(prev => { const n = { ...prev }; delete n[testId]; return n; });
+    } else {
+      if (!selectedTests.includes(testId)) setSelectedTests(prev => [...prev, testId]);
+      setSelectedGroups(prev => ({ ...prev, [testId]: newGroups }));
+    }
+  };
+
+  const getTestCheckState = (testId) => {
+    if (!selectedTests.includes(testId)) return 'none';
+    const test = tests.find(t => t._id === testId);
+    const allGroups = test ? getTestGroups(test) : [];
+    const selGroups = selectedGroups[testId] || [];
+    if (selGroups.length >= allGroups.length) return 'all';
+    return 'partial';
   };
 
   const handleAddPatient = async (e) => {
@@ -280,37 +318,66 @@ export default function Patients() {
                 <input type="text" className="input-field" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
               </div>
 
-              {/* Test Selection */}
+              {/* Test Selection - Hierarchical Tree */}
               <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
                   <TestTubes className="w-4 h-4 text-primary-600" />
                   Select Tests to Perform ({selectedTests.length} selected)
                 </h3>
-                <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                <div className="space-y-1 max-h-60 overflow-y-auto pr-2">
                   {Object.entries(testsByCategory).map(([category, catTests]) => (
-                    <div key={category}>
-                      <p className="text-xs font-semibold text-gray-500 uppercase mb-1.5">{category}</p>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {catTests.map(test => (
-                          <button
-                            key={test._id}
-                            type="button"
-                            onClick={() => toggleTest(test._id)}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-all ${
-                              selectedTests.includes(test._id)
-                                ? 'bg-primary-50 text-primary-700 ring-1 ring-primary-300'
-                                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                            }`}
-                          >
-                            <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
-                              selectedTests.includes(test._id) ? 'bg-primary-600 border-primary-600' : 'border-gray-300'
-                            }`}>
-                              {selectedTests.includes(test._id) && <Check className="w-3 h-3 text-white" />}
+                    <div key={category} className="mb-1">
+                      <p className="text-xs font-bold text-gray-700 uppercase py-1">{category}</p>
+                      {catTests.map(test => {
+                        const groups = getTestGroups(test);
+                        const hasSubGroups = groups.length > 1;
+                        const checkState = getTestCheckState(test._id);
+                        const isExpanded = expandedTests[test._id];
+                        return (
+                        <div key={test._id} className="ml-1">
+                          <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-xs transition-all ${
+                            checkState !== 'none' ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50'
+                          }`}>
+                            {hasSubGroups ? (
+                              <button type="button" className="p-0.5 hover:bg-gray-200 rounded flex-shrink-0"
+                                onClick={(e) => { e.stopPropagation(); setExpandedTests(prev => ({ ...prev, [test._id]: !prev[test._id] })); }}>
+                                {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                              </button>
+                            ) : <span className="w-4" />}
+                            <button type="button" className="flex items-center gap-2 flex-1 text-left" onClick={() => toggleTest(test._id)}>
+                              <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${
+                                checkState === 'all' ? 'bg-primary-600 border-primary-600' :
+                                checkState === 'partial' ? 'bg-primary-400 border-primary-400' : 'border-gray-300'
+                              }`}>
+                                {checkState === 'all' && <Check className="w-2.5 h-2.5 text-white" />}
+                                {checkState === 'partial' && <Minus className="w-2.5 h-2.5 text-white" />}
+                              </div>
+                              <span className="truncate font-medium">{test.name}</span>
+                            </button>
+                          </div>
+                          {hasSubGroups && isExpanded && (
+                            <div className="ml-6 border-l border-gray-200 pl-2 my-0.5">
+                              {groups.map(groupName => {
+                                const isGroupSelected = (selectedGroups[test._id] || []).includes(groupName);
+                                return (
+                                  <button key={groupName} type="button" onClick={() => toggleSubGroup(test._id, groupName)}
+                                    className={`w-full flex items-center gap-2 px-2 py-1 rounded text-xs text-left mb-0.5 transition-all ${
+                                      isGroupSelected ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'
+                                    }`}>
+                                    <div className={`w-3 h-3 rounded-sm border flex items-center justify-center flex-shrink-0 ${
+                                      isGroupSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'
+                                    }`}>
+                                      {isGroupSelected && <Check className="w-2 h-2 text-white" />}
+                                    </div>
+                                    <span className="truncate">{groupName}</span>
+                                  </button>
+                                );
+                              })}
                             </div>
-                            <span className="truncate">{test.name}</span>
-                          </button>
-                        ))}
-                      </div>
+                          )}
+                        </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>

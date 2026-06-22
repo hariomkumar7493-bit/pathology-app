@@ -105,7 +105,13 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
               </td>
             </tr>
           )}
-          {Object.entries(groupedByCategory).map(([catName, groups]) => (
+          {Object.entries(groupedByCategory).map(([catName, groups]) => {
+            // Skip entire category if no params have values
+            const catHasValues = Object.values(groups).some(params =>
+              params.some(p => p.result_value && p.result_value.toString().trim() !== '')
+            );
+            if (!catHasValues) return null;
+            return (
             <Fragment key={catName}>
               <tr>
                 <td style={{
@@ -115,7 +121,10 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
                   {catName.toUpperCase()} REPORT
                 </td>
               </tr>
-              {Object.entries(groups).map(([groupName, params]) => (
+              {Object.entries(groups).map(([groupName, params]) => {
+                const filledParams = params.filter(p => p.result_value && p.result_value.toString().trim() !== '');
+                if (filledParams.length === 0) return null;
+                return (
                 <Fragment key={groupName}>
                   {groupName && (
                     <tr>
@@ -124,7 +133,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
                       </td>
                     </tr>
                   )}
-                  {params.map((param, idx) => {
+                  {filledParams.map((param, idx) => {
                     const isAbn = param.is_abnormal;
                     const resultUnit = [param.result_value, param.unit].filter(Boolean).join(' ');
                     const rowBold = isAbn ? 'bold' : 'normal';
@@ -142,9 +151,11 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
                     );
                   })}
                 </Fragment>
-              ))}
+                );
+              })}
             </Fragment>
-          ))}
+            );
+          })}
           <tr>
             <td style={{ textAlign: 'center', padding: '16px 0 8px', fontSize: '10px', color: '#666' }}>------End of Report------</td>
           </tr>
