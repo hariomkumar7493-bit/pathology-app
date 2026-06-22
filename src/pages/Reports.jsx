@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Printer, X, Save, Trash2, Edit3, Plus, TestTubes } from 'lucide-react';
+import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Printer, X, Save, Trash2, Edit3, Plus, TestTubes, Share2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
@@ -22,6 +24,7 @@ export default function Reports() {
   const bulkPrintRef = useRef();
   const printRef = useRef();
   const pdfRef = useRef();
+  const shareRef = useRef();
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -229,6 +232,60 @@ export default function Reports() {
       }
     } else {
       setTimeout(() => { pdfWindow.print(); }, 400);
+    }
+  };
+
+  const handleShareWhatsApp = async (report) => {
+    if (!report) return;
+    try {
+      addToast('Generating PDF...', 'info');
+      const el = shareRef.current;
+      if (!el) { addToast('Report not ready', 'error'); return; }
+
+      el.parentElement.style.position = 'fixed';
+      el.parentElement.style.left = '0';
+      el.parentElement.style.top = '0';
+      el.parentElement.style.width = '210mm';
+      el.parentElement.style.opacity = '0';
+      el.parentElement.style.zIndex = '-9999';
+
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, width: el.scrollWidth, height: el.scrollHeight });
+
+      el.parentElement.style.position = 'absolute';
+      el.parentElement.style.left = '-9999px';
+      el.parentElement.style.opacity = '1';
+      el.parentElement.style.zIndex = '';
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.85);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = 210;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      let yOffset = 0;
+      const pageHeight = 297;
+      while (yOffset < pdfHeight) {
+        if (yOffset > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, -yOffset, pdfWidth, pdfHeight);
+        yOffset += pageHeight;
+      }
+
+      const pdfBlob = pdf.output('blob');
+      const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+      const fileName = `${report.patient_name || 'Report'}_${dateStr}.pdf`;
+      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: fileName, text: `Lab Report - ${report.patient_name}` });
+        addToast('Shared successfully', 'success');
+      } else {
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url; a.download = fileName; a.click();
+        URL.revokeObjectURL(url);
+        window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(`Lab Report - ${report.patient_name}`)}`, '_blank');
+        addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') addToast('Share failed: ' + err.message, 'error');
     }
   };
 
@@ -492,6 +549,9 @@ export default function Reports() {
                     <button onClick={() => handleDownloadPdf(viewReport)} className="btn-secondary flex items-center gap-1 text-xs">
                       <Download className="w-3.5 h-3.5" /> PDF
                     </button>
+                    <button onClick={() => handleShareWhatsApp(viewReport)} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors">
+                      <Share2 className="w-3.5 h-3.5" /> Share
+                    </button>
                     <button onClick={handlePrint} className="btn-primary flex items-center gap-1 text-xs">
                       <Printer className="w-3.5 h-3.5" /> Print
                     </button>
@@ -624,6 +684,13 @@ export default function Reports() {
       {viewReport && (
         <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
           <PrintableReport ref={pdfRef} report={viewReport} mode="pdf" />
+        </div>
+      )}
+
+      {/* Hidden Share Component (for WhatsApp PDF generation) */}
+      {viewReport && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm' }}>
+          <PrintableReport ref={shareRef} report={viewReport} mode="pdf" />
         </div>
       )}
 

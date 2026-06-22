@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
+import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronDown, ChevronUp, ChevronRight, Share2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
@@ -18,6 +20,7 @@ export default function QuickReport() {
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const printRef = useRef();
   const pdfRef = useRef();
+  const shareRef = useRef();
   const { addToast } = useToast();
 
   const [form, setForm] = useState({
@@ -323,6 +326,79 @@ export default function QuickReport() {
     setPrintData(null);
   };
 
+  const handleShareWhatsApp = async () => {
+    if (!printData) { addToast('Save the report first', 'warning'); return; }
+    
+    try {
+      addToast('Generating PDF...', 'info');
+      const el = shareRef.current;
+      if (!el) { addToast('Report not ready', 'error'); return; }
+
+      // Make visible temporarily for html2canvas
+      el.parentElement.style.position = 'fixed';
+      el.parentElement.style.left = '0';
+      el.parentElement.style.top = '0';
+      el.parentElement.style.width = '210mm';
+      el.parentElement.style.opacity = '0';
+      el.parentElement.style.zIndex = '-9999';
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        width: el.scrollWidth,
+        height: el.scrollHeight,
+      });
+
+      // Hide again
+      el.parentElement.style.position = 'absolute';
+      el.parentElement.style.left = '-9999px';
+      el.parentElement.style.opacity = '1';
+      el.parentElement.style.zIndex = '';
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.85);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = 210;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      let yOffset = 0;
+      const pageHeight = 297;
+      while (yOffset < pdfHeight) {
+        if (yOffset > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, -yOffset, pdfWidth, pdfHeight);
+        yOffset += pageHeight;
+      }
+
+      const pdfBlob = pdf.output('blob');
+      const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+      const fileName = `${form.patient_name || 'Report'}_${dateStr}.pdf`;
+      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: fileName,
+          text: `Lab Report - ${form.patient_name}`,
+        });
+        addToast('Shared successfully', 'success');
+      } else {
+        // Desktop fallback: download PDF and open WhatsApp web
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+        const waUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(`Lab Report - ${form.patient_name}`)}`;
+        window.open(waUrl, '_blank');
+        addToast('PDF downloaded. Attach it in WhatsApp.', 'info');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        addToast('Share failed: ' + err.message, 'error');
+      }
+    }
+  };
+
   // Group tests by category for selection
   const testsByCategory = tests.reduce((acc, test) => {
     const cat = test.category_name || 'Other';
@@ -589,6 +665,12 @@ export default function QuickReport() {
                   Save & Download PDF
                 </button>
               </div>
+              {printData && (
+                <button onClick={handleShareWhatsApp} className="w-full mt-2 flex items-center gap-2 justify-center py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors">
+                  <Share2 className="w-4 h-4" />
+                  Share on WhatsApp
+                </button>
+              )}
             </>
           )}
         </div>
@@ -601,6 +683,10 @@ export default function QuickReport() {
       {/* Hidden PDF Component */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
         <PrintableReport ref={pdfRef} report={printData} mode="pdf" />
+      </div>
+      {/* Hidden Share Component (for WhatsApp PDF generation) */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0, width: '210mm' }}>
+        <PrintableReport ref={shareRef} report={printData} mode="pdf" />
       </div>
     </div>
   );
