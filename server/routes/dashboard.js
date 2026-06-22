@@ -10,58 +10,68 @@ router.get('/', async (req, res) => {
     const testsCollection = db.collection('tests');
     const categoriesCollection = db.collection('test_categories');
 
-    const totalPatients = await patientsCollection.countDocuments();
-    const totalReports = await reportsCollection.countDocuments();
-    const pendingReports = await reportsCollection.countDocuments({ status: 'Pending' });
-    const completedReports = await reportsCollection.countDocuments({ status: 'Completed' });
-    
-    // Get today's tests
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const todayTests = await reportsCollection.countDocuments({
-      date_of_collection: { $gte: today, $lt: tomorrow }
+    // Run independent counts in parallel
+    const [totalPatients, pendingReports, completedReports, todayTests, recentReports, allTests, allCategories] = await Promise.all([
+      patientsCollection.countDocuments(),
+      reportsCollection.countDocuments({ status: 'Pending' }),
+      reportsCollection.countDocuments({ status: 'Completed' }),
+      // Today's tests - check both Date and string formats
+      (async () => {
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const countDate = await reportsCollection.countDocuments({
+          date_of_collection: { $gte: today, $lt: tomorrow }
+        });
+        if (countDate > 0) return countDate;
+        return reportsCollection.countDocuments({ date_of_collection: todayStr });
+      })(),
+      // Recent reports
+      reportsCollection.find({}).sort({ created_at: -1 }).limit(10).toArray(),
+      // All tests (for category mapping)
+      testsCollection.find({}, { projection: { _id: 1, category_id: 1 } }).toArray(),
+      // All categories
+      categoriesCollection.find({}).toArray(),
+    ]);
+
+    const totalReports = pendingReports + completedReports;
+
+    // Build category lookup maps (in-memory, no extra queries)
+    const testCategoryMap = {};
+    allTests.forEach(t => { if (t.category_id) testCategoryMap[t._id.toString()] = t.category_id.toString(); });
+    const categoryNameMap = {};
+    allCategories.forEach(c => { categoryNameMap[c._id.toString()] = c.name; });
+
+    // Category stats from recent reports using aggregation pipeline
+    const categoryPipeline = [
+      { $unwind: '$tests' },
+      { $group: { _id: '$tests.test_id', count: { $sum: 1 } } }
+    ];
+    const testCounts = await reportsCollection.aggregate(categoryPipeline).toArray();
+
+    const categoryCountMap = {};
+    testCounts.forEach(tc => {
+      const catId = testCategoryMap[tc._id?.toString()];
+      if (catId) {
+        const catName = categoryNameMap[catId];
+        if (catName) categoryCountMap[catName] = (categoryCountMap[catName] || 0) + tc.count;
+      }
     });
 
-    // Get recent reports with patient info
-    const recentReports = await reportsCollection
-      .find({})
-      .sort({ created_at: -1 })
-      .limit(10)
-      .toArray();
-    
-    const recentReportsWithPatient = await Promise.all(recentReports.map(async (report) => {
-      const patient = await patientsCollection.findOne({ _id: report.patient_id });
-      return {
-        ...report,
-        patient_name: patient?.name,
-        patient_age: patient?.age,
-        patient_gender: patient?.gender
-      };
-    }));
-
-    // Get category stats
-    const reports = await reportsCollection.find({}).toArray();
-    const categoryCountMap = {};
-    
-    for (const report of reports) {
-      const tests = report.tests || [];
-      for (const test of tests) {
-        const testDoc = await testsCollection.findOne({ _id: test.test_id });
-        if (testDoc && testDoc.category_id) {
-          const category = await categoriesCollection.findOne({ _id: testDoc.category_id });
-          if (category) {
-            categoryCountMap[category.name] = (categoryCountMap[category.name] || 0) + 1;
-          }
-        }
-      }
-    }
-    
     const categoryStats = Object.entries(categoryCountMap)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
+
+    // Map recent reports (patient_name is already stored on report from quick-report creation)
+    const recentReportsFormatted = recentReports.map(r => ({
+      id: r._id,
+      patient_name: r.patient_name || 'Unknown',
+      investigation: r.investigation || '',
+      status: r.status,
+      ref_no: r.ref_no,
+    }));
 
     res.json({
       totalPatients,
@@ -69,7 +79,7 @@ router.get('/', async (req, res) => {
       pendingReports,
       completedReports,
       todayTests,
-      recentReports: recentReportsWithPatient,
+      recentReports: recentReportsFormatted,
       categoryStats,
     });
   } catch (err) {

@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const { connectDB } = require('./db');
 
@@ -16,7 +17,7 @@ app.use(helmet({
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 1000, // Limit each IP to 1000 requests per windowMs
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
@@ -28,6 +29,9 @@ const authLimiter = rateLimit({
   message: 'Too many login attempts, please try again later.'
 });
 app.use('/api/auth/login', authLimiter);
+
+// Compression - gzip all responses
+app.use(compression());
 
 // CORS
 app.use(cors({
