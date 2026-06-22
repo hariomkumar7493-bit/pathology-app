@@ -13,7 +13,7 @@ export default function Patients() {
   const [loading, setLoading] = useState(true);
 
   // New patient form
-  const [form, setForm] = useState({ name: '', age: '', gender: '', phone: '', email: '', address: '', referred_by: 'SELF' });
+  const [form, setForm] = useState({ name: '', age: '', gender: '', phone: '', email: '', address: '', referred_by: 'SELF', specimen: 'BLOOD' });
   const [editForm, setEditForm] = useState({ name: '', age: '', gender: '', phone: '', email: '', address: '', referred_by: '' });
   const [selectedTests, setSelectedTests] = useState([]);
   const [selectedGroups, setSelectedGroups] = useState({}); // { testId: ['group1', ...] }
@@ -99,10 +99,11 @@ export default function Patients() {
         await api.createReport({
           patient_id: patient._id,
           test_ids: selectedTests,
+          specimen: form.specimen,
         });
       }
 
-      setForm({ name: '', age: '', gender: '', phone: '', email: '', address: '', referred_by: 'SELF' });
+      setForm({ name: '', age: '', gender: '', phone: '', email: '', address: '', referred_by: 'SELF', specimen: 'BLOOD' });
       setSelectedTests([]);
       setShowAddModal(false);
       loadData();
@@ -308,6 +309,10 @@ export default function Patients() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Referred By</label>
                   <input type="text" className="input-field" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })} />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Specimen</label>
+                <input type="text" className="input-field" value={form.specimen} onChange={e => setForm({ ...form, specimen: e.target.value })} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>

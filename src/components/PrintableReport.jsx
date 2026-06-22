@@ -7,7 +7,7 @@ import { forwardRef, Fragment } from 'react';
   - thead/tfoot = invisible spacers to reserve space on each page.
 */
 
-const HEADER_H = 260;
+const HEADER_H = 275;
 const FOOTER_H_PDF = 130;
 const FOOTER_H_PRINT = 105;
 
@@ -54,18 +54,21 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ width: '45%' }}><strong>Patient Name</strong> : {report.patient_name || ''}</span>
             <span style={{ width: '25%', textAlign: 'center' }}><strong>Age/Sex</strong> : {report.age || ''} Yrs/{(report.gender || '')[0] || ''}</span>
-            <span style={{ width: '30%', textAlign: 'right' }}><strong>Date of Collection</strong> : {formatDate(report.date_of_collection)}</span>
+            <span style={{ width: '30%', textAlign: 'left' }}><strong>Date of Collection</strong> : {formatDate(report.date_of_collection)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ width: '45%' }}><strong>Ref. by</strong> : {report.referred_by || 'SELF'}</span>
             <span style={{ width: '25%' }}></span>
-            <span style={{ width: '30%', textAlign: 'right' }}><strong>Date of Reporting</strong> : {formatDate(report.date_of_reporting || report.created_at)}</span>
+            <span style={{ width: '30%', textAlign: 'left' }}><strong>Date of Reporting</strong> : {formatDate(report.date_of_reporting || report.created_at)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ width: '45%' }}><strong>Specimen</strong> : {specimens.join(', ') || report.specimen || 'BLOOD'}</span>
             <span style={{ width: '25%' }}></span>
-            <span style={{ width: '30%', textAlign: 'right' }}><strong>Ref No</strong> : {report.ref_no || ''}</span>
+            <span style={{ width: '30%', textAlign: 'left' }}><strong>Ref No</strong> : {report.ref_no || ''}</span>
           </div>
+          {report.investigation && (
+            <div><strong>Investigation</strong> : {report.investigation}</div>
+          )}
         </div>
         <div style={{ display: 'flex', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontWeight: 'bold', fontSize: '11px' }}>
           <div style={{ width: '45%', padding: '4px 6px' }}>Test Description</div>
@@ -77,6 +80,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
       {/* FOOTER - position:fixed applied via CSS class in print window, NOT inline */}
       <div className="page-footer">
         <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '8px' }}>
+          {isPdf && <img src={`${window.location.origin}/doctor-sign.png`} alt="signature" style={{ height: '13px', marginLeft: 'auto', display: 'block', objectFit: 'contain' }} />}
           <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{report.doctor_name || 'DR. C. ASHOK'}</p>
           <p style={{ fontSize: '11px', margin: 0 }}>{report.doctor_designation || 'MBBS MD (PATH)'}</p>
           <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>
@@ -97,14 +101,6 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
         <thead><tr><td style={{ height: `${HEADER_H}px`, padding: 0, border: 'none' }}></td></tr></thead>
         <tfoot><tr><td style={{ height: `${footerH}px`, padding: 0, border: 'none' }}></td></tr></tfoot>
         <tbody>
-          {/* Investigation row - only on page 1, NOT in fixed header (variable length) */}
-          {report.investigation && (
-            <tr>
-              <td style={{ fontSize: '11px', padding: '2px 6px 6px' }}>
-                <strong>Investigation</strong> : {report.investigation}
-              </td>
-            </tr>
-          )}
           {Object.entries(groupedByCategory).map(([catName, groups]) => {
             // Skip entire category if no params have values
             const catHasValues = Object.values(groups).some(params =>

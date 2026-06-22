@@ -26,6 +26,7 @@ export default function QuickReport() {
     gender: '',
     phone: '',
     referred_by: 'SELF',
+    specimen: 'BLOOD',
     date_of_collection: new Date().toISOString().split('T')[0],
   });
 
@@ -181,6 +182,7 @@ export default function QuickReport() {
         gender: form.gender,
         phone: form.phone,
         referred_by: form.referred_by,
+        specimen: form.specimen,
         test_ids: selectedTests,
         results: resultArr,
         date_of_collection: form.date_of_collection,
@@ -223,7 +225,7 @@ export default function QuickReport() {
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
             thead td, tfoot td { padding: 0; }
-            .page-header { position: fixed; top: 0; left: 0; right: 0; height: 260px; z-index: 2; background: #fff; }
+            .page-header { position: fixed; top: 0; left: 0; right: 0; height: 275px; z-index: 2; background: #fff; }
             .page-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 105px; z-index: 2; background: #fff; }
           </style>
         </head>
@@ -257,6 +259,7 @@ export default function QuickReport() {
         gender: form.gender,
         phone: form.phone,
         referred_by: form.referred_by,
+        specimen: form.specimen,
         test_ids: selectedTests,
         results: resultArr,
         date_of_collection: form.date_of_collection,
@@ -286,7 +289,7 @@ export default function QuickReport() {
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
             thead td, tfoot td { padding: 0; }
-            .page-header { position: fixed; top: 0; left: 0; right: 0; height: 260px; z-index: 2; }
+            .page-header { position: fixed; top: 0; left: 0; right: 0; height: 275px; z-index: 2; }
             .page-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 130px; z-index: 2; }
             .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           </style></head>
@@ -313,7 +316,7 @@ export default function QuickReport() {
   };
 
   const handleReset = () => {
-    setForm({ patient_name: '', age: '', gender: '', phone: '', referred_by: 'SELF', date_of_collection: new Date().toISOString().split('T')[0] });
+    setForm({ patient_name: '', age: '', gender: '', phone: '', referred_by: 'SELF', specimen: 'BLOOD', date_of_collection: new Date().toISOString().split('T')[0] });
     setSelectedTests([]);
     setSelectedGroups({});
     setExpandedTests({});
@@ -381,9 +384,15 @@ export default function QuickReport() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
                 <input type="tel" className="input-field text-sm" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Referred By</label>
-                <input type="text" className="input-field text-sm" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })} />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Referred By</label>
+                  <input type="text" className="input-field text-sm" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Specimen</label>
+                  <input type="text" className="input-field text-sm" value={form.specimen} onChange={e => setForm({ ...form, specimen: e.target.value })} />
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Date of Collection</label>
