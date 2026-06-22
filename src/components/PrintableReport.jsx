@@ -9,7 +9,7 @@ import { forwardRef, Fragment } from 'react';
 
 const BASE_HEADER_H = 275;
 const FOOTER_H_PDF = 130;
-const FOOTER_H_PRINT = 105;
+const FOOTER_H_PRINT = 130;
 
 const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
   if (!report) return null;

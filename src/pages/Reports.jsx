@@ -131,7 +131,7 @@ export default function Reports() {
             tfoot { display: table-footer-group; }
             thead td, tfoot td { padding: 0; }
             .page-header { position: fixed; top: 0; left: 0; right: 0; z-index: 2; background: #fff; }
-            .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; background: #fff; }
+            .page-footer { position: fixed; bottom: 25px; left: 0; right: 0; z-index: 2; background: #fff; }
             .page-break { page-break-after: always; }
           </style></head>
           <body>${el.innerHTML}</body></html>
@@ -176,7 +176,7 @@ export default function Reports() {
             tfoot { display: table-footer-group; }
             thead td, tfoot td { padding: 0; }
             .page-header { position: fixed; top: 0; left: 0; right: 0; z-index: 2; background: #fff; }
-            .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; background: #fff; }
+            .page-footer { position: fixed; bottom: 25px; left: 0; right: 0; z-index: 2; background: #fff; }
           </style>
         </head>
         <body>${printContent.outerHTML}</body>
