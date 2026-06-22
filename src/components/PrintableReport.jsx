@@ -82,7 +82,26 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
         </div>
       </div>
 
-      {/* TABLE: thead spacer for header + tfoot with footer content (works on iOS + desktop) */}
+      {/* FOOTER - position:fixed pins to bottom on desktop; ignored on iOS */}
+      <div className="page-footer" style={{ height: `${footerH}px` }}>
+        <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '8px' }}>
+          {isPdf && <img src={`${window.location.origin}/doctor-sign.png`} alt="signature" style={{ height: '13px', marginLeft: 'auto', display: 'block', objectFit: 'contain' }} />}
+          <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{report.doctor_name || 'DR. C. ASHOK'}</p>
+          <p style={{ fontSize: '11px', margin: 0 }}>{report.doctor_designation || 'MBBS MD (PATH)'}</p>
+          <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>
+        </div>
+        <div style={{ borderTop: '1px solid #999', paddingTop: '3px', fontSize: '9px', color: '#666' }}>
+          <p style={{ margin: '1px 0' }}>1. Result of tests may vary from Lab to Lab and also in some parameters from time to time for the same patient</p>
+          <p style={{ margin: '1px 0' }}>2. The Report is not valid for medico legal purpose</p>
+        </div>
+        {isPdf && (
+          <div style={{ marginTop: '6px', background: '#8B0000', color: '#fff', padding: '4px 10px', fontSize: '9px', textAlign: 'center' }}>
+            (होम कलेक्शन फ्री उपलब्ध है) यहा पर सभी प्रकार पैथोलोजिकल जाँच की सुविधा उपलब्ध है. मो. - 9835310931
+          </div>
+        )}
+      </div>
+
+      {/* TABLE: thead spacer + tfoot with footer content (iOS fallback, covered by fixed footer on desktop) */}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead><tr><td style={{ height: `${HEADER_H + 5}px`, padding: 0, border: 'none' }}></td></tr></thead>
         <tfoot>
