@@ -122,7 +122,7 @@ export default function Reports() {
           <style>
             @page { margin: 0; size: A4; }
             html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 12mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: 'Times New Roman', serif; padding: 12mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
             h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
             th { text-align: left; padding: 4px 6px; }
@@ -165,7 +165,7 @@ export default function Reports() {
           <style>
             @page { margin: 0; size: A4; }
             html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 12mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: 'Times New Roman', serif; padding: 12mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
             h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
             th { text-align: left; padding: 4px 6px; }
@@ -196,7 +196,7 @@ export default function Reports() {
           <style>
             @page { margin: 0; size: A4; }
             html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 10mm; color: #000; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: 'Times New Roman', serif; padding: 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
             h2 { text-align: center; font-size: 14px; text-decoration: underline; margin-bottom: 10px; letter-spacing: 1px; }
             th { text-align: left; padding: 4px 6px; }
