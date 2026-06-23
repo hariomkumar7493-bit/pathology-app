@@ -234,7 +234,6 @@ export default function QuickReport() {
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
             thead td, tfoot td { padding: 0; }
-            .page-header { position: fixed; top: 0; left: 0; right: 0; z-index: 2; background: #fff; }
             .page-footer { position: fixed; bottom: 25px; left: 0; right: 0; z-index: 2; background: #fff; }
           </style>
         </head>
@@ -311,7 +310,6 @@ export default function QuickReport() {
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
             thead td, tfoot td { padding: 0; }
-            .page-header { position: fixed; top: 0; left: 0; right: 0; z-index: 2; }
             .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; }
             .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           </style></head>
