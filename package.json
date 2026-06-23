@@ -58,7 +58,9 @@
       "output": "electron-dist"
     },
     "files": [
-      "electron/**/*.cjs"
+      "electron/**/*.cjs",
+      "public/letterhead.png",
+      "public/doctor-sign.png"
     ],
     "win": {
       "target": [

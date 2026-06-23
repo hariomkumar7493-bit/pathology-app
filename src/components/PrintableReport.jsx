@@ -56,7 +56,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
         <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px', textDecoration: 'underline', letterSpacing: '1px' }}>
           LABORATORY INVESTIGATION REPORT
         </div>
-        <div style={{ fontSize: '11px', marginBottom: '6px', paddingLeft: '12px', paddingRight: '12px' }}>
+        <div style={{ fontSize: '11px', marginBottom: '6px', paddingLeft: '20px', paddingRight: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ width: '45%' }}><strong>Patient Name</strong> : {report.patient_name || ''}</span>
             <span style={{ width: '25%', textAlign: 'center' }}><strong>Age/Sex</strong> : {report.age || ''} Yrs/{(report.gender || '')[0] || ''}</span>
@@ -76,7 +76,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
             <div><strong>Investigation</strong> : {report.investigation}</div>
           )}
         </div>
-        <div style={{ display: 'flex', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontWeight: 'bold', fontSize: '11px' }}>
+        <div style={{ display: 'flex', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontWeight: 'bold', fontSize: '11px', paddingLeft: '20px', paddingRight: '10px' }}>
           <div style={{ width: '45%', padding: '4px 6px' }}>Test Description</div>
           <div style={{ width: '25%', padding: '4px 6px', textAlign: 'center' }}>RESULT/UNIT</div>
           <div style={{ width: '30%', padding: '4px 6px', textAlign: 'center' }}>REF. RANGE</div>
@@ -133,14 +133,14 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
           </tr>
         </tfoot>
         <tbody>
-          {Object.entries(groupedByCategory).map(([catName, groups]) => {
-            // Skip entire category if no params have values
-            const catHasValues = Object.values(groups).some(params =>
-              params.some(p => p.result_value && p.result_value.toString().trim() !== '')
-            );
-            if (!catHasValues) return null;
+          {Object.entries(groupedByCategory).filter(([, groups]) =>
+            Object.values(groups).some(params => params.some(p => p.result_value && p.result_value.toString().trim() !== ''))
+          ).map(([catName, groups], catIdx) => {
             return (
             <Fragment key={catName}>
+              {catIdx > 0 && (
+                <tr><td style={{ pageBreakBefore: 'always' }}></td></tr>
+              )}
               <tr>
                 <td style={{
                   textAlign: 'center', paddingTop: '10px', paddingBottom: '4px',
@@ -156,7 +156,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
                 <Fragment key={groupName}>
                   {groupName && (
                     <tr>
-                      <td style={{ paddingTop: '6px', paddingLeft: '6px', fontWeight: 'bold', fontSize: '11px', color: '#333' }}>
+                      <td style={{ paddingTop: '6px', paddingLeft: '20px', fontWeight: 'bold', fontSize: '11px', color: '#333' }}>
                         {groupName}
                       </td>
                     </tr>
@@ -168,7 +168,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
                     const rowColor = isAbn && isPdf ? '#c00' : '#000';
                     return (
                       <tr key={idx} style={{ borderBottom: '1px dotted #ccc', fontWeight: rowBold, color: rowColor, fontSize: '11px' }}>
-                        <td style={{ padding: '3px 6px 3px 12px' }}>
+                        <td style={{ padding: '3px 10px 3px 20px' }}>
                           <div style={{ display: 'flex' }}>
                             <span style={{ width: '45%' }}>{param.param_name}</span>
                             <span style={{ width: '25%', textAlign: 'center' }}>{resultUnit}</span>

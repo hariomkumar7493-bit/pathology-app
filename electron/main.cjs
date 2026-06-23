@@ -459,24 +459,29 @@ ipcMain.handle('printer:printPDF', async (event, { pdfBase64, printerName, copie
 // ===== IPC: LOCAL PDF GENERATION (instant, no server needed) =====
 // Convert image URLs to base64 data URIs so they load in offline/data: context
 function embedImagesAsBase64(html) {
-  const publicDir = path.join(__dirname, '..', 'dist');
+  // Search paths: packaged app (resources/app.asar/public), dev (project/public, project/dist)
+  const searchPaths = [
+    path.join(__dirname, '..', 'public'),          // packaged: resources/app.asar/public
+    path.join(__dirname, '..', 'dist'),             // dev: project/dist
+    path.join(app.getAppPath(), 'public'),          // alternative packaged path
+    path.join(app.getAppPath(), 'dist'),            // alternative dev path
+  ];
+  log('INFO', 'embedImagesAsBase64 search paths', searchPaths.map(p => ({ path: p, exists: fs.existsSync(p) })));
+
   // Replace src="http://.../<filename>.png" or src="/<filename>.png" with base64
   return html.replace(/src="(?:https?:\/\/[^"]*?\/)?([^"\/]+\.(png|jpg|jpeg|gif|svg))"/gi, (match, filename, ext) => {
-    try {
-      const imgPath = path.join(publicDir, filename);
-      if (fs.existsSync(imgPath)) {
-        const data = fs.readFileSync(imgPath);
-        const mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-        return `src="data:${mimeType};base64,${data.toString('base64')}"`;
-      }
-      // Also check in public folder (for dev)
-      const pubPath = path.join(__dirname, '..', 'public', filename);
-      if (fs.existsSync(pubPath)) {
-        const data = fs.readFileSync(pubPath);
-        const mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-        return `src="data:${mimeType};base64,${data.toString('base64')}"`;
-      }
-    } catch (e) { /* ignore, keep original */ }
+    for (const dir of searchPaths) {
+      try {
+        const imgPath = path.join(dir, filename);
+        if (fs.existsSync(imgPath)) {
+          const data = fs.readFileSync(imgPath);
+          const mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+          log('INFO', `Embedded image: ${filename} from ${dir}`);
+          return `src="data:${mimeType};base64,${data.toString('base64')}"`;
+        }
+      } catch (e) { /* continue to next path */ }
+    }
+    log('WARN', `Image not found for embedding: ${filename}`);
     return match;
   });
 }
