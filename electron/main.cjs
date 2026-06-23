@@ -457,8 +457,33 @@ ipcMain.handle('printer:printPDF', async (event, { pdfBase64, printerName, copie
 });
 
 // ===== IPC: LOCAL PDF GENERATION (instant, no server needed) =====
+// Convert image URLs to base64 data URIs so they load in offline/data: context
+function embedImagesAsBase64(html) {
+  const publicDir = path.join(__dirname, '..', 'dist');
+  // Replace src="http://.../<filename>.png" or src="/<filename>.png" with base64
+  return html.replace(/src="(?:https?:\/\/[^"]*?\/)?([^"\/]+\.(png|jpg|jpeg|gif|svg))"/gi, (match, filename, ext) => {
+    try {
+      const imgPath = path.join(publicDir, filename);
+      if (fs.existsSync(imgPath)) {
+        const data = fs.readFileSync(imgPath);
+        const mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+        return `src="data:${mimeType};base64,${data.toString('base64')}"`;
+      }
+      // Also check in public folder (for dev)
+      const pubPath = path.join(__dirname, '..', 'public', filename);
+      if (fs.existsSync(pubPath)) {
+        const data = fs.readFileSync(pubPath);
+        const mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+        return `src="data:${mimeType};base64,${data.toString('base64')}"`;
+      }
+    } catch (e) { /* ignore, keep original */ }
+    return match;
+  });
+}
+
 ipcMain.handle('pdf:generate', async (event, { html, fileName }) => {
   try {
+    const processedHtml = embedImagesAsBase64(html);
     const pdfWin = new BrowserWindow({
       show: false,
       width: 794,  // A4 width in px at 96dpi
@@ -467,7 +492,7 @@ ipcMain.handle('pdf:generate', async (event, { html, fileName }) => {
     });
 
     // Load HTML content directly
-    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(processedHtml)}`);
 
     // Wait for images/fonts to load
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -491,6 +516,7 @@ ipcMain.handle('pdf:generate', async (event, { html, fileName }) => {
 // Generate PDF and save directly to Downloads folder
 ipcMain.handle('pdf:generateAndSave', async (event, { html, fileName }) => {
   try {
+    const processedHtml = embedImagesAsBase64(html);
     const pdfWin = new BrowserWindow({
       show: false,
       width: 794,
@@ -498,7 +524,7 @@ ipcMain.handle('pdf:generateAndSave', async (event, { html, fileName }) => {
       webPreferences: { nodeIntegration: false, contextIsolation: true },
     });
 
-    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(processedHtml)}`);
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const pdfBuffer = await pdfWin.webContents.printToPDF({
