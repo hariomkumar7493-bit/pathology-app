@@ -576,6 +576,19 @@ ipcMain.handle('shell:openPath', async (event, filePath) => {
   return result; // empty string on success, error message on failure
 });
 
+// Copy file to Windows clipboard (so user can Ctrl+V in WhatsApp)
+ipcMain.handle('shell:copyFileToClipboard', async (event, filePath) => {
+  try {
+    const { execSync } = require('child_process');
+    // PowerShell command to copy file to clipboard
+    const psCmd = `Set-Clipboard -Path "${filePath.replace(/"/g, '`"')}"`;
+    execSync(`powershell -Command "${psCmd}"`, { timeout: 5000 });
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 // ===== IPC: LOGGING & DIAGNOSTICS =====
 
 // Log from renderer process

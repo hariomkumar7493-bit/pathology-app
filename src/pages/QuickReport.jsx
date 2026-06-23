@@ -399,7 +399,7 @@ export default function QuickReport() {
           phone: form.phone || '',
         });
         if (!filePath) throw new Error('Local PDF generation failed');
-        addToast(`PDF saved to Downloads. Attach in WhatsApp.`, 'success');
+        addToast(`PDF copied! Press Ctrl+V in WhatsApp to attach`, 'success');
         // Save report to DB after share
         if (needsSave) {
           const resultArr = Object.entries(results).map(([uid, val]) => {

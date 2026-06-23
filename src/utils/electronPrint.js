@@ -87,19 +87,19 @@ export async function electronSavePDF(reportElementOrHTML, { patientName = 'Repo
   return generateAndSavePDF(html, fileName);
 }
 
-// WhatsApp share in Electron: save PDF to Downloads → open WhatsApp
+// WhatsApp share in Electron: save PDF → copy to clipboard → open WhatsApp
+// User just presses Ctrl+V in WhatsApp to attach the PDF (like mobile share)
 export async function electronShareWhatsApp(reportElementOrHTML, { patientName = 'Report', letterheadUrl = '', fileName = 'report.pdf', phone = '' } = {}) {
   if (!isElectron()) return null;
   // Generate and save PDF to Downloads
   const filePath = await electronSavePDF(reportElementOrHTML, { patientName, letterheadUrl, fileName });
   if (!filePath) return null;
-  // Open WhatsApp with message
-  const label = `Lab Report - ${patientName}`;
+  // Copy PDF to clipboard so user can Ctrl+V in WhatsApp
+  await window.electronAPI.shell.copyFileToClipboard(filePath);
+  // Open WhatsApp with contact pre-filled
   const whatsappUrl = phone
-    ? `https://wa.me/${phone}?text=${encodeURIComponent(label)}`
-    : `whatsapp://send?text=${encodeURIComponent(label + '\n\nPDF saved to: ' + filePath)}`;
+    ? `https://wa.me/${phone}`
+    : `whatsapp://send`;
   window.electronAPI.shell.openExternal(whatsappUrl);
-  // Open the Downloads folder so they can drag the file into WhatsApp
-  window.electronAPI.shell.openPath(filePath.substring(0, filePath.lastIndexOf('\\')));
   return filePath;
 }

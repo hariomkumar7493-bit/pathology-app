@@ -69,6 +69,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   shell: {
     openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
     openPath: (filePath) => ipcRenderer.invoke('shell:openPath', filePath),
+    copyFileToClipboard: (filePath) => ipcRenderer.invoke('shell:copyFileToClipboard', filePath),
   },
 
   // ===== LOGGING & DIAGNOSTICS =====

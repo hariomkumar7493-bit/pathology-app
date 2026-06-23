@@ -336,7 +336,7 @@ export default function Reports() {
           phone: report.phone || '',
         });
         if (!filePath) throw new Error('Local PDF generation failed');
-        addToast(`PDF saved to Downloads. Attach in WhatsApp.`, 'success');
+        addToast(`PDF copied! Press Ctrl+V in WhatsApp to attach`, 'success');
         return;
       }
 
