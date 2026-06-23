@@ -195,7 +195,7 @@ function createWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 600,
-    title: 'PathLab Pro',
+    title: 'PathLab Pro v1.0.1', // Version in title to verify update
     icon: path.join(__dirname, '..', 'build', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
