@@ -56,7 +56,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
         <div style={{ textAlign: 'center', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px', textDecoration: 'underline', letterSpacing: '1px' }}>
           LABORATORY INVESTIGATION REPORT
         </div>
-        <div style={{ fontSize: '11px', marginBottom: '6px' }}>
+        <div style={{ fontSize: '11px', marginBottom: '6px', paddingLeft: '12px', paddingRight: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ width: '45%' }}><strong>Patient Name</strong> : {report.patient_name || ''}</span>
             <span style={{ width: '25%', textAlign: 'center' }}><strong>Age/Sex</strong> : {report.age || ''} Yrs/{(report.gender || '')[0] || ''}</span>
