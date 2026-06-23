@@ -94,8 +94,10 @@ export async function electronShareWhatsApp(reportElementOrHTML, { patientName =
   // Generate and save PDF to Downloads
   const filePath = await electronSavePDF(reportElementOrHTML, { patientName, letterheadUrl, fileName });
   if (!filePath) return null;
-  // Copy PDF to clipboard so user can Ctrl+V in WhatsApp
-  await window.electronAPI.shell.copyFileToClipboard(filePath);
+  // Copy PDF to clipboard so user can Ctrl+V in WhatsApp (if supported)
+  if (window.electronAPI.shell.copyFileToClipboard) {
+    await window.electronAPI.shell.copyFileToClipboard(filePath);
+  }
   // Open WhatsApp with contact pre-filled
   const whatsappUrl = phone
     ? `https://wa.me/${phone}`
