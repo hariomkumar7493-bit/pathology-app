@@ -4,7 +4,7 @@ import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
 import { isElectron } from '../utils/electron';
-import { electronPrint, electronGeneratePDF } from '../utils/electronPrint';
+import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 
 export default function Reports() {
   const [reports, setReports] = useState([]);
@@ -158,34 +158,16 @@ export default function Reports() {
       const files = [];
 
       if (isElectron()) {
-        // Electron: generate PDFs locally (parallel, instant)
+        // Electron: generate PDFs locally (instant, no server)
         const { generatePDFLocal } = await import('../utils/electron');
         const { buildPrintHTML } = await import('../utils/electronPrint');
         for (const report of reportsData) {
           const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
           const fileName = `${report.patient_name || 'Report'}_${dateStr}.pdf`;
-          // We need to render this report's HTML — use a temporary hidden element
-          const tempDiv = document.createElement('div');
-          tempDiv.style.position = 'absolute';
-          tempDiv.style.left = '-9999px';
-          document.body.appendChild(tempDiv);
-          const { createRoot } = await import('react-dom/client');
-          const { createElement } = await import('react');
-          const root = createRoot(tempDiv);
-          await new Promise(resolve => {
-            root.render(createElement(PrintableReport, { report, mode: 'pdf', ref: (el) => {
-              if (el) {
-                setTimeout(async () => {
-                  const html = buildPrintHTML(el, { patientName: report.patient_name, mode: 'pdf', letterheadUrl });
-                  const file = await generatePDFLocal(html, fileName);
-                  if (file) files.push(file);
-                  root.unmount();
-                  document.body.removeChild(tempDiv);
-                  resolve();
-                }, 100);
-              }
-            }}));
-          });
+          const reportHTML = renderReportToHTML(report);
+          const html = buildPrintHTML(reportHTML, { patientName: report.patient_name, mode: 'pdf', letterheadUrl });
+          const file = await generatePDFLocal(html, fileName);
+          if (file) files.push(file);
         }
       } else {
         // Web: use server endpoint
@@ -343,27 +325,33 @@ export default function Reports() {
       const letterheadUrl = `${window.location.origin}/letterhead.png`;
       const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${report.patient_name || 'Report'}_${dateStr}.pdf`;
-      let file;
 
-      // Electron: generate PDF locally (instant)
+      // Electron: generate PDF locally + save to Downloads + open WhatsApp
       if (isElectron()) {
-        const pdfContent = pdfRef.current;
-        file = await electronGeneratePDF(pdfContent, { patientName: report.patient_name, letterheadUrl, fileName });
-        if (!file) throw new Error('Local PDF generation failed');
-      } else {
-        // Web: use server endpoint
-        const pdfRes = await fetch('/api/pdf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ report, letterheadUrl }),
+        const reportHTML = renderReportToHTML(report);
+        const filePath = await electronShareWhatsApp(reportHTML, {
+          patientName: report.patient_name,
+          letterheadUrl,
+          fileName,
+          phone: report.phone || '',
         });
-        if (!pdfRes.ok) {
-          const err = await pdfRes.json().catch(() => ({ error: 'PDF generation failed' }));
-          throw new Error(err.error || 'PDF generation failed');
-        }
-        const pdfBlob = await pdfRes.blob();
-        file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+        if (!filePath) throw new Error('Local PDF generation failed');
+        addToast(`PDF saved to Downloads. Attach in WhatsApp.`, 'success');
+        return;
       }
+
+      // Web: use server endpoint
+      const pdfRes = await fetch('/api/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report, letterheadUrl }),
+      });
+      if (!pdfRes.ok) {
+        const err = await pdfRes.json().catch(() => ({ error: 'PDF generation failed' }));
+        throw new Error(err.error || 'PDF generation failed');
+      }
+      const pdfBlob = await pdfRes.blob();
+      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
       // Store file and show "Tap to Share" button
       setShareReady({ files: [file], label: `Lab Report - ${report.patient_name}` });

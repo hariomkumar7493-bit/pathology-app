@@ -4,7 +4,7 @@ import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
 import { isElectron } from '../utils/electron';
-import { electronPrint, electronGeneratePDF } from '../utils/electronPrint';
+import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 
 export default function QuickReport() {
   const [tests, setTests] = useState([]);
@@ -279,14 +279,28 @@ export default function QuickReport() {
       addToast('Report saved successfully', 'success');
 
       // Download as PDF after render
-      setTimeout(() => {
+      setTimeout(async () => {
         const pdfContent = pdfRef.current;
         if (!pdfContent) return;
         const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
-        const fileName = `${form.patient_name}_${dateStr}`;
+        const fileName = `${form.patient_name}_${dateStr}.pdf`;
+        const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
+
+        // Electron: save directly to Downloads with correct filename
+        if (isElectron()) {
+          const filePath = await electronSavePDF(pdfContent, { patientName: form.patient_name, letterheadUrl: letterheadAbsUrl, fileName });
+          if (filePath) {
+            addToast(`PDF saved: ${fileName}`, 'success');
+            window.electronAPI.file.openInExplorer(filePath);
+          } else {
+            addToast('PDF generation failed', 'error');
+          }
+          return;
+        }
+
+        // Web: open print dialog
         const pdfWindow = window.open('', '_blank', 'width=800,height=600');
         if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
-        const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
         pdfWindow.document.write(`
           <html><head><title>${fileName}</title>
           <style>
@@ -373,29 +387,50 @@ export default function QuickReport() {
       const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${form.patient_name || 'Report'}_${dateStr}.pdf`;
       const letterheadUrl = `${window.location.origin}/letterhead.png`;
-      let file;
 
-      // Electron: generate PDF locally (instant, no server)
+      // Electron: generate PDF locally + save to Downloads + open WhatsApp directly
       if (isElectron()) {
         addToast('Generating PDF...', 'info');
-        const pdfContent = pdfRef.current;
-        file = await electronGeneratePDF(pdfContent, { patientName: form.patient_name, letterheadUrl, fileName });
-        if (!file) throw new Error('Local PDF generation failed');
-      } else {
-        // Web: use server endpoint
-        addToast('Generating PDF...', 'info');
-        const pdfRes = await fetch('/api/pdf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ report: reportData, letterheadUrl }),
+        const reportHTML = renderReportToHTML(reportData);
+        const filePath = await electronShareWhatsApp(reportHTML, {
+          patientName: form.patient_name,
+          letterheadUrl,
+          fileName,
+          phone: form.phone || '',
         });
-        if (!pdfRes.ok) {
-          const err = await pdfRes.json().catch(() => ({ error: 'PDF generation failed' }));
-          throw new Error(err.error || 'PDF generation failed');
+        if (!filePath) throw new Error('Local PDF generation failed');
+        addToast(`PDF saved to Downloads. Attach in WhatsApp.`, 'success');
+        // Save report to DB after share
+        if (needsSave) {
+          const resultArr = Object.entries(results).map(([uid, val]) => {
+            const param = parameters.find(p => p.uid === uid);
+            return { parameter_id: param?.id || parseInt(uid), param_name: param?.param_name || '', result_value: val.result_value, is_abnormal: val.is_abnormal };
+          });
+          const res = await api.createQuickReport({
+            patient_name: form.patient_name, age: parseInt(form.age) || 0, gender: form.gender, phone: form.phone,
+            referred_by: form.referred_by, specimen: form.specimen, test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
+          });
+          setSavedReportId(res.reportId);
+          setPrintData(res.report);
+          addToast('Report saved', 'success');
         }
-        const pdfBlob = await pdfRes.blob();
-        file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+        setSaving(false);
+        return;
       }
+
+      // Web: use server endpoint
+      addToast('Generating PDF...', 'info');
+      const pdfRes = await fetch('/api/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report: reportData, letterheadUrl }),
+      });
+      if (!pdfRes.ok) {
+        const err = await pdfRes.json().catch(() => ({ error: 'PDF generation failed' }));
+        throw new Error(err.error || 'PDF generation failed');
+      }
+      const pdfBlob = await pdfRes.blob();
+      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
       // Store file and show "Tap to Share" modal
       setShareReady({ files: [file], label: `Lab Report - ${form.patient_name}`, needsSave });
