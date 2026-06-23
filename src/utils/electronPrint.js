@@ -17,9 +17,9 @@ import { createElement } from 'react';
 import PrintableReport from '../components/PrintableReport';
 
 // Render report data to HTML string (no DOM ref needed)
-export function renderReportToHTML(reportData) {
+export function renderReportToHTML(reportData, mode = 'pdf') {
   if (!reportData) return null;
-  return renderToStaticMarkup(createElement(PrintableReport, { report: reportData, mode: 'pdf' }));
+  return renderToStaticMarkup(createElement(PrintableReport, { report: reportData, mode }));
 }
 
 // Build the full HTML document for print/PDF

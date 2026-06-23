@@ -118,30 +118,29 @@ export default function Reports() {
     try {
       const reports = await Promise.all(selectedIds.map(id => api.getReport(id)));
       setBulkPrintData(reports);
-      setTimeout(() => {
-        const el = bulkPrintRef.current;
-        if (!el) return;
-        const printWindow = window.open('', '_blank', 'width=800,height=600');
-        if (!printWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
-        printWindow.document.write(`
-          <html><head><title>Lab Reports - Bulk Print</title>
-          <style>
-            @page { margin: 0; size: A4; }
-            html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            table { border-collapse: collapse; width: 100%; }
-            thead { display: table-header-group; }
-            tfoot { display: table-footer-group; }
-            thead td, tfoot td { padding: 0; }
-            .page-footer { position: fixed; bottom: 25px; left: 0; right: 0; z-index: 2; background: #fff; }
-            .page-break { page-break-after: always; }
-          </style></head>
-          <body>${el.innerHTML}</body></html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
-      }, 400);
+      // Generate HTML directly from data (no ref/setTimeout needed)
+      const bulkHTML = reports.map(r => renderReportToHTML(r, 'print')).filter(Boolean).join('<div class="page-break"></div>');
+      if (!bulkHTML) return;
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      if (!printWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
+      printWindow.document.write(`
+        <html><head><title>Lab Reports - Bulk Print</title>
+        <style>
+          @page { margin: 0; size: A4; }
+          html, body { height: 100%; margin: 0; box-sizing: border-box; }
+          body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          table { border-collapse: collapse; width: 100%; }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
+          thead td, tfoot td { padding: 0; }
+          .page-footer { position: fixed; bottom: 25px; left: 0; right: 0; z-index: 2; background: #fff; }
+          .page-break { page-break-after: always; }
+        </style></head>
+        <body>${bulkHTML}</body></html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
     } catch (err) {
       addToast('Failed to load reports: ' + err.message, 'error');
     }
@@ -234,13 +233,14 @@ export default function Reports() {
   };
 
   const handlePrint = async () => {
-    const printContent = printRef.current;
-    if (!printContent) return;
+    if (!viewReport) return;
     const patientName = viewReport?.patient_name || 'Report';
+    const reportHTML = renderReportToHTML(viewReport, 'print');
+    if (!reportHTML) return;
 
     // Electron: print directly without popup
     if (isElectron()) {
-      const success = await electronPrint(printContent, { patientName });
+      const success = await electronPrint(reportHTML, { patientName });
       if (success) { addToast('Sent to printer', 'success'); }
       else { addToast('Print failed', 'error'); }
       return;
@@ -263,7 +263,7 @@ export default function Reports() {
             .page-footer { position: fixed; bottom: 25px; left: 0; right: 0; z-index: 2; background: #fff; }
           </style>
         </head>
-        <body>${printContent.outerHTML}</body>
+        <body>${reportHTML}</body>
       </html>
     `);
     printWindow.document.close();
@@ -272,8 +272,9 @@ export default function Reports() {
   };
 
   const handleDownloadPdf = (report) => {
-    const pdfContent = pdfRef.current;
-    if (!pdfContent) return;
+    if (!report) return;
+    const reportHTML = renderReportToHTML(report, 'pdf');
+    if (!reportHTML) return;
 
     const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
     const fileName = `${report.patient_name}_${dateStr}`;
@@ -297,7 +298,7 @@ export default function Reports() {
             .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           </style>
         </head>
-        <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${pdfContent.outerHTML}</body>
+        <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${reportHTML}</body>
       </html>
     `);
     pdfWindow.document.close();

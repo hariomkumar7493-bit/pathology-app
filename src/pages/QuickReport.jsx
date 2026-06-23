@@ -222,24 +222,24 @@ export default function QuickReport() {
       setPrintData(fullPrintData);
       addToast('Report saved successfully', 'success');
 
-      // Print after delay for React to re-render with new printData
-      setTimeout(() => {
-        handlePrint();
-      }, 300);
+      // Print directly with report data (no ref/setTimeout needed)
+      handlePrint(fullPrintData);
     } catch (err) {
       addToast('Error: ' + err.message, 'error');
     }
     setSaving(false);
   };
 
-  const handlePrint = async () => {
-    const printContent = printRef.current;
-    if (!printContent) return;
+  const handlePrint = async (reportData) => {
+    const data = reportData || printData;
+    if (!data) return;
     const patientName = form.patient_name || 'Report';
+    const reportHTML = renderReportToHTML(data, 'print');
+    if (!reportHTML) return;
 
     // Electron: print directly without popup
     if (isElectron()) {
-      const success = await electronPrint(printContent, { patientName });
+      const success = await electronPrint(reportHTML, { patientName });
       if (success) { addToast('Sent to printer', 'success'); }
       else { addToast('Print failed', 'error'); }
       return;
@@ -262,7 +262,7 @@ export default function QuickReport() {
             .page-footer { position: fixed; bottom: 25px; left: 0; right: 0; z-index: 2; background: #fff; }
           </style>
         </head>
-        <body>${printContent.outerHTML}</body>
+        <body>${reportHTML}</body>
       </html>
     `);
     printWindow.document.close();
@@ -327,58 +327,57 @@ export default function QuickReport() {
       setPrintData(fullPrintData);
       addToast('Report saved successfully', 'success');
 
-      // Download as PDF after render
-      setTimeout(async () => {
-        const pdfContent = pdfRef.current;
-        if (!pdfContent) return;
-        const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
-        const fileName = `${form.patient_name}_${dateStr}.pdf`;
-        const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
+      // Generate report HTML directly from data (no ref/setTimeout needed)
+      const reportHTML = renderReportToHTML(fullPrintData, 'pdf');
+      if (!reportHTML) return;
 
-        // Electron: save directly to Downloads with correct filename
-        if (isElectron()) {
-          const filePath = await electronSavePDF(pdfContent, { patientName: form.patient_name, letterheadUrl: letterheadAbsUrl, fileName });
-          if (filePath) {
-            addToast(`PDF saved: ${fileName}`, 'success');
-            window.electronAPI.file.openInExplorer(filePath);
-          } else {
-            addToast('PDF generation failed', 'error');
-          }
-          return;
-        }
+      const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+      const fileName = `${form.patient_name}_${dateStr}.pdf`;
+      const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
 
-        // Web: open print dialog
-        const pdfWindow = window.open('', '_blank', 'width=800,height=600');
-        if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
-        pdfWindow.document.write(`
-          <html><head><title>${fileName}</title>
-          <style>
-            @page { margin: 0; size: A4; }
-            html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            table { border-collapse: collapse; width: 100%; }
-            thead { display: table-header-group; }
-            tfoot { display: table-footer-group; }
-            thead td, tfoot td { padding: 0; }
-            .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; }
-            .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          </style></head>
-          <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${pdfContent.outerHTML}</body></html>
-        `);
-        pdfWindow.document.close();
-        pdfWindow.focus();
-        // Wait for letterhead image to load before printing
-        const imgs = pdfWindow.document.images;
-        if (imgs.length > 0) {
-          let loaded = 0;
-          const tryPrint = () => { loaded++; if (loaded >= imgs.length) setTimeout(() => pdfWindow.print(), 200); };
-          for (let i = 0; i < imgs.length; i++) {
-            if (imgs[i].complete) { tryPrint(); } else { imgs[i].onload = tryPrint; imgs[i].onerror = tryPrint; }
-          }
+      // Electron: save directly to Downloads with correct filename
+      if (isElectron()) {
+        const filePath = await electronSavePDF(reportHTML, { patientName: form.patient_name, letterheadUrl: letterheadAbsUrl, fileName });
+        if (filePath) {
+          addToast(`PDF saved: ${fileName}`, 'success');
+          window.electronAPI.file.openInExplorer(filePath);
         } else {
-          setTimeout(() => { pdfWindow.print(); }, 400);
+          addToast('PDF generation failed', 'error');
         }
-      }, 400);
+        return;
+      }
+
+      // Web: open print dialog
+      const pdfWindow = window.open('', '_blank', 'width=800,height=600');
+      if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
+      pdfWindow.document.write(`
+        <html><head><title>${fileName}</title>
+        <style>
+          @page { margin: 0; size: A4; }
+          html, body { height: 100%; margin: 0; box-sizing: border-box; }
+          body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          table { border-collapse: collapse; width: 100%; }
+          thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
+          thead td, tfoot td { padding: 0; }
+          .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; }
+          .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        </style></head>
+        <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${reportHTML}</body></html>
+      `);
+      pdfWindow.document.close();
+      pdfWindow.focus();
+      // Wait for letterhead image to load before printing
+      const imgs = pdfWindow.document.images;
+      if (imgs.length > 0) {
+        let loaded = 0;
+        const tryPrint = () => { loaded++; if (loaded >= imgs.length) setTimeout(() => pdfWindow.print(), 200); };
+        for (let i = 0; i < imgs.length; i++) {
+          if (imgs[i].complete) { tryPrint(); } else { imgs[i].onload = tryPrint; imgs[i].onerror = tryPrint; }
+        }
+      } else {
+        setTimeout(() => { pdfWindow.print(); }, 400);
+      }
     } catch (err) {
       addToast('Error: ' + err.message, 'error');
     }
