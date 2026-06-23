@@ -1,15 +1,8 @@
 # Automatic Electron release workflow
 # Triggers when you push a version tag like v1.0.1
 #
-# SETUP (one time):
-#   1. Go to GitHub repo → Settings → Secrets → Actions
-#   2. Add secret: GH_TOKEN = your GitHub Personal Access Token
-#      (create at https://github.com/settings/tokens → "Fine-grained tokens")
-#      Required permissions: Contents (Read and write)
-#
 # USAGE:
-#   git tag v1.0.1
-#   git push origin v1.0.1
+#   npm run release:patch   (bumps version, commits, tags, pushes)
 #
 # This will:
 #   1. Build the Windows installer + portable exe
@@ -22,10 +15,10 @@ name: Build & Release Electron App
 on:
   push:
     tags:
-      - 'v*' # Triggers on any tag starting with 'v' (e.g., v1.0.0, v1.0.1)
+      - 'v*'
 
 permissions:
-  contents: write # Required to create releases and upload assets
+  contents: write
 
 jobs:
   build-windows:
@@ -46,7 +39,8 @@ jobs:
 
       - name: Build Electron app & publish to GitHub Releases
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          # Use built-in GITHUB_TOKEN (works for public repos, no setup needed)
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win --publish always
 
       - name: List build artifacts
