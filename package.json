@@ -96,7 +96,8 @@
       {
         "provider": "github",
         "owner": "hariomkumar7493-bit",
-        "repo": "pathology-app"
+        "repo": "pathology-app",
+        "releaseType": "release"
       }
     ]
   }

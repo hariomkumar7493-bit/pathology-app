@@ -132,13 +132,17 @@ function setupAutoUpdater() {
 
   // ----- Event: Downloaded -----
   autoUpdater.on('update-downloaded', (info) => {
-    log('INFO', 'Update downloaded, ready to install', { version: info.version });
+    log('INFO', 'Update downloaded, installing automatically', { version: info.version });
     sendToRenderer('update:downloaded', {
       version: info.version,
       releaseDate: info.releaseDate,
       releaseNotes: info.releaseNotes || '',
     });
-    sendToRenderer('update:status', `Update v${info.version} ready. Restart to install.`);
+    sendToRenderer('update:status', `Update v${info.version} downloaded. Restarting in 5s...`);
+    // Auto-install: restart after 5 seconds
+    setTimeout(() => {
+      autoUpdater.quitAndInstall(false, true);
+    }, 5000);
   });
 
   // ----- Event: Error -----
@@ -195,7 +199,7 @@ function createWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 600,
-    title: 'PathLab Pro v1.0.1', // Version in title to verify update
+    title: `PathLab Pro v${require('../package.json').version}`,
     icon: path.join(__dirname, '..', 'build', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
