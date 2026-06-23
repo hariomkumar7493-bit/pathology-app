@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronDown, ChevronUp, ChevronRight, Share2 } from 'lucide-react';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
@@ -234,8 +235,13 @@ export default function QuickReport() {
     const data = reportData || printData;
     if (!data) return;
     const patientName = form.patient_name || 'Report';
-    const reportHTML = renderReportToHTML(data, 'print');
-    if (!reportHTML) return;
+
+    // Force synchronous DOM render so printRef is immediately available
+    flushSync(() => { setPrintData(data); });
+    const printContent = printRef.current;
+    if (!printContent) { console.error('PrintableReport ref is null after flushSync'); return; }
+    const reportHTML = printContent.outerHTML;
+    console.log('[handlePrint] results count:', data.results?.length, 'filled:', data.results?.filter(r => r.result_value).length, 'HTML length:', reportHTML.length);
 
     // Electron: print directly without popup
     if (isElectron()) {
@@ -324,12 +330,13 @@ export default function QuickReport() {
           };
         }),
       };
-      setPrintData(fullPrintData);
       addToast('Report saved successfully', 'success');
 
-      // Generate report HTML directly from data (no ref/setTimeout needed)
-      const reportHTML = renderReportToHTML(fullPrintData, 'pdf');
-      if (!reportHTML) return;
+      // Force synchronous DOM render so pdfRef is immediately available
+      flushSync(() => { setPrintData(fullPrintData); });
+      const pdfContent = pdfRef.current;
+      if (!pdfContent) { console.error('PDF ref is null after flushSync'); return; }
+      const reportHTML = pdfContent.outerHTML;
 
       const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${form.patient_name}_${dateStr}.pdf`;
