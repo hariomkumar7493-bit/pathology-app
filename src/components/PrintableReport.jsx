@@ -7,7 +7,7 @@ import { forwardRef, Fragment } from 'react';
   - thead/tfoot = invisible spacers to reserve space on each page.
 */
 
-const BASE_HEADER_H = 275;
+const BASE_HEADER_H = 245;
 const FOOTER_H_PDF = 130;
 const FOOTER_H_PRINT = 130;
 
@@ -18,10 +18,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
   const footerH = isPdf ? FOOTER_H_PDF : FOOTER_H_PRINT;
   const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-  // Add extra height for long investigation text (approx 80 chars per line, 14px per extra line)
-  const invLen = (report.investigation || '').length;
-  const extraLines = Math.max(0, Math.ceil(invLen / 80) - 1);
-  const HEADER_H = BASE_HEADER_H + (extraLines * 14);
+  const HEADER_H = BASE_HEADER_H;
 
   const formatDate = (d) => {
     if (!d) return '';
@@ -72,14 +69,6 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
             <span style={{ width: '25%' }}></span>
             <span style={{ width: '30%', textAlign: 'left' }}><strong>Ref No</strong> : {report.ref_no || ''}</span>
           </div>
-          {report.investigation && (
-            <div><strong>Investigation</strong> : {report.investigation}</div>
-          )}
-        </div>
-        <div style={{ display: 'flex', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontWeight: 'bold', fontSize: '11px', paddingLeft: '20px', paddingRight: '10px' }}>
-          <div style={{ width: '45%', padding: '4px 6px' }}>Test Description</div>
-          <div style={{ width: '25%', padding: '4px 6px', textAlign: 'center' }}>RESULT/UNIT</div>
-          <div style={{ width: '30%', padding: '4px 6px', textAlign: 'center' }}>REF. RANGE</div>
         </div>
       </div>
 
@@ -107,7 +96,23 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
         Object.values(groups).some(params => params.some(p => p.result_value && p.result_value.toString().trim() !== ''))
       ).map(([catName, groups], catIdx, arr) => (
         <table key={catName} style={{ width: '100%', borderCollapse: 'collapse', pageBreakAfter: catIdx < arr.length - 1 ? 'always' : 'auto' }}>
-          <thead><tr><td style={{ height: `${HEADER_H + 5}px`, padding: 0, border: 'none' }}></td></tr></thead>
+          <thead>
+            <tr><td style={{ height: `${HEADER_H + 5}px`, padding: 0, border: 'none' }}></td></tr>
+            <tr>
+              <td style={{ paddingLeft: '20px', paddingRight: '10px', paddingBottom: '4px', fontSize: '11px' }}>
+                <strong>Investigation</strong> : {Object.values(groups).flat().map(p => p.param_name).filter(Boolean).join(', ')}
+              </td>
+            </tr>
+            <tr>
+              <td style={{ padding: 0 }}>
+                <div style={{ display: 'flex', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontWeight: 'bold', fontSize: '11px', paddingLeft: '20px', paddingRight: '10px' }}>
+                  <div style={{ width: '45%', padding: '4px 6px' }}>Test Description</div>
+                  <div style={{ width: '25%', padding: '4px 6px', textAlign: 'center' }}>RESULT/UNIT</div>
+                  <div style={{ width: '30%', padding: '4px 6px', textAlign: 'center' }}>REF. RANGE</div>
+                </div>
+              </td>
+            </tr>
+          </thead>
           <tfoot>
             <tr>
               <td style={{ padding: 0, border: 'none' }}>
