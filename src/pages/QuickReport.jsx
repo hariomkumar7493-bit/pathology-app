@@ -194,13 +194,38 @@ export default function QuickReport() {
       });
 
       setSavedReportId(res.reportId);
-      setPrintData(res.report);
+      // Build printData client-side with full param details for grouping
+      const fullPrintData = {
+        ...res.report,
+        patient_name: form.patient_name,
+        age: parseInt(form.age) || 0,
+        gender: form.gender,
+        referred_by: form.referred_by,
+        specimen: form.specimen,
+        date_of_collection: form.date_of_collection,
+        date_of_reporting: new Date().toISOString(),
+        results: Object.entries(results).map(([uid, val]) => {
+          const param = parameters.find(p => p.uid === uid);
+          return {
+            param_name: param?.param_name || '',
+            result_value: val.result_value,
+            is_abnormal: val.is_abnormal,
+            unit: param?.unit || '',
+            ref_range_male: param?.ref_range_male || '',
+            ref_range_female: param?.ref_range_female || '',
+            category_name: param?.category_name || '',
+            group_name: param?.group_name || '',
+            specimen: param?.specimen || form.specimen || 'BLOOD',
+          };
+        }),
+      };
+      setPrintData(fullPrintData);
       addToast('Report saved successfully', 'success');
 
-      // Print after short delay for state to update
+      // Print after delay for React to re-render with new printData
       setTimeout(() => {
         handlePrint();
-      }, 100);
+      }, 300);
     } catch (err) {
       addToast('Error: ' + err.message, 'error');
     }
@@ -274,7 +299,32 @@ export default function QuickReport() {
       });
 
       setSavedReportId(res.reportId);
-      setPrintData(res.report);
+      // Build printData client-side with full param details for grouping
+      const fullPrintData = {
+        ...res.report,
+        patient_name: form.patient_name,
+        age: parseInt(form.age) || 0,
+        gender: form.gender,
+        referred_by: form.referred_by,
+        specimen: form.specimen,
+        date_of_collection: form.date_of_collection,
+        date_of_reporting: new Date().toISOString(),
+        results: Object.entries(results).map(([uid, val]) => {
+          const param = parameters.find(p => p.uid === uid);
+          return {
+            param_name: param?.param_name || '',
+            result_value: val.result_value,
+            is_abnormal: val.is_abnormal,
+            unit: param?.unit || '',
+            ref_range_male: param?.ref_range_male || '',
+            ref_range_female: param?.ref_range_female || '',
+            category_name: param?.category_name || '',
+            group_name: param?.group_name || '',
+            specimen: param?.specimen || form.specimen || 'BLOOD',
+          };
+        }),
+      };
+      setPrintData(fullPrintData);
       addToast('Report saved successfully', 'success');
 
       // Download as PDF after render
