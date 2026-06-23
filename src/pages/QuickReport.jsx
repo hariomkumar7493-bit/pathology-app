@@ -4,7 +4,7 @@ import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
 import { isElectron } from '../utils/electron';
-import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
+import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML, buildPrintHTML } from '../utils/electronPrint';
 
 export default function QuickReport() {
   const [tests, setTests] = useState([]);
@@ -165,6 +165,32 @@ export default function QuickReport() {
     groupedParams[catKey][groupKey].push(p);
   });
 
+  // Build report data from form (used for print, PDF, and share)
+  const buildReportData = () => ({
+    patient_name: form.patient_name,
+    age: parseInt(form.age) || 0,
+    gender: form.gender,
+    referred_by: form.referred_by,
+    specimen: form.specimen,
+    date_of_collection: form.date_of_collection,
+    date_of_reporting: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    results: Object.entries(results).map(([uid, val]) => {
+      const param = parameters.find(p => p.uid === uid);
+      return {
+        param_name: param?.param_name || '',
+        result_value: val.result_value,
+        is_abnormal: val.is_abnormal,
+        unit: param?.unit || '',
+        ref_range_male: param?.ref_range_male || '',
+        ref_range_female: param?.ref_range_female || '',
+        category_name: param?.category_name || '',
+        group_name: param?.group_name || '',
+        specimen: param?.specimen || form.specimen || 'BLOOD',
+      };
+    }),
+  });
+
   const handleSaveAndPrint = async () => {
     if (!form.patient_name) { addToast('Patient name is required', 'warning'); return; }
     if (selectedTests.length === 0) { addToast('Select at least one test', 'warning'); return; }
@@ -197,10 +223,8 @@ export default function QuickReport() {
       setPrintData(res.report);
       addToast('Report saved successfully', 'success');
 
-      // Print after short delay for state to update
-      setTimeout(() => {
-        handlePrint();
-      }, 100);
+      // Print immediately using renderReportToHTML (no DOM timing dependency)
+      handlePrint();
     } catch (err) {
       addToast('Error: ' + err.message, 'error');
     }
@@ -208,13 +232,14 @@ export default function QuickReport() {
   };
 
   const handlePrint = async () => {
-    const printContent = printRef.current;
-    if (!printContent) return;
+    const reportData = printData || buildReportData();
+    const reportHTML = renderReportToHTML(reportData);
+    if (!reportHTML) return;
     const patientName = form.patient_name || 'Report';
 
     // Electron: print directly without popup
     if (isElectron()) {
-      const success = await electronPrint(printContent, { patientName });
+      const success = await electronPrint(reportHTML, { patientName });
       if (success) { addToast('Sent to printer', 'success'); }
       else { addToast('Print failed', 'error'); }
       return;
@@ -222,24 +247,8 @@ export default function QuickReport() {
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { window.alert('Popup blocked!\\n\\nTo fix:\\n1. Click the blocked popup icon in the address bar\\n2. Select "Always allow popups"\\n3. Click the button again'); return; }
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>${patientName} - Lab Report</title>
-          <style>
-            @page { margin: 0; size: A4; }
-            html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            table { border-collapse: collapse; width: 100%; }
-            thead { display: table-header-group; }
-            tfoot { display: table-footer-group; }
-            thead td, tfoot td { padding: 0; }
-            .page-footer { position: fixed; bottom: 25px; left: 0; right: 0; z-index: 2; background: #fff; }
-          </style>
-        </head>
-        <body>${printContent.outerHTML}</body>
-      </html>
-    `);
+    const html = buildPrintHTML(reportHTML, { patientName, mode: 'print' });
+    printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
@@ -277,47 +286,30 @@ export default function QuickReport() {
       setPrintData(res.report);
       addToast('Report saved successfully', 'success');
 
-      // Download as PDF after render
-      setTimeout(async () => {
-        const pdfContent = pdfRef.current;
-        if (!pdfContent) return;
-        const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
-        const fileName = `${form.patient_name}_${dateStr}.pdf`;
-        const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
+      // Download as PDF using renderReportToHTML (no DOM timing dependency)
+      const reportData = buildReportData();
+      const reportHTML = renderReportToHTML(reportData);
+      const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+      const fileName = `${form.patient_name}_${dateStr}.pdf`;
+      const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
 
-        // Electron: save directly to Downloads with correct filename
-        if (isElectron()) {
-          const filePath = await electronSavePDF(pdfContent, { patientName: form.patient_name, letterheadUrl: letterheadAbsUrl, fileName });
-          if (filePath) {
-            addToast(`PDF saved: ${fileName}`, 'success');
-            window.electronAPI.file.openInExplorer(filePath);
-          } else {
-            addToast('PDF generation failed', 'error');
-          }
-          return;
+      // Electron: save directly to Downloads with correct filename
+      if (isElectron()) {
+        const filePath = await electronSavePDF(reportHTML, { patientName: form.patient_name, letterheadUrl: letterheadAbsUrl, fileName });
+        if (filePath) {
+          addToast(`PDF saved: ${fileName}`, 'success');
+          window.electronAPI.file.openInExplorer(filePath);
+        } else {
+          addToast('PDF generation failed', 'error');
         }
-
+      } else {
         // Web: open print dialog
+        const html = buildPrintHTML(reportHTML, { patientName: form.patient_name, mode: 'pdf', letterheadUrl: letterheadAbsUrl });
         const pdfWindow = window.open('', '_blank', 'width=800,height=600');
         if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
-        pdfWindow.document.write(`
-          <html><head><title>${fileName}</title>
-          <style>
-            @page { margin: 0; size: A4; }
-            html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            table { border-collapse: collapse; width: 100%; }
-            thead { display: table-header-group; }
-            tfoot { display: table-footer-group; }
-            thead td, tfoot td { padding: 0; }
-            .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; }
-            .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          </style></head>
-          <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${pdfContent.outerHTML}</body></html>
-        `);
+        pdfWindow.document.write(html);
         pdfWindow.document.close();
         pdfWindow.focus();
-        // Wait for letterhead image to load before printing
         const imgs = pdfWindow.document.images;
         if (imgs.length > 0) {
           let loaded = 0;
@@ -328,7 +320,7 @@ export default function QuickReport() {
         } else {
           setTimeout(() => { pdfWindow.print(); }, 400);
         }
-      }, 400);
+      }
     } catch (err) {
       addToast('Error: ' + err.message, 'error');
     }

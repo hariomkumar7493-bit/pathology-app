@@ -4,7 +4,7 @@ import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
 import { isElectron } from '../utils/electron';
-import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
+import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML, buildPrintHTML } from '../utils/electronPrint';
 
 export default function Reports() {
   const [reports, setReports] = useState([]);
@@ -234,13 +234,14 @@ export default function Reports() {
   };
 
   const handlePrint = async () => {
-    const printContent = printRef.current;
-    if (!printContent) return;
-    const patientName = viewReport?.patient_name || 'Report';
+    if (!viewReport) return;
+    const reportHTML = renderReportToHTML(viewReport);
+    if (!reportHTML) return;
+    const patientName = viewReport.patient_name || 'Report';
 
     // Electron: print directly without popup
     if (isElectron()) {
-      const success = await electronPrint(printContent, { patientName });
+      const success = await electronPrint(reportHTML, { patientName });
       if (success) { addToast('Sent to printer', 'success'); }
       else { addToast('Print failed', 'error'); }
       return;
@@ -248,61 +249,42 @@ export default function Reports() {
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>${patientName} - Lab Report</title>
-          <style>
-            @page { margin: 0; size: A4; }
-            html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            table { border-collapse: collapse; width: 100%; }
-            thead { display: table-header-group; }
-            tfoot { display: table-footer-group; }
-            thead td, tfoot td { padding: 0; }
-            .page-footer { position: fixed; bottom: 25px; left: 0; right: 0; z-index: 2; background: #fff; }
-          </style>
-        </head>
-        <body>${printContent.outerHTML}</body>
-      </html>
-    `);
+    const html = buildPrintHTML(reportHTML, { patientName, mode: 'print' });
+    printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
   };
 
   const handleDownloadPdf = (report) => {
-    const pdfContent = pdfRef.current;
-    if (!pdfContent) return;
+    if (!report) return;
+    const reportHTML = renderReportToHTML(report);
+    if (!reportHTML) return;
 
     const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
     const fileName = `${report.patient_name}_${dateStr}`;
+    const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
 
+    // Electron: save directly
+    if (isElectron()) {
+      electronSavePDF(reportHTML, { patientName: report.patient_name, letterheadUrl: letterheadAbsUrl, fileName: `${fileName}.pdf` }).then(filePath => {
+        if (filePath) {
+          addToast(`PDF saved: ${fileName}.pdf`, 'success');
+          window.electronAPI.file.openInExplorer(filePath);
+        } else {
+          addToast('PDF generation failed', 'error');
+        }
+      });
+      return;
+    }
+
+    // Web: open print dialog
+    const html = buildPrintHTML(reportHTML, { patientName: report.patient_name, mode: 'pdf', letterheadUrl: letterheadAbsUrl });
     const pdfWindow = window.open('', '_blank', 'width=800,height=600');
     if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
-    const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
-    pdfWindow.document.write(`
-      <html>
-        <head>
-          <title>${fileName}</title>
-          <style>
-            @page { margin: 0; size: A4; }
-            html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            table { border-collapse: collapse; width: 100%; }
-            thead { display: table-header-group; }
-            tfoot { display: table-footer-group; }
-            thead td, tfoot td { padding: 0; }
-            .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; }
-            .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          </style>
-        </head>
-        <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${pdfContent.outerHTML}</body>
-      </html>
-    `);
+    pdfWindow.document.write(html);
     pdfWindow.document.close();
     pdfWindow.focus();
-    // Wait for letterhead image to load before printing
     const imgs = pdfWindow.document.images;
     if (imgs.length > 0) {
       let loaded = 0;
