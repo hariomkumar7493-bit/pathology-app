@@ -2,7 +2,6 @@ const { app, BrowserWindow, ipcMain, shell, dialog, globalShortcut, crashReporte
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 
 // Production URL - your deployed web application
 const PRODUCTION_URL = 'https://patholabpro.online';
@@ -487,27 +486,21 @@ function embedImagesAsBase64(html) {
   });
 }
 
-// Helper: load HTML into a hidden BrowserWindow via temp file (avoids data: URL length limits)
-async function loadHtmlInWindow(html) {
-  const tmpFile = path.join(os.tmpdir(), `pathlabpro-${Date.now()}.html`);
-  fs.writeFileSync(tmpFile, html, 'utf-8');
-  const win = new BrowserWindow({
-    show: false,
-    width: 794,
-    height: 1123,
-    webPreferences: { nodeIntegration: false, contextIsolation: true },
-  });
-  await win.loadFile(tmpFile);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return { win, tmpFile };
-}
-
 ipcMain.handle('pdf:generate', async (event, { html, fileName }) => {
-  let tmpFile;
   try {
     const processedHtml = embedImagesAsBase64(html);
-    const { win: pdfWin, tmpFile: tf } = await loadHtmlInWindow(processedHtml);
-    tmpFile = tf;
+    const pdfWin = new BrowserWindow({
+      show: false,
+      width: 794,  // A4 width in px at 96dpi
+      height: 1123, // A4 height in px at 96dpi
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+
+    // Load HTML content directly
+    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(processedHtml)}`);
+
+    // Wait for images/fonts to load
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     const pdfBuffer = await pdfWin.webContents.printToPDF({
       printBackground: true,
@@ -517,21 +510,27 @@ ipcMain.handle('pdf:generate', async (event, { html, fileName }) => {
     });
 
     pdfWin.close();
+
+    // Return as base64
     return { success: true, data: pdfBuffer.toString('base64'), fileName };
   } catch (err) {
     return { success: false, error: err.message };
-  } finally {
-    try { if (tmpFile) fs.unlinkSync(tmpFile); } catch (e) {}
   }
 });
 
 // Generate PDF and save directly to Downloads folder
 ipcMain.handle('pdf:generateAndSave', async (event, { html, fileName }) => {
-  let tmpFile;
   try {
     const processedHtml = embedImagesAsBase64(html);
-    const { win: pdfWin, tmpFile: tf } = await loadHtmlInWindow(processedHtml);
-    tmpFile = tf;
+    const pdfWin = new BrowserWindow({
+      show: false,
+      width: 794,
+      height: 1123,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+
+    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(processedHtml)}`);
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     const pdfBuffer = await pdfWin.webContents.printToPDF({
       printBackground: true,
@@ -550,18 +549,21 @@ ipcMain.handle('pdf:generateAndSave', async (event, { html, fileName }) => {
     return { success: true, filePath, data: pdfBuffer.toString('base64') };
   } catch (err) {
     return { success: false, error: err.message };
-  } finally {
-    try { if (tmpFile) fs.unlinkSync(tmpFile); } catch (e) {}
   }
 });
 
 // Print page directly without dialog
 ipcMain.handle('pdf:printDirect', async (event, { html, printerName, copies, silent }) => {
-  let tmpFile;
   try {
-    const processedHtml = embedImagesAsBase64(html);
-    const { win: printWin, tmpFile: tf } = await loadHtmlInWindow(processedHtml);
-    tmpFile = tf;
+    const printWin = new BrowserWindow({
+      show: false,
+      width: 794,
+      height: 1123,
+      webPreferences: { nodeIntegration: false, contextIsolation: true },
+    });
+
+    await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     return new Promise((resolve) => {
       printWin.webContents.print(
@@ -580,8 +582,6 @@ ipcMain.handle('pdf:printDirect', async (event, { html, printerName, copies, sil
     });
   } catch (err) {
     return { success: false, errorType: err.message };
-  } finally {
-    try { if (tmpFile) fs.unlinkSync(tmpFile); } catch (e) {}
   }
 });
 

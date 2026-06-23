@@ -4,7 +4,7 @@ import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
 import { isElectron } from '../utils/electron';
-import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML, buildPrintHTML } from '../utils/electronPrint';
+import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 
 export default function QuickReport() {
   const [tests, setTests] = useState([]);
@@ -208,24 +208,39 @@ export default function QuickReport() {
   };
 
   const handlePrint = async () => {
-    if (!printData) return;
+    const printContent = printRef.current;
+    if (!printContent) return;
     const patientName = form.patient_name || 'Report';
 
     // Electron: print directly without popup
     if (isElectron()) {
-      const success = await electronPrint(printData, { patientName });
+      const success = await electronPrint(printContent, { patientName });
       if (success) { addToast('Sent to printer', 'success'); }
       else { addToast('Print failed', 'error'); }
       return;
     }
 
-    // Web: use popup with rendered HTML
-    const html = buildPrintHTML(printData, { patientName, mode: 'print' });
-    if (!html) return;
-    
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { window.alert('Popup blocked!\\n\\nTo fix:\\n1. Click the blocked popup icon in the address bar\\n2. Select "Always allow popups"\\n3. Click the button again'); return; }
-    printWindow.document.write(html);
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${patientName} - Lab Report</title>
+          <style>
+            @page { margin: 0; size: A4; }
+            html, body { height: 100%; margin: 0; box-sizing: border-box; }
+            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            table { border-collapse: collapse; width: 100%; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            thead td, tfoot td { padding: 0; }
+            .page-header { position: fixed; top: 0; left: 0; right: 0; z-index: 2; background: #fff; }
+            .page-footer { position: fixed; bottom: 25px; left: 0; right: 0; z-index: 2; background: #fff; }
+          </style>
+        </head>
+        <body>${printContent.outerHTML}</body>
+      </html>
+    `);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);

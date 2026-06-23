@@ -69,9 +69,6 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
             <span style={{ width: '25%' }}></span>
             <span style={{ width: '30%', textAlign: 'left' }}><strong>Ref No</strong> : {report.ref_no || ''}</span>
           </div>
-          {report.investigation && (
-            <div><strong>Investigation</strong> : {report.investigation}</div>
-          )}
         </div>
       </div>
 
@@ -101,6 +98,11 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
         <table key={catName} style={{ width: '100%', borderCollapse: 'collapse', pageBreakAfter: catIdx < arr.length - 1 ? 'always' : 'auto' }}>
           <thead>
             <tr><td style={{ height: `${HEADER_H + 5}px`, padding: 0, border: 'none' }}></td></tr>
+            <tr>
+              <td style={{ paddingLeft: '20px', paddingRight: '10px', paddingBottom: '4px', fontSize: '11px' }}>
+                <strong>Investigation</strong> : {Object.values(groups).flat().map(p => p.param_name).filter(Boolean).join(', ')}
+              </td>
+            </tr>
             <tr>
               <td style={{ padding: 0 }}>
                 <div style={{ display: 'flex', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontWeight: 'bold', fontSize: '11px', paddingLeft: '20px', paddingRight: '10px' }}>
