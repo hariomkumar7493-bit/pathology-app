@@ -12,6 +12,8 @@ const config: CapacitorConfig = {
   },
   server: {
     androidScheme: 'https',
+    url: 'https://patholabpro.online',
+    cleartext: true,
   }
 };
 

@@ -7,7 +7,7 @@ const isDev = (window.location.hostname === 'localhost' || window.location.hostn
 const API_BASE = isDev
   ? `http://${window.location.hostname}:5000/api`
   : isCapacitor
-    ? 'https://pathology-app-psi.vercel.app/api'
+    ? 'https://patholabpro.online/api'
     : '/api';
 
 // Token management
