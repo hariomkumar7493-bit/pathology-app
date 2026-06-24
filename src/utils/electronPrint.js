@@ -49,6 +49,10 @@ export function buildPrintHTML(reportElementOrHTML, { patientName = 'Report', mo
   return `<html>
     <head>
       <title>${patientName} - Lab Report</title>
+      <meta charset="utf-8">
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
       <style>
         @page { margin: 0; size: A4; }
         html, body { height: 100%; margin: 0; box-sizing: border-box; }
@@ -58,6 +62,7 @@ export function buildPrintHTML(reportElementOrHTML, { patientName = 'Report', mo
         tfoot { display: table-footer-group; }
         thead td, tfoot td { padding: 0; }
         .page-footer { position: fixed; bottom: ${footerBottom}; left: 0; right: 0; z-index: 2; background: #fff; }
+        .hindi-footer { font-family: 'Noto Sans Devanagari', sans-serif !important; }
         ${letterheadUrl ? `.letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: ${lhHeight}px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }` : ''}
       </style>
     </head>

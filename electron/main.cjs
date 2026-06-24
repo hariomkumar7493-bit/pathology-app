@@ -503,8 +503,8 @@ ipcMain.handle('pdf:generate', async (event, { html, fileName }) => {
     fs.writeFileSync(tmpFile, processedHtml, 'utf-8');
     await pdfWin.loadURL(`file://${tmpFile.replace(/\\/g, '/')}`);
 
-    // Wait for images/fonts to load
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait for images/fonts to load (increased for Google Fonts)
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const pdfBuffer = await pdfWin.webContents.printToPDF({
       printBackground: true,
@@ -541,7 +541,7 @@ ipcMain.handle('pdf:generateAndSave', async (event, { html, fileName }) => {
     tmpFile = path.join(app.getPath('temp'), `pathlab-pdf-save-${Date.now()}.html`);
     fs.writeFileSync(tmpFile, processedHtml, 'utf-8');
     await pdfWin.loadURL(`file://${tmpFile.replace(/\\/g, '/')}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const pdfBuffer = await pdfWin.webContents.printToPDF({
       printBackground: true,
@@ -582,7 +582,7 @@ ipcMain.handle('pdf:printDirect', async (event, { html, printerName, copies, sil
     tmpFile = path.join(app.getPath('temp'), `pathlab-print-${Date.now()}.html`);
     fs.writeFileSync(tmpFile, processedHtml, 'utf-8');
     await printWin.loadURL(`file://${tmpFile.replace(/\\/g, '/')}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     return new Promise((resolve) => {
       printWin.webContents.print(

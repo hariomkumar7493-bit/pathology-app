@@ -138,7 +138,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
                 <p style={{ margin: '1px 0' }}>2. {l.footerNote2}</p>
               </div>
               {isPdf && l.showHindiFooter && (
-                <div style={{ marginTop: '6px', background: l.hindiFooterBgColor, color: '#fff', padding: '4px 10px', fontSize: '9px', textAlign: 'center' }}>
+                <div className="hindi-footer" style={{ marginTop: '6px', background: l.hindiFooterBgColor, color: '#fff', padding: '4px 10px', fontSize: '9px', textAlign: 'center', fontFamily: "'Noto Sans Devanagari', sans-serif" }}>
                   {l.hindiFooterText}
                 </div>
               )}
@@ -165,7 +165,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
           <p style={{ margin: '1px 0' }}>2. {l.footerNote2}</p>
         </div>
         {isPdf && l.showHindiFooter && (
-          <div style={{ marginTop: '6px', background: l.hindiFooterBgColor, color: '#fff', padding: '4px 10px', fontSize: '9px', textAlign: 'center' }}>
+          <div className="hindi-footer" style={{ marginTop: '6px', background: l.hindiFooterBgColor, color: '#fff', padding: '4px 10px', fontSize: '9px', textAlign: 'center', fontFamily: "'Noto Sans Devanagari', sans-serif" }}>
             {l.hindiFooterText}
           </div>
         )}

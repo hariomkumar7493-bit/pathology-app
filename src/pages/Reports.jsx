@@ -329,11 +329,10 @@ export default function Reports() {
       const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${report.patient_name || 'Report'}_${dateStr}.pdf`;
 
-      // Electron: generate PDF locally using same DOM approach as Download PDF
+      // Electron: generate PDF locally using renderReportToHTML (same as Download PDF)
       if (isElectron()) {
-        const pdfContent = pdfRef.current;
-        if (!pdfContent) { throw new Error('PDF ref is null'); }
-        const reportHTML = pdfContent.outerHTML;
+        const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings?.pdf);
+        if (!reportHTML) { throw new Error('Failed to render report HTML'); }
         const filePath = await electronShareWhatsApp(reportHTML, {
           patientName: report.patient_name,
           letterheadUrl,
