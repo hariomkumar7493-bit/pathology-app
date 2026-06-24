@@ -1,0 +1,71 @@
+# Automatic Android APK build workflow
+# Triggers when you push a version tag like v1.0.1
+#
+# USAGE:
+#   npm run release:patch   (bumps version, commits, tags, pushes)
+#
+# This will:
+#   1. Build the web app (Vite)
+#   2. Sync to Capacitor Android project
+#   3. Build debug + release APKs
+#   4. Upload APKs to the same GitHub Release created by the Electron workflow
+
+name: Build Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Java (for Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Build APK (debug)
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Build APK (release unsigned)
+        working-directory: android
+        run: ./gradlew assembleRelease
+
+      - name: Upload APKs to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/apk/release/app-release-unsigned.apk
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
