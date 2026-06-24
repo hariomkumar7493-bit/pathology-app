@@ -230,7 +230,7 @@ export default function QuickReport() {
       setPrintData(fullPrintData);
 
       // Print directly with report data (no ref/setTimeout needed)
-      handlePrint(fullPrintData);
+      await handlePrint(fullPrintData);
     } catch (err) {
       addToast('Error: ' + err.message, 'error');
     }
@@ -362,6 +362,7 @@ export default function QuickReport() {
         } else {
           addToast('PDF generation failed', 'error');
         }
+        setSaving(false);
         return;
       }
 
