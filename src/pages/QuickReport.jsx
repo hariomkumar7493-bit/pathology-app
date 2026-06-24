@@ -174,32 +174,37 @@ export default function QuickReport() {
 
     setSaving(true);
     try {
-      const resultArr = Object.entries(results).map(([uid, val]) => {
-        const param = parameters.find(p => p.uid === uid);
-        return {
-          parameter_id: param?.id || parseInt(uid),
-          param_name: param?.param_name || '',
-          result_value: val.result_value,
-          is_abnormal: val.is_abnormal,
-        };
-      });
+      // Only save if not already saved
+      if (!savedReportId) {
+        const resultArr = Object.entries(results).map(([uid, val]) => {
+          const param = parameters.find(p => p.uid === uid);
+          return {
+            parameter_id: param?.id || parseInt(uid),
+            param_name: param?.param_name || '',
+            result_value: val.result_value,
+            is_abnormal: val.is_abnormal,
+          };
+        });
 
-      const res = await api.createQuickReport({
-        patient_name: form.patient_name,
-        age: parseInt(form.age) || 0,
-        gender: form.gender,
-        phone: form.phone,
-        referred_by: form.referred_by,
-        specimen: form.specimen,
-        test_ids: selectedTests,
-        results: resultArr,
-        date_of_collection: form.date_of_collection,
-      });
+        const res = await api.createQuickReport({
+          patient_name: form.patient_name,
+          age: parseInt(form.age) || 0,
+          gender: form.gender,
+          phone: form.phone,
+          referred_by: form.referred_by,
+          specimen: form.specimen,
+          test_ids: selectedTests,
+          results: resultArr,
+          date_of_collection: form.date_of_collection,
+        });
 
-      setSavedReportId(res.reportId);
+        setSavedReportId(res.reportId);
+        addToast('Report saved successfully', 'success');
+      }
+
       // Build printData client-side with full param details for grouping
       const fullPrintData = {
-        ...res.report,
+        ...(printData || {}),
         patient_name: form.patient_name,
         age: parseInt(form.age) || 0,
         gender: form.gender,
@@ -223,7 +228,6 @@ export default function QuickReport() {
         }),
       };
       setPrintData(fullPrintData);
-      addToast('Report saved successfully', 'success');
 
       // Print directly with report data (no ref/setTimeout needed)
       handlePrint(fullPrintData);
@@ -285,32 +289,37 @@ export default function QuickReport() {
 
     setSaving(true);
     try {
-      const resultArr = Object.entries(results).map(([uid, val]) => {
-        const param = parameters.find(p => p.uid === uid);
-        return {
-          parameter_id: param?.id || parseInt(uid),
-          param_name: param?.param_name || '',
-          result_value: val.result_value,
-          is_abnormal: val.is_abnormal,
-        };
-      });
+      // Only save if not already saved
+      if (!savedReportId) {
+        const resultArr = Object.entries(results).map(([uid, val]) => {
+          const param = parameters.find(p => p.uid === uid);
+          return {
+            parameter_id: param?.id || parseInt(uid),
+            param_name: param?.param_name || '',
+            result_value: val.result_value,
+            is_abnormal: val.is_abnormal,
+          };
+        });
 
-      const res = await api.createQuickReport({
-        patient_name: form.patient_name,
-        age: parseInt(form.age) || 0,
-        gender: form.gender,
-        phone: form.phone,
-        referred_by: form.referred_by,
-        specimen: form.specimen,
-        test_ids: selectedTests,
-        results: resultArr,
-        date_of_collection: form.date_of_collection,
-      });
+        const res = await api.createQuickReport({
+          patient_name: form.patient_name,
+          age: parseInt(form.age) || 0,
+          gender: form.gender,
+          phone: form.phone,
+          referred_by: form.referred_by,
+          specimen: form.specimen,
+          test_ids: selectedTests,
+          results: resultArr,
+          date_of_collection: form.date_of_collection,
+        });
 
-      setSavedReportId(res.reportId);
+        setSavedReportId(res.reportId);
+        addToast('Report saved successfully', 'success');
+      }
+
       // Build printData client-side with full param details for grouping
       const fullPrintData = {
-        ...res.report,
+        ...(printData || {}),
         patient_name: form.patient_name,
         age: parseInt(form.age) || 0,
         gender: form.gender,
@@ -333,7 +342,6 @@ export default function QuickReport() {
           };
         }),
       };
-      addToast('Report saved successfully', 'success');
 
       // Force synchronous DOM render so pdfRef is immediately available
       flushSync(() => { setPrintData(fullPrintData); });
