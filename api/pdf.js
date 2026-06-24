@@ -60,22 +60,22 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
   const HEADER_H = l.letterheadHeight + 135 + (extraLines * 14);
   const FOOTER_H = l.footerHeight;
 
-  // Build results HTML
-  let resultsHtml = '';
-  for (const [catName, groups] of Object.entries(groupedByCategory)) {
-    const catHasValues = Object.values(groups).some(params =>
-      params.some(p => p.result_value && p.result_value.toString().trim() !== '')
-    );
-    if (!catHasValues) continue;
+  // Build one table per category (each gets its own page via page-break-after)
+  const filledCategories = Object.entries(groupedByCategory).filter(([, groups]) =>
+    Object.values(groups).some(params => params.some(p => p.result_value && p.result_value.toString().trim() !== ''))
+  );
 
-    resultsHtml += `<tr><td style="text-align:center;padding-top:10px;padding-bottom:4px;font-weight:bold;font-size:12px;border-bottom:1px solid #333;">${catName.toUpperCase()} REPORT</td></tr>`;
+  let tablesHtml = '';
+  filledCategories.forEach(([catName, groups], catIdx) => {
+    let rowsHtml = '';
+    rowsHtml += `<tr><td style="text-align:center;padding-top:10px;padding-bottom:4px;font-weight:bold;font-size:12px;border-bottom:1px solid #333;">${catName.toUpperCase()} REPORT</td></tr>`;
 
     for (const [groupName, params] of Object.entries(groups)) {
       const filledParams = params.filter(p => p.result_value && p.result_value.toString().trim() !== '');
       if (filledParams.length === 0) continue;
 
       if (groupName) {
-        resultsHtml += `<tr><td style="padding-top:6px;padding-left:6px;font-weight:bold;font-size:11px;color:#333;">${groupName}</td></tr>`;
+        rowsHtml += `<tr><td style="padding-top:6px;padding-left:6px;font-weight:bold;font-size:11px;color:#333;">${groupName}</td></tr>`;
       }
 
       for (const param of filledParams) {
@@ -84,7 +84,7 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
         const rowBold = isAbn ? 'bold' : 'normal';
         const rowColor = isAbn ? '#c00' : '#000';
         const refColor = isAbn ? rowColor : '#555';
-        resultsHtml += `<tr style="border-bottom:1px dotted #ccc;font-weight:${rowBold};color:${rowColor};font-size:${l.resultFontSize}px;">
+        rowsHtml += `<tr style="border-bottom:1px dotted #ccc;font-weight:${rowBold};color:${rowColor};font-size:${l.resultFontSize}px;">
           <td style="padding:3px 6px 3px 12px;">
             <div style="display:flex;">
               <span style="width:${l.colTestWidth}%;">${param.param_name}</span>
@@ -95,7 +95,16 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
         </tr>`;
       }
     }
-  }
+    rowsHtml += `<tr><td style="text-align:center;padding:16px 0 8px;font-size:10px;color:#666;">------End of Report------</td></tr>`;
+
+    const pageBreak = catIdx < filledCategories.length - 1 ? 'page-break-after:always;' : '';
+    tablesHtml += `
+  <table style="width:100%;border-collapse:collapse;${pageBreak}">
+    <thead><tr><td style="height:${HEADER_H + 5}px;padding:0;border:none;"></td></tr></thead>
+    <tfoot><tr><td style="height:${FOOTER_H}px;padding:0;border:none;"></td></tr></tfoot>
+    <tbody>${rowsHtml}</tbody>
+  </table>`;
+  });
 
   const signatureUrl = letterheadUrl.replace('/letterhead.png', '/doctor-sign.png');
 
@@ -168,15 +177,8 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
     </div>` : ''}
   </div>
 
-  <!-- TABLE with spacers -->
-  <table style="width:100%;border-collapse:collapse;">
-    <thead><tr><td style="height:${HEADER_H + 5}px;padding:0;border:none;"></td></tr></thead>
-    <tfoot><tr><td style="height:${FOOTER_H}px;padding:0;border:none;"></td></tr></tfoot>
-    <tbody>
-      ${resultsHtml}
-      <tr><td style="text-align:center;padding:16px 0 8px;font-size:10px;color:#666;">------End of Report------</td></tr>
-    </tbody>
-  </table>
+  <!-- TABLES (one per category, page-break between) -->
+  ${tablesHtml}
 </div>
 </body>
 </html>`;

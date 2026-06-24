@@ -80,7 +80,7 @@ function ReportPreview({ layout, mode = 'pdf' }) {
           transformOrigin: 'top center',
         }}
       >
-        {/* Letterhead - PDF shows actual image, Print mode no letterhead */}
+        {/* Letterhead area - PDF shows actual image, Print shows reserved space */}
         {isPdf ? (
           <div style={{
             height: `${l.letterheadHeight}px`,
@@ -96,7 +96,17 @@ function ReportPreview({ layout, mode = 'pdf' }) {
             />
           </div>
         ) : (
-          <div style={{ height: '8px' }}></div>
+          <div style={{
+            height: `${l.letterheadHeight}px`,
+            marginTop: `${l.headerTopPadding}px`,
+            background: '#fafafa',
+            borderBottom: '1px dashed #d1d5db',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <p style={{ fontSize: '10px', color: '#9ca3af', fontFamily: 'sans-serif' }}>Pre-printed letterhead space ({l.letterheadHeight}px)</p>
+          </div>
         )}
 
         {/* Title */}
@@ -173,7 +183,7 @@ function ReportPreview({ layout, mode = 'pdf' }) {
           <div style={{ textAlign: 'center', padding: '16px 0 8px', fontSize: '10px', color: '#666' }}>------End of Report------</div>
         </div>
 
-        {/* Footer preview - PDF shows full footer, Print shows nothing */}
+        {/* Footer preview - PDF shows full footer exactly like actual output */}
         {isPdf && (
           <div style={{
             position: 'absolute',
@@ -181,12 +191,8 @@ function ReportPreview({ layout, mode = 'pdf' }) {
             left: `${l.bodyPaddingLeft}mm`,
             right: `${l.bodyPaddingRight}mm`,
             height: `${l.footerHeight}px`,
-            border: '2px dashed #93c5fd',
-            borderRadius: '4px',
-            background: 'linear-gradient(135deg, #f0f9ff 0%, #faf5ff 100%)',
-            padding: '4px',
           }}>
-            <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '4px' }}>
+            <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '8px' }}>
               {l.showSignature && (
                 <div style={{ height: `${l.signatureHeight}px`, background: '#f3f4f6', border: '1px dashed #d1d5db', marginLeft: 'auto', width: '80px', marginBottom: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ fontSize: '8px', color: '#9ca3af', fontFamily: 'sans-serif' }}>Sign</span>
@@ -202,33 +208,47 @@ function ReportPreview({ layout, mode = 'pdf' }) {
             </div>
             {l.showHindiFooter && (
               <div style={{
-                marginTop: '4px',
+                marginTop: '6px',
                 background: l.hindiFooterBgColor,
                 color: '#fff',
                 padding: '4px 10px',
                 fontSize: '9px',
                 textAlign: 'center',
-                borderRadius: '2px',
               }}>
                 {l.hindiFooterText}
               </div>
             )}
-            <p style={{ fontSize: '8px', color: '#60a5fa', fontFamily: 'sans-serif', textAlign: 'center', margin: '2px 0 0' }}>Footer Area ({l.footerHeight}px)</p>
           </div>
         )}
 
-        {/* Print mode: show doctor signature section (no letterhead, no hindi footer) */}
+        {/* Print mode: doctor signature + reserved footer space */}
         {!isPdf && (
-          <div style={{ marginTop: '40px', textAlign: 'right', paddingRight: '20px' }}>
-            {l.showSignature && (
-              <div style={{ height: `${l.signatureHeight}px`, background: '#f3f4f6', border: '1px dashed #d1d5db', marginLeft: 'auto', width: '80px', marginBottom: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: '8px', color: '#9ca3af', fontFamily: 'sans-serif' }}>Sign</span>
-              </div>
-            )}
-            <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{l.doctorName || 'DR. C. ASHOK'}</p>
-            <p style={{ fontSize: '11px', margin: 0 }}>{l.doctorDesignation || 'MBBS MD (PATH)'}</p>
-            <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>
-          </div>
+          <>
+            <div style={{ marginTop: '40px', textAlign: 'right', paddingRight: '20px' }}>
+              {l.showSignature && (
+                <div style={{ height: `${l.signatureHeight}px`, background: '#f3f4f6', border: '1px dashed #d1d5db', marginLeft: 'auto', width: '80px', marginBottom: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '8px', color: '#9ca3af', fontFamily: 'sans-serif' }}>Sign</span>
+                </div>
+              )}
+              <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{l.doctorName || 'DR. C. ASHOK'}</p>
+              <p style={{ fontSize: '11px', margin: 0 }}>{l.doctorDesignation || 'MBBS MD (PATH)'}</p>
+              <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>
+            </div>
+            <div style={{
+              position: 'absolute',
+              bottom: `${l.footerBottomOffset}mm`,
+              left: `${l.bodyPaddingLeft}mm`,
+              right: `${l.bodyPaddingRight}mm`,
+              height: `${l.footerHeight}px`,
+              background: '#fafafa',
+              borderTop: '1px dashed #d1d5db',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <p style={{ fontSize: '10px', color: '#9ca3af', fontFamily: 'sans-serif' }}>Pre-printed footer space ({l.footerHeight}px)</p>
+            </div>
+          </>
         )}
       </div>
     </div>
