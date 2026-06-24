@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Save, RotateCcw, Eye, EyeOff, SlidersHorizontal, Type, Columns, ArrowDown, Image } from 'lucide-react';
+import { Save, RotateCcw, Eye, EyeOff, SlidersHorizontal, Type, Columns, ArrowDown, Image, FileText, Printer } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -213,11 +213,15 @@ function ReportPreview({ layout }) {
 export default function ReportLayoutSettings() {
   const { user } = useAuth();
   const { addToast } = useToast();
-  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
+  const [layouts, setLayouts] = useState({ pdf: { ...DEFAULT_LAYOUT }, print: { ...DEFAULT_LAYOUT } });
+  const [activeMode, setActiveMode] = useState('pdf'); // 'pdf' or 'print'
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [activeSection, setActiveSection] = useState('header');
+
+  // Current mode's layout
+  const layout = layouts[activeMode];
 
   if (user?.role !== 'admin') {
     return (
@@ -234,7 +238,10 @@ export default function ReportLayoutSettings() {
   const loadLayout = async () => {
     try {
       const data = await api.getReportLayout();
-      setLayout({ ...DEFAULT_LAYOUT, ...data });
+      setLayouts({
+        pdf: { ...DEFAULT_LAYOUT, ...data?.pdf },
+        print: { ...DEFAULT_LAYOUT, ...data?.print },
+      });
     } catch (err) {
       addToast('Failed to load layout settings', 'error');
     }
@@ -242,13 +249,16 @@ export default function ReportLayoutSettings() {
   };
 
   const updateField = useCallback((field, value) => {
-    setLayout(prev => ({ ...prev, [field]: value }));
-  }, []);
+    setLayouts(prev => ({
+      ...prev,
+      [activeMode]: { ...prev[activeMode], [field]: value },
+    }));
+  }, [activeMode]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.updateReportLayout(layout);
+      await api.updateReportLayout(layouts);
       addToast('Report layout saved successfully', 'success');
     } catch (err) {
       addToast('Failed to save: ' + err.message, 'error');
@@ -261,7 +271,10 @@ export default function ReportLayoutSettings() {
     setSaving(true);
     try {
       const data = await api.resetReportLayout();
-      setLayout(data.layout);
+      setLayouts({
+        pdf: { ...DEFAULT_LAYOUT, ...data.layout?.pdf },
+        print: { ...DEFAULT_LAYOUT, ...data.layout?.print },
+      });
       addToast('Layout reset to defaults', 'success');
     } catch (err) {
       addToast('Failed to reset: ' + err.message, 'error');
@@ -294,6 +307,27 @@ export default function ReportLayoutSettings() {
             Report Layout Settings
           </h1>
           <p className="text-gray-500 text-sm mt-1">Adjust report layout to match your letterhead and branding</p>
+          {/* Mode toggle: Print / PDF */}
+          <div className="flex gap-1 mt-3 bg-gray-100 rounded-lg p-1 w-fit">
+            <button
+              onClick={() => setActiveMode('pdf')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                activeMode === 'pdf' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              PDF Mode
+            </button>
+            <button
+              onClick={() => setActiveMode('print')}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                activeMode === 'print' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Printer className="w-4 h-4" />
+              Print Mode
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button

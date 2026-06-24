@@ -44,6 +44,7 @@ app.use('/api/patients', require('../server/routes/patients'));
 app.use('/api/tests', require('../server/routes/tests'));
 app.use('/api/reports', require('../server/routes/reports'));
 app.use('/api/dashboard', require('../server/routes/dashboard'));
+app.use('/api/settings', require('../server/routes/settings'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

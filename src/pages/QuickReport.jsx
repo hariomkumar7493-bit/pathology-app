@@ -255,7 +255,7 @@ export default function QuickReport() {
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { window.alert('Popup blocked!\\n\\nTo fix:\\n1. Click the blocked popup icon in the address bar\\n2. Select "Always allow popups"\\n3. Click the button again'); return; }
-    const ls = layoutSettings || {};
+    const ls = layoutSettings?.print || {};
     printWindow.document.write(`
       <html>
         <head>
@@ -347,7 +347,7 @@ export default function QuickReport() {
 
       // Electron: save directly to Downloads with correct filename
       if (isElectron()) {
-        const filePath = await electronSavePDF(reportHTML, { patientName: form.patient_name, letterheadUrl: letterheadAbsUrl, fileName, layoutSettings });
+        const filePath = await electronSavePDF(reportHTML, { patientName: form.patient_name, letterheadUrl: letterheadAbsUrl, fileName, layoutSettings: layoutSettings?.pdf });
         if (filePath) {
           addToast(`PDF saved: ${fileName}`, 'success');
           window.electronAPI.file.openInExplorer(filePath);
@@ -360,7 +360,7 @@ export default function QuickReport() {
       // Web: open print dialog
       const pdfWindow = window.open('', '_blank', 'width=800,height=600');
       if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
-      const ls2 = layoutSettings || {};
+      const ls2 = layoutSettings?.pdf || {};
       pdfWindow.document.write(`
         <html><head><title>${fileName}</title>
         <style>
@@ -446,16 +446,19 @@ export default function QuickReport() {
       const fileName = `${form.patient_name || 'Report'}_${dateStr}.pdf`;
       const letterheadUrl = `${window.location.origin}/letterhead.png`;
 
-      // Electron: generate PDF locally + save to Downloads + open WhatsApp directly
+      // Electron: generate PDF locally using same DOM approach as Save/Download PDF
       if (isElectron()) {
         addToast('Generating PDF...', 'info');
-        const reportHTML = renderReportToHTML(reportData, 'pdf', layoutSettings);
+        flushSync(() => { setPrintData(reportData); });
+        const pdfContent = pdfRef.current;
+        if (!pdfContent) { throw new Error('PDF ref is null'); }
+        const reportHTML = pdfContent.outerHTML;
         const filePath = await electronShareWhatsApp(reportHTML, {
           patientName: form.patient_name,
           letterheadUrl,
           fileName,
           phone: form.phone || '',
-          layoutSettings,
+          layoutSettings: layoutSettings?.pdf,
         });
         if (!filePath) throw new Error('Local PDF generation failed');
         addToast(`PDF copied! Press Ctrl+V in WhatsApp to attach`, 'success');
@@ -482,7 +485,7 @@ export default function QuickReport() {
       const pdfRes = await fetch('/api/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: reportData, letterheadUrl, layoutSettings }),
+        body: JSON.stringify({ report: reportData, letterheadUrl, layoutSettings: layoutSettings?.pdf }),
       });
       if (!pdfRes.ok) {
         const err = await pdfRes.json().catch(() => ({ error: 'PDF generation failed' }));
@@ -826,11 +829,11 @@ export default function QuickReport() {
 
       {/* Hidden Print Component */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-        <PrintableReport ref={printRef} report={printData} mode="print" layoutSettings={layoutSettings} />
+        <PrintableReport ref={printRef} report={printData} mode="print" layoutSettings={layoutSettings?.print} />
       </div>
       {/* Hidden PDF Component */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-        <PrintableReport ref={pdfRef} report={printData} mode="pdf" layoutSettings={layoutSettings} />
+        <PrintableReport ref={pdfRef} report={printData} mode="pdf" layoutSettings={layoutSettings?.pdf} />
       </div>
 
       {/* Floating "Tap to Share" modal */}

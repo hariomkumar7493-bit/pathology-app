@@ -64,12 +64,21 @@ const DEFAULT_LAYOUT = {
   colRefWidth: 30,             // % - Ref Range column
 };
 
+// Default structure: separate settings for print and pdf modes
+const DEFAULT_SETTINGS = { pdf: { ...DEFAULT_LAYOUT }, print: { ...DEFAULT_LAYOUT } };
+
 // GET /api/settings/report-layout — anyone authenticated can read (needed for rendering reports)
 router.get('/report-layout', authenticate, async (req, res) => {
   try {
     const db = getDB();
     const settings = await db.collection('settings').findOne({ key: 'report_layout' });
-    res.json(settings ? settings.value : DEFAULT_LAYOUT);
+    if (!settings) return res.json(DEFAULT_SETTINGS);
+    // Migration: if old flat structure, wrap it in both modes
+    if (settings.value && !settings.value.pdf && !settings.value.print) {
+      const migrated = { pdf: { ...DEFAULT_LAYOUT, ...settings.value }, print: { ...DEFAULT_LAYOUT, ...settings.value } };
+      return res.json(migrated);
+    }
+    res.json({ pdf: { ...DEFAULT_LAYOUT, ...settings.value?.pdf }, print: { ...DEFAULT_LAYOUT, ...settings.value?.print } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -79,7 +88,11 @@ router.get('/report-layout', authenticate, async (req, res) => {
 router.put('/report-layout', authenticate, requireAdmin, async (req, res) => {
   try {
     const db = getDB();
-    const layout = { ...DEFAULT_LAYOUT, ...req.body };
+    const { pdf, print } = req.body;
+    const layout = {
+      pdf: { ...DEFAULT_LAYOUT, ...pdf },
+      print: { ...DEFAULT_LAYOUT, ...print },
+    };
 
     await db.collection('settings').updateOne(
       { key: 'report_layout' },
@@ -99,10 +112,10 @@ router.post('/report-layout/reset', authenticate, requireAdmin, async (req, res)
     const db = getDB();
     await db.collection('settings').updateOne(
       { key: 'report_layout' },
-      { $set: { key: 'report_layout', value: DEFAULT_LAYOUT, updated_at: new Date() } },
+      { $set: { key: 'report_layout', value: DEFAULT_SETTINGS, updated_at: new Date() } },
       { upsert: true }
     );
-    res.json({ success: true, layout: DEFAULT_LAYOUT });
+    res.json({ success: true, layout: DEFAULT_SETTINGS });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

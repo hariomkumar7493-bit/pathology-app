@@ -121,11 +121,11 @@ export default function Reports() {
       const reports = await Promise.all(selectedIds.map(id => api.getReport(id)));
       setBulkPrintData(reports);
       // Generate HTML directly from data (no ref/setTimeout needed)
-      const bulkHTML = reports.map(r => renderReportToHTML(r, 'print', layoutSettings)).filter(Boolean).join('<div class="page-break"></div>');
+      const bulkHTML = reports.map(r => renderReportToHTML(r, 'print', layoutSettings?.print)).filter(Boolean).join('<div class="page-break"></div>');
       if (!bulkHTML) return;
       const printWindow = window.open('', '_blank', 'width=800,height=600');
       if (!printWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
-      const lsBulk = layoutSettings || {};
+      const lsBulk = layoutSettings?.print || {};
       printWindow.document.write(`
         <html><head><title>Lab Reports - Bulk Print</title>
         <style>
@@ -165,7 +165,7 @@ export default function Reports() {
         for (const report of reportsData) {
           const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
           const fileName = `${report.patient_name || 'Report'}_${dateStr}.pdf`;
-          const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings);
+          const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings?.pdf);
           const html = buildPrintHTML(reportHTML, { patientName: report.patient_name, mode: 'pdf', letterheadUrl });
           const file = await generatePDFLocal(html, fileName);
           if (file) files.push(file);
@@ -238,7 +238,7 @@ export default function Reports() {
   const handlePrint = async () => {
     if (!viewReport) return;
     const patientName = viewReport?.patient_name || 'Report';
-    const reportHTML = renderReportToHTML(viewReport, 'print', layoutSettings);
+    const reportHTML = renderReportToHTML(viewReport, 'print', layoutSettings?.print);
     if (!reportHTML) return;
 
     // Electron: print directly without popup
@@ -251,7 +251,7 @@ export default function Reports() {
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
-    const lsPrint = layoutSettings || {};
+    const lsPrint = layoutSettings?.print || {};
     printWindow.document.write(`
       <html>
         <head>
@@ -277,7 +277,7 @@ export default function Reports() {
 
   const handleDownloadPdf = (report) => {
     if (!report) return;
-    const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings);
+    const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings?.pdf);
     if (!reportHTML) return;
 
     const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
@@ -286,7 +286,7 @@ export default function Reports() {
     const pdfWindow = window.open('', '_blank', 'width=800,height=600');
     if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
     const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
-    const lsDl = layoutSettings || {};
+    const lsDl = layoutSettings?.pdf || {};
     pdfWindow.document.write(`
       <html>
         <head>
@@ -329,15 +329,17 @@ export default function Reports() {
       const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${report.patient_name || 'Report'}_${dateStr}.pdf`;
 
-      // Electron: generate PDF locally + save to Downloads + open WhatsApp
+      // Electron: generate PDF locally using same DOM approach as Download PDF
       if (isElectron()) {
-        const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings);
+        const pdfContent = pdfRef.current;
+        if (!pdfContent) { throw new Error('PDF ref is null'); }
+        const reportHTML = pdfContent.outerHTML;
         const filePath = await electronShareWhatsApp(reportHTML, {
           patientName: report.patient_name,
           letterheadUrl,
           fileName,
           phone: report.phone || '',
-          layoutSettings,
+          layoutSettings: layoutSettings?.pdf,
         });
         if (!filePath) throw new Error('Local PDF generation failed');
         addToast(`PDF copied! Press Ctrl+V in WhatsApp to attach`, 'success');
@@ -348,7 +350,7 @@ export default function Reports() {
       const pdfRes = await fetch('/api/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, letterheadUrl, layoutSettings }),
+        body: JSON.stringify({ report, letterheadUrl, layoutSettings: layoutSettings?.pdf }),
       });
       if (!pdfRes.ok) {
         const err = await pdfRes.json().catch(() => ({ error: 'PDF generation failed' }));
@@ -747,7 +749,7 @@ export default function Reports() {
                   </div>
                 ) : (
                   /* Read-only preview */
-                  <PrintableReport ref={printRef} report={viewReport} layoutSettings={layoutSettings} />
+                  <PrintableReport ref={printRef} report={viewReport} layoutSettings={layoutSettings?.print} />
                 )}
               </>
             )}
@@ -758,14 +760,14 @@ export default function Reports() {
       {/* Hidden print ref for non-edit mode */}
       {viewReport && editMode && (
         <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-          <PrintableReport ref={printRef} report={viewReport} mode="print" layoutSettings={layoutSettings} />
+          <PrintableReport ref={printRef} report={viewReport} mode="print" layoutSettings={layoutSettings?.print} />
         </div>
       )}
 
       {/* Hidden PDF ref */}
       {viewReport && (
         <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-          <PrintableReport ref={pdfRef} report={viewReport} mode="pdf" layoutSettings={layoutSettings} />
+          <PrintableReport ref={pdfRef} report={viewReport} mode="pdf" layoutSettings={layoutSettings?.pdf} />
         </div>
       )}
 
@@ -773,7 +775,7 @@ export default function Reports() {
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }} ref={bulkPrintRef}>
         {bulkPrintData.map((rpt, idx) => (
           <div key={rpt._id || idx} className={idx < bulkPrintData.length - 1 ? 'page-break' : ''}>
-            <PrintableReport report={rpt} layoutSettings={layoutSettings} />
+            <PrintableReport report={rpt} layoutSettings={layoutSettings?.print} />
           </div>
         ))}
       </div>
