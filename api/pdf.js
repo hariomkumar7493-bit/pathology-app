@@ -57,7 +57,7 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
 
   const invLen = (report.investigation || '').length;
   const extraLines = Math.max(0, Math.ceil(invLen / 80) - 1);
-  const HEADER_H = l.letterheadHeight + l.headerTopPadding + 40 + (extraLines * 14) + l.headerBottomPadding;
+  const HEADER_H = l.letterheadHeight + 135 + (extraLines * 14);
   const FOOTER_H = l.footerHeight;
 
   // Build results HTML
