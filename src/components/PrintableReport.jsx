@@ -11,11 +11,39 @@ import { forwardRef, Fragment } from 'react';
 const FOOTER_H_PDF = 130;
 const FOOTER_H_PRINT = 130;
 
-const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
+const DEFAULT_LAYOUT = {
+  letterheadHeight: 140,
+  headerTopPadding: 0,
+  headerBottomPadding: 6,
+  titleFontSize: 14,
+  patientInfoFontSize: 11,
+  bodyFontSize: 12,
+  resultFontSize: 11,
+  bodyPaddingLeft: 10,
+  bodyPaddingRight: 10,
+  contentTopMargin: 5,
+  footerHeight: 130,
+  footerBottomOffset: 5,
+  showSignature: true,
+  signatureHeight: 13,
+  doctorName: '',
+  doctorDesignation: '',
+  footerNote1: 'Result of tests may vary from Lab to Lab and also in some parameters from time to time for the same patient',
+  footerNote2: 'The Report is not valid for medico legal purpose',
+  showHindiFooter: true,
+  hindiFooterText: '(होम कलेक्शन फ्री उपलब्ध है) यहा पर सभी प्रकार पैथोलोजिकल जाँच की सुविधा उपलब्ध है. मो. - 9835310931',
+  hindiFooterBgColor: '#8B0000',
+  colTestWidth: 45,
+  colResultWidth: 25,
+  colRefWidth: 30,
+};
+
+const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, ref) => {
   if (!report) return null;
 
+  const l = { ...DEFAULT_LAYOUT, ...layoutSettings };
   const isPdf = mode === 'pdf';
-  const footerH = isPdf ? FOOTER_H_PDF : FOOTER_H_PRINT;
+  const footerH = l.footerHeight;
   const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   const formatDate = (d) => {
@@ -52,28 +80,28 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
   // Shared header builder (rendered inside each table's thead)
   const renderHeader = (investigationText) => (
     <>
-      <tr><td style={{ height: '140px', padding: 0, border: 'none' }}></td></tr>
+      <tr><td style={{ height: `${l.letterheadHeight}px`, paddingTop: `${l.headerTopPadding}px`, padding: 0, border: 'none' }}></td></tr>
       <tr>
-        <td style={{ textAlign: 'center', fontSize: '14px', fontWeight: 'bold', paddingBottom: '6px', textDecoration: 'underline', letterSpacing: '1px' }}>
+        <td style={{ textAlign: 'center', fontSize: `${l.titleFontSize}px`, fontWeight: 'bold', paddingBottom: `${l.headerBottomPadding}px`, textDecoration: 'underline', letterSpacing: '1px' }}>
           LABORATORY INVESTIGATION REPORT
         </td>
       </tr>
       <tr>
-        <td style={{ fontSize: '11px', paddingBottom: '6px', paddingLeft: '20px', paddingRight: '10px' }}>
+        <td style={{ fontSize: `${l.patientInfoFontSize}px`, paddingBottom: `${l.headerBottomPadding}px`, paddingLeft: '20px', paddingRight: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ width: '45%' }}><strong>Patient Name</strong> : {report.patient_name || ''}</span>
-            <span style={{ width: '25%', textAlign: 'center' }}><strong>Age/Sex</strong> : {report.age || ''} Yrs/{(report.gender || '')[0] || ''}</span>
-            <span style={{ width: '30%', textAlign: 'left' }}><strong>Date of Collection</strong> : {formatDate(report.date_of_collection)}</span>
+            <span style={{ width: `${l.colTestWidth}%` }}><strong>Patient Name</strong> : {report.patient_name || ''}</span>
+            <span style={{ width: `${l.colResultWidth}%`, textAlign: 'center' }}><strong>Age/Sex</strong> : {report.age || ''} Yrs/{(report.gender || '')[0] || ''}</span>
+            <span style={{ width: `${l.colRefWidth}%`, textAlign: 'left' }}><strong>Date of Collection</strong> : {formatDate(report.date_of_collection)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ width: '45%' }}><strong>Ref. by</strong> : {report.referred_by || 'SELF'}</span>
-            <span style={{ width: '25%' }}></span>
-            <span style={{ width: '30%', textAlign: 'left' }}><strong>Date of Reporting</strong> : {formatDate(report.date_of_reporting || report.created_at)}</span>
+            <span style={{ width: `${l.colTestWidth}%` }}><strong>Ref. by</strong> : {report.referred_by || 'SELF'}</span>
+            <span style={{ width: `${l.colResultWidth}%` }}></span>
+            <span style={{ width: `${l.colRefWidth}%`, textAlign: 'left' }}><strong>Date of Reporting</strong> : {formatDate(report.date_of_reporting || report.created_at)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ width: '45%' }}><strong>Specimen</strong> : {specimens.join(', ') || report.specimen || 'BLOOD'}</span>
-            <span style={{ width: '25%' }}></span>
-            <span style={{ width: '30%', textAlign: 'left' }}><strong>Ref No</strong> : {report.ref_no || ''}</span>
+            <span style={{ width: `${l.colTestWidth}%` }}><strong>Specimen</strong> : {specimens.join(', ') || report.specimen || 'BLOOD'}</span>
+            <span style={{ width: `${l.colResultWidth}%` }}></span>
+            <span style={{ width: `${l.colRefWidth}%`, textAlign: 'left' }}><strong>Ref No</strong> : {report.ref_no || ''}</span>
           </div>
           {investigationText && (
             <div><strong>Investigation</strong> : {investigationText}</div>
@@ -82,10 +110,10 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
       </tr>
       <tr>
         <td style={{ padding: 0 }}>
-          <div style={{ display: 'flex', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontWeight: 'bold', fontSize: '11px', paddingLeft: '20px', paddingRight: '10px' }}>
-            <div style={{ width: '45%', padding: '4px 6px' }}>Test Description</div>
-            <div style={{ width: '25%', padding: '4px 6px', textAlign: 'center' }}>RESULT/UNIT</div>
-            <div style={{ width: '30%', padding: '4px 6px', textAlign: 'center' }}>REF. RANGE</div>
+          <div style={{ display: 'flex', borderTop: '2px solid #000', borderBottom: '2px solid #000', fontWeight: 'bold', fontSize: `${l.resultFontSize}px`, paddingLeft: '20px', paddingRight: '10px' }}>
+            <div style={{ width: `${l.colTestWidth}%`, padding: '4px 6px' }}>Test Description</div>
+            <div style={{ width: `${l.colResultWidth}%`, padding: '4px 6px', textAlign: 'center' }}>RESULT/UNIT</div>
+            <div style={{ width: `${l.colRefWidth}%`, padding: '4px 6px', textAlign: 'center' }}>REF. RANGE</div>
           </div>
         </td>
       </tr>
@@ -100,18 +128,18 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
           {isIOS ? (
             <>
               <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '8px' }}>
-                {isPdf && <img src={`${window.location.origin}/doctor-sign.png`} alt="signature" style={{ height: '13px', marginLeft: 'auto', display: 'block', objectFit: 'contain' }} />}
-                <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{report.doctor_name || 'DR. C. ASHOK'}</p>
-                <p style={{ fontSize: '11px', margin: 0 }}>{report.doctor_designation || 'MBBS MD (PATH)'}</p>
+                {isPdf && l.showSignature && <img src={`${window.location.origin}/doctor-sign.png`} alt="signature" style={{ height: `${l.signatureHeight}px`, marginLeft: 'auto', display: 'block', objectFit: 'contain' }} />}
+                <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{l.doctorName || report.doctor_name || 'DR. C. ASHOK'}</p>
+                <p style={{ fontSize: '11px', margin: 0 }}>{l.doctorDesignation || report.doctor_designation || 'MBBS MD (PATH)'}</p>
                 <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>
               </div>
               <div style={{ borderTop: '1px solid #999', paddingTop: '3px', fontSize: '9px', color: '#666' }}>
-                <p style={{ margin: '1px 0' }}>1. Result of tests may vary from Lab to Lab and also in some parameters from time to time for the same patient</p>
-                <p style={{ margin: '1px 0' }}>2. The Report is not valid for medico legal purpose</p>
+                <p style={{ margin: '1px 0' }}>1. {l.footerNote1}</p>
+                <p style={{ margin: '1px 0' }}>2. {l.footerNote2}</p>
               </div>
-              {isPdf && (
-                <div style={{ marginTop: '6px', background: '#8B0000', color: '#fff', padding: '4px 10px', fontSize: '9px', textAlign: 'center' }}>
-                  (होम कलेक्शन फ्री उपलब्ध है) यहा पर सभी प्रकार पैथोलोजिकल जाँच की सुविधा उपलब्ध है. मो. - 9835310931
+              {isPdf && l.showHindiFooter && (
+                <div style={{ marginTop: '6px', background: l.hindiFooterBgColor, color: '#fff', padding: '4px 10px', fontSize: '9px', textAlign: 'center' }}>
+                  {l.hindiFooterText}
                 </div>
               )}
             </>
@@ -122,23 +150,23 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
   );
 
   return (
-    <div ref={ref} style={{ fontFamily: "'Times New Roman', serif", color: '#000', fontSize: '12px', lineHeight: '1.5', width: '100%' }}>
+    <div ref={ref} style={{ fontFamily: "'Times New Roman', serif", color: '#000', fontSize: `${l.bodyFontSize}px`, lineHeight: '1.5', width: '100%' }}>
 
       {/* FOOTER - position:fixed pins to bottom on desktop; hidden on iOS */}
       {!isIOS && <div className="page-footer" style={{ height: `${footerH}px` }}>
         <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '8px' }}>
-          {isPdf && <img src={`${window.location.origin}/doctor-sign.png`} alt="signature" style={{ height: '13px', marginLeft: 'auto', display: 'block', objectFit: 'contain' }} />}
-          <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{report.doctor_name || 'DR. C. ASHOK'}</p>
-          <p style={{ fontSize: '11px', margin: 0 }}>{report.doctor_designation || 'MBBS MD (PATH)'}</p>
+          {isPdf && l.showSignature && <img src={`${window.location.origin}/doctor-sign.png`} alt="signature" style={{ height: `${l.signatureHeight}px`, marginLeft: 'auto', display: 'block', objectFit: 'contain' }} />}
+          <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{l.doctorName || report.doctor_name || 'DR. C. ASHOK'}</p>
+          <p style={{ fontSize: '11px', margin: 0 }}>{l.doctorDesignation || report.doctor_designation || 'MBBS MD (PATH)'}</p>
           <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>
         </div>
         <div style={{ borderTop: '1px solid #999', paddingTop: '3px', fontSize: '9px', color: '#666' }}>
-          <p style={{ margin: '1px 0' }}>1. Result of tests may vary from Lab to Lab and also in some parameters from time to time for the same patient</p>
-          <p style={{ margin: '1px 0' }}>2. The Report is not valid for medico legal purpose</p>
+          <p style={{ margin: '1px 0' }}>1. {l.footerNote1}</p>
+          <p style={{ margin: '1px 0' }}>2. {l.footerNote2}</p>
         </div>
-        {isPdf && (
-          <div style={{ marginTop: '6px', background: '#8B0000', color: '#fff', padding: '4px 10px', fontSize: '9px', textAlign: 'center' }}>
-            (होम कलेक्शन फ्री उपलब्ध है) यहा पर सभी प्रकार पैथोलोजिकल जाँच की सुविधा उपलब्ध है. मो. - 9835310931
+        {isPdf && l.showHindiFooter && (
+          <div style={{ marginTop: '6px', background: l.hindiFooterBgColor, color: '#fff', padding: '4px 10px', fontSize: '9px', textAlign: 'center' }}>
+            {l.hindiFooterText}
           </div>
         )}
       </div>}
@@ -175,12 +203,12 @@ const PrintableReport = forwardRef(({ report, mode = 'print' }, ref) => {
                   const rowBold = isAbn ? 'bold' : 'normal';
                   const rowColor = isAbn && isPdf ? '#c00' : '#000';
                   return (
-                    <tr key={idx} style={{ borderBottom: '1px dotted #ccc', fontWeight: rowBold, color: rowColor, fontSize: '11px' }}>
+                    <tr key={idx} style={{ borderBottom: '1px dotted #ccc', fontWeight: rowBold, color: rowColor, fontSize: `${l.resultFontSize}px` }}>
                       <td style={{ padding: '3px 10px 3px 20px' }}>
                         <div style={{ display: 'flex' }}>
-                          <span style={{ width: '45%' }}>{param.param_name}</span>
-                          <span style={{ width: '25%', textAlign: 'center' }}>{resultUnit}</span>
-                          <span style={{ width: '30%', textAlign: 'center', color: isAbn ? rowColor : '#555' }}>{getRefDisplay(param)}</span>
+                          <span style={{ width: `${l.colTestWidth}%` }}>{param.param_name}</span>
+                          <span style={{ width: `${l.colResultWidth}%`, textAlign: 'center' }}>{resultUnit}</span>
+                          <span style={{ width: `${l.colRefWidth}%`, textAlign: 'center', color: isAbn ? rowColor : '#555' }}>{getRefDisplay(param)}</span>
                         </div>
                       </td>
                     </tr>

@@ -20,6 +20,7 @@ export default function QuickReport() {
   const [testSearch, setTestSearch] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [shareReady, setShareReady] = useState(null); // { files: File[], label: string, needsSave: bool, saveData: obj }
+  const [layoutSettings, setLayoutSettings] = useState(null);
   const printRef = useRef();
   const pdfRef = useRef();
   const { addToast } = useToast();
@@ -36,6 +37,7 @@ export default function QuickReport() {
 
   useEffect(() => {
     api.getTests().then(setTests).catch(console.error);
+    api.getReportLayout().then(setLayoutSettings).catch(() => {});
   }, []);
 
   // Get unique sub-groups for a test
@@ -253,6 +255,7 @@ export default function QuickReport() {
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { window.alert('Popup blocked!\\n\\nTo fix:\\n1. Click the blocked popup icon in the address bar\\n2. Select "Always allow popups"\\n3. Click the button again'); return; }
+    const ls = layoutSettings || {};
     printWindow.document.write(`
       <html>
         <head>
@@ -260,7 +263,7 @@ export default function QuickReport() {
           <style>
             @page { margin: 0; size: A4; }
             html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: 'Times New Roman', serif; padding: 0 ${ls.bodyPaddingLeft ?? 10}mm 0 ${ls.bodyPaddingRight ?? 10}mm; color: #000; font-size: ${ls.bodyFontSize ?? 12}px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
@@ -344,7 +347,7 @@ export default function QuickReport() {
 
       // Electron: save directly to Downloads with correct filename
       if (isElectron()) {
-        const filePath = await electronSavePDF(reportHTML, { patientName: form.patient_name, letterheadUrl: letterheadAbsUrl, fileName });
+        const filePath = await electronSavePDF(reportHTML, { patientName: form.patient_name, letterheadUrl: letterheadAbsUrl, fileName, layoutSettings });
         if (filePath) {
           addToast(`PDF saved: ${fileName}`, 'success');
           window.electronAPI.file.openInExplorer(filePath);
@@ -357,18 +360,19 @@ export default function QuickReport() {
       // Web: open print dialog
       const pdfWindow = window.open('', '_blank', 'width=800,height=600');
       if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
+      const ls2 = layoutSettings || {};
       pdfWindow.document.write(`
         <html><head><title>${fileName}</title>
         <style>
           @page { margin: 0; size: A4; }
           html, body { height: 100%; margin: 0; box-sizing: border-box; }
-          body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          body { font-family: 'Times New Roman', serif; padding: 0 ${ls2.bodyPaddingLeft ?? 10}mm 0 ${ls2.bodyPaddingRight ?? 10}mm; color: #000; font-size: ${ls2.bodyFontSize ?? 12}px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           table { border-collapse: collapse; width: 100%; }
           thead { display: table-header-group; }
           tfoot { display: table-footer-group; }
           thead td, tfoot td { padding: 0; }
-          .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; }
-          .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .page-footer { position: fixed; bottom: ${ls2.footerBottomOffset ?? 5}mm; left: 0; right: 0; z-index: 2; }
+          .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: ${ls2.letterheadHeight ?? 140}px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         </style></head>
         <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${reportHTML}</body></html>
       `);
@@ -445,12 +449,13 @@ export default function QuickReport() {
       // Electron: generate PDF locally + save to Downloads + open WhatsApp directly
       if (isElectron()) {
         addToast('Generating PDF...', 'info');
-        const reportHTML = renderReportToHTML(reportData);
+        const reportHTML = renderReportToHTML(reportData, 'pdf', layoutSettings);
         const filePath = await electronShareWhatsApp(reportHTML, {
           patientName: form.patient_name,
           letterheadUrl,
           fileName,
           phone: form.phone || '',
+          layoutSettings,
         });
         if (!filePath) throw new Error('Local PDF generation failed');
         addToast(`PDF copied! Press Ctrl+V in WhatsApp to attach`, 'success');
@@ -477,7 +482,7 @@ export default function QuickReport() {
       const pdfRes = await fetch('/api/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report: reportData, letterheadUrl }),
+        body: JSON.stringify({ report: reportData, letterheadUrl, layoutSettings }),
       });
       if (!pdfRes.ok) {
         const err = await pdfRes.json().catch(() => ({ error: 'PDF generation failed' }));
@@ -821,11 +826,11 @@ export default function QuickReport() {
 
       {/* Hidden Print Component */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-        <PrintableReport ref={printRef} report={printData} mode="print" />
+        <PrintableReport ref={printRef} report={printData} mode="print" layoutSettings={layoutSettings} />
       </div>
       {/* Hidden PDF Component */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-        <PrintableReport ref={pdfRef} report={printData} mode="pdf" />
+        <PrintableReport ref={pdfRef} report={printData} mode="pdf" layoutSettings={layoutSettings} />
       </div>
 
       {/* Floating "Tap to Share" modal */}

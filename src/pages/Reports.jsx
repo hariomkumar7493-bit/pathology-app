@@ -22,6 +22,7 @@ export default function Reports() {
   const [allTests, setAllTests] = useState([]);
   const [addTestSearch, setAddTestSearch] = useState('');
   const [shareReady, setShareReady] = useState(null); // { files: File[], label: string }
+  const [layoutSettings, setLayoutSettings] = useState(null);
   const bulkPrintRef = useRef();
   const printRef = useRef();
   const pdfRef = useRef();
@@ -29,6 +30,7 @@ export default function Reports() {
 
   useEffect(() => {
     loadReports();
+    api.getReportLayout().then(setLayoutSettings).catch(() => {});
   }, []);
 
   async function loadReports() {
@@ -119,16 +121,17 @@ export default function Reports() {
       const reports = await Promise.all(selectedIds.map(id => api.getReport(id)));
       setBulkPrintData(reports);
       // Generate HTML directly from data (no ref/setTimeout needed)
-      const bulkHTML = reports.map(r => renderReportToHTML(r, 'print')).filter(Boolean).join('<div class="page-break"></div>');
+      const bulkHTML = reports.map(r => renderReportToHTML(r, 'print', layoutSettings)).filter(Boolean).join('<div class="page-break"></div>');
       if (!bulkHTML) return;
       const printWindow = window.open('', '_blank', 'width=800,height=600');
       if (!printWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
+      const lsBulk = layoutSettings || {};
       printWindow.document.write(`
         <html><head><title>Lab Reports - Bulk Print</title>
         <style>
           @page { margin: 0; size: A4; }
           html, body { height: 100%; margin: 0; box-sizing: border-box; }
-          body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          body { font-family: 'Times New Roman', serif; padding: 0 ${lsBulk.bodyPaddingLeft ?? 10}mm 0 ${lsBulk.bodyPaddingRight ?? 10}mm; color: #000; font-size: ${lsBulk.bodyFontSize ?? 12}px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           table { border-collapse: collapse; width: 100%; }
           thead { display: table-header-group; }
           tfoot { display: table-footer-group; }
@@ -162,7 +165,7 @@ export default function Reports() {
         for (const report of reportsData) {
           const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
           const fileName = `${report.patient_name || 'Report'}_${dateStr}.pdf`;
-          const reportHTML = renderReportToHTML(report);
+          const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings);
           const html = buildPrintHTML(reportHTML, { patientName: report.patient_name, mode: 'pdf', letterheadUrl });
           const file = await generatePDFLocal(html, fileName);
           if (file) files.push(file);
@@ -235,7 +238,7 @@ export default function Reports() {
   const handlePrint = async () => {
     if (!viewReport) return;
     const patientName = viewReport?.patient_name || 'Report';
-    const reportHTML = renderReportToHTML(viewReport, 'print');
+    const reportHTML = renderReportToHTML(viewReport, 'print', layoutSettings);
     if (!reportHTML) return;
 
     // Electron: print directly without popup
@@ -248,6 +251,7 @@ export default function Reports() {
 
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
+    const lsPrint = layoutSettings || {};
     printWindow.document.write(`
       <html>
         <head>
@@ -255,7 +259,7 @@ export default function Reports() {
           <style>
             @page { margin: 0; size: A4; }
             html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: 'Times New Roman', serif; padding: 0 ${lsPrint.bodyPaddingLeft ?? 10}mm 0 ${lsPrint.bodyPaddingRight ?? 10}mm; color: #000; font-size: ${lsPrint.bodyFontSize ?? 12}px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
@@ -273,7 +277,7 @@ export default function Reports() {
 
   const handleDownloadPdf = (report) => {
     if (!report) return;
-    const reportHTML = renderReportToHTML(report, 'pdf');
+    const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings);
     if (!reportHTML) return;
 
     const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
@@ -282,6 +286,7 @@ export default function Reports() {
     const pdfWindow = window.open('', '_blank', 'width=800,height=600');
     if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
     const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
+    const lsDl = layoutSettings || {};
     pdfWindow.document.write(`
       <html>
         <head>
@@ -289,13 +294,13 @@ export default function Reports() {
           <style>
             @page { margin: 0; size: A4; }
             html, body { height: 100%; margin: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { font-family: 'Times New Roman', serif; padding: 0 ${lsDl.bodyPaddingLeft ?? 10}mm 0 ${lsDl.bodyPaddingRight ?? 10}mm; color: #000; font-size: ${lsDl.bodyFontSize ?? 12}px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table { border-collapse: collapse; width: 100%; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
             thead td, tfoot td { padding: 0; }
-            .page-footer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 2; }
-            .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .page-footer { position: fixed; bottom: ${lsDl.footerBottomOffset ?? 5}mm; left: 0; right: 0; z-index: 2; }
+            .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: ${lsDl.letterheadHeight ?? 140}px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           </style>
         </head>
         <body><img class="letterhead-bg" src="${letterheadAbsUrl}" />${reportHTML}</body>
@@ -326,12 +331,13 @@ export default function Reports() {
 
       // Electron: generate PDF locally + save to Downloads + open WhatsApp
       if (isElectron()) {
-        const reportHTML = renderReportToHTML(report);
+        const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings);
         const filePath = await electronShareWhatsApp(reportHTML, {
           patientName: report.patient_name,
           letterheadUrl,
           fileName,
           phone: report.phone || '',
+          layoutSettings,
         });
         if (!filePath) throw new Error('Local PDF generation failed');
         addToast(`PDF copied! Press Ctrl+V in WhatsApp to attach`, 'success');
@@ -342,7 +348,7 @@ export default function Reports() {
       const pdfRes = await fetch('/api/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report, letterheadUrl }),
+        body: JSON.stringify({ report, letterheadUrl, layoutSettings }),
       });
       if (!pdfRes.ok) {
         const err = await pdfRes.json().catch(() => ({ error: 'PDF generation failed' }));
@@ -741,7 +747,7 @@ export default function Reports() {
                   </div>
                 ) : (
                   /* Read-only preview */
-                  <PrintableReport ref={printRef} report={viewReport} />
+                  <PrintableReport ref={printRef} report={viewReport} layoutSettings={layoutSettings} />
                 )}
               </>
             )}
@@ -752,14 +758,14 @@ export default function Reports() {
       {/* Hidden print ref for non-edit mode */}
       {viewReport && editMode && (
         <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-          <PrintableReport ref={printRef} report={viewReport} mode="print" />
+          <PrintableReport ref={printRef} report={viewReport} mode="print" layoutSettings={layoutSettings} />
         </div>
       )}
 
       {/* Hidden PDF ref */}
       {viewReport && (
         <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-          <PrintableReport ref={pdfRef} report={viewReport} mode="pdf" />
+          <PrintableReport ref={pdfRef} report={viewReport} mode="pdf" layoutSettings={layoutSettings} />
         </div>
       )}
 
@@ -767,7 +773,7 @@ export default function Reports() {
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }} ref={bulkPrintRef}>
         {bulkPrintData.map((rpt, idx) => (
           <div key={rpt._id || idx} className={idx < bulkPrintData.length - 1 ? 'page-break' : ''}>
-            <PrintableReport report={rpt} />
+            <PrintableReport report={rpt} layoutSettings={layoutSettings} />
           </div>
         ))}
       </div>

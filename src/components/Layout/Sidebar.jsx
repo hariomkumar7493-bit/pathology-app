@@ -8,7 +8,8 @@ import {
   LogOut, 
   Activity,
   X,
-  FlaskConical
+  FlaskConical,
+  SlidersHorizontal
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -21,6 +22,7 @@ const navItems = [
 
 const adminNavItems = [
   { path: '/test-management', icon: FlaskConical, label: 'Test Management' },
+  { path: '/report-layout', icon: SlidersHorizontal, label: 'Report Layout' },
 ];
 
 export default function Sidebar({ open, onClose }) {

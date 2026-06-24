@@ -81,4 +81,9 @@ export const api = {
   deleteReport: (id) => request(`/reports/${id}`, { method: 'DELETE' }),
   addTestToReport: (reportId, testId) => request(`/reports/${reportId}/tests`, { method: 'POST', body: JSON.stringify({ test_id: testId }) }),
   removeTestFromReport: (reportId, testId) => request(`/reports/${reportId}/tests/${testId}`, { method: 'DELETE' }),
+
+  // Report Layout Settings
+  getReportLayout: () => request('/settings/report-layout'),
+  updateReportLayout: (data) => request('/settings/report-layout', { method: 'PUT', body: JSON.stringify(data) }),
+  resetReportLayout: () => request('/settings/report-layout/reset', { method: 'POST' }),
 };

@@ -13,6 +13,7 @@ const Reports = lazy(() => import('./pages/Reports'));
 const QuickReport = lazy(() => import('./pages/QuickReport'));
 const Settings = lazy(() => import('./pages/Settings'));
 const TestManagement = lazy(() => import('./pages/TestManagement'));
+const ReportLayoutSettings = lazy(() => import('./pages/ReportLayoutSettings'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-64">
@@ -49,6 +50,7 @@ function AppRoutes() {
           <Route path="quick-report" element={<QuickReport />} />
           <Route path="settings" element={<Settings />} />
           <Route path="test-management" element={<TestManagement />} />
+          <Route path="report-layout" element={<ReportLayoutSettings />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

@@ -487,17 +487,21 @@ function embedImagesAsBase64(html) {
 }
 
 ipcMain.handle('pdf:generate', async (event, { html, fileName }) => {
+  let pdfWin = null;
+  let tmpFile = null;
   try {
     const processedHtml = embedImagesAsBase64(html);
-    const pdfWin = new BrowserWindow({
+    pdfWin = new BrowserWindow({
       show: false,
       width: 794,  // A4 width in px at 96dpi
       height: 1123, // A4 height in px at 96dpi
       webPreferences: { nodeIntegration: false, contextIsolation: true },
     });
 
-    // Load HTML content directly
-    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(processedHtml)}`);
+    // Write HTML to temp file to avoid data: URI size limit (ERR_INVALID_URL)
+    tmpFile = path.join(app.getPath('temp'), `pathlab-pdf-${Date.now()}.html`);
+    fs.writeFileSync(tmpFile, processedHtml, 'utf-8');
+    await pdfWin.loadURL(`file://${tmpFile.replace(/\\/g, '/')}`);
 
     // Wait for images/fonts to load
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -509,27 +513,34 @@ ipcMain.handle('pdf:generate', async (event, { html, fileName }) => {
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
     });
 
-    pdfWin.close();
-
     // Return as base64
     return { success: true, data: pdfBuffer.toString('base64'), fileName };
   } catch (err) {
+    log('ERROR', 'pdf:generate failed', { error: err.message });
     return { success: false, error: err.message };
+  } finally {
+    if (pdfWin && !pdfWin.isDestroyed()) pdfWin.close();
+    if (tmpFile) try { fs.unlinkSync(tmpFile); } catch (_) {}
   }
 });
 
 // Generate PDF and save directly to Downloads folder
 ipcMain.handle('pdf:generateAndSave', async (event, { html, fileName }) => {
+  let pdfWin = null;
+  let tmpFile = null;
   try {
     const processedHtml = embedImagesAsBase64(html);
-    const pdfWin = new BrowserWindow({
+    pdfWin = new BrowserWindow({
       show: false,
       width: 794,
       height: 1123,
       webPreferences: { nodeIntegration: false, contextIsolation: true },
     });
 
-    await pdfWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(processedHtml)}`);
+    // Write HTML to temp file to avoid data: URI size limit (ERR_INVALID_URL)
+    tmpFile = path.join(app.getPath('temp'), `pathlab-pdf-save-${Date.now()}.html`);
+    fs.writeFileSync(tmpFile, processedHtml, 'utf-8');
+    await pdfWin.loadURL(`file://${tmpFile.replace(/\\/g, '/')}`);
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const pdfBuffer = await pdfWin.webContents.printToPDF({
@@ -539,8 +550,6 @@ ipcMain.handle('pdf:generateAndSave', async (event, { html, fileName }) => {
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
     });
 
-    pdfWin.close();
-
     // Save to Downloads folder
     const downloadsPath = app.getPath('downloads');
     const filePath = path.join(downloadsPath, fileName || 'report.pdf');
@@ -548,21 +557,31 @@ ipcMain.handle('pdf:generateAndSave', async (event, { html, fileName }) => {
 
     return { success: true, filePath, data: pdfBuffer.toString('base64') };
   } catch (err) {
+    log('ERROR', 'pdf:generateAndSave failed', { error: err.message });
     return { success: false, error: err.message };
+  } finally {
+    if (pdfWin && !pdfWin.isDestroyed()) pdfWin.close();
+    if (tmpFile) try { fs.unlinkSync(tmpFile); } catch (_) {}
   }
 });
 
 // Print page directly without dialog
 ipcMain.handle('pdf:printDirect', async (event, { html, printerName, copies, silent }) => {
+  let printWin = null;
+  let tmpFile = null;
   try {
-    const printWin = new BrowserWindow({
+    const processedHtml = embedImagesAsBase64(html);
+    printWin = new BrowserWindow({
       show: false,
       width: 794,
       height: 1123,
       webPreferences: { nodeIntegration: false, contextIsolation: true },
     });
 
-    await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    // Write HTML to temp file to avoid data: URI size limit (ERR_INVALID_URL)
+    tmpFile = path.join(app.getPath('temp'), `pathlab-print-${Date.now()}.html`);
+    fs.writeFileSync(tmpFile, processedHtml, 'utf-8');
+    await printWin.loadURL(`file://${tmpFile.replace(/\\/g, '/')}`);
     await new Promise(resolve => setTimeout(resolve, 500));
 
     return new Promise((resolve) => {
@@ -575,12 +594,16 @@ ipcMain.handle('pdf:printDirect', async (event, { html, printerName, copies, sil
           pageSize: 'A4',
         },
         (success, errorType) => {
-          printWin.close();
+          if (printWin && !printWin.isDestroyed()) printWin.close();
+          if (tmpFile) try { fs.unlinkSync(tmpFile); } catch (_) {}
           resolve({ success, errorType });
         }
       );
     });
   } catch (err) {
+    log('ERROR', 'pdf:printDirect failed', { error: err.message });
+    if (printWin && !printWin.isDestroyed()) printWin.close();
+    if (tmpFile) try { fs.unlinkSync(tmpFile); } catch (_) {}
     return { success: false, errorType: err.message };
   }
 });
@@ -706,4 +729,15 @@ ipcMain.handle('diagnostics:info', () => {
     logDir: LOG_DIR,
     userData: app.getPath('userData'),
   };
+});
+// ==========================================
+// APP LIFECYCLE: Force-close any orphaned hidden windows on quit
+// ==========================================
+app.on('before-quit', () => {
+  // Close ALL BrowserWindows (including hidden PDF/print windows) to ensure clean exit
+  BrowserWindow.getAllWindows().forEach((win) => {
+    if (!win.isDestroyed()) {
+      win.destroy();
+    }
+  });
 });

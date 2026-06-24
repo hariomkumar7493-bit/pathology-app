@@ -17,14 +17,14 @@ import { createElement } from 'react';
 import PrintableReport from '../components/PrintableReport';
 
 // Render report data to HTML string (no DOM ref needed)
-export function renderReportToHTML(reportData, mode = 'pdf') {
+export function renderReportToHTML(reportData, mode = 'pdf', layoutSettings = null) {
   if (!reportData) return null;
-  return renderToStaticMarkup(createElement(PrintableReport, { report: reportData, mode }));
+  return renderToStaticMarkup(createElement(PrintableReport, { report: reportData, mode, layoutSettings }));
 }
 
 // Build the full HTML document for print/PDF
 // Accepts EITHER a DOM element (reportElement) OR raw HTML string (rawHTML)
-export function buildPrintHTML(reportElementOrHTML, { patientName = 'Report', mode = 'print', letterheadUrl = '' } = {}) {
+export function buildPrintHTML(reportElementOrHTML, { patientName = 'Report', mode = 'print', letterheadUrl = '', layoutSettings = null } = {}) {
   // Get the inner HTML content
   let bodyContent;
   if (typeof reportElementOrHTML === 'string') {
@@ -36,6 +36,12 @@ export function buildPrintHTML(reportElementOrHTML, { patientName = 'Report', mo
   }
 
   const isPdf = mode === 'pdf';
+  const ls = layoutSettings || {};
+  const padL = ls.bodyPaddingLeft ?? 10;
+  const padR = ls.bodyPaddingRight ?? 10;
+  const lhHeight = ls.letterheadHeight ?? 140;
+  const footerBottom = isPdf ? `${ls.footerBottomOffset ?? 5}mm` : '25px';
+  const bodyFontSize = ls.bodyFontSize ?? 12;
   const letterheadImg = letterheadUrl
     ? `<img class="letterhead-bg" src="${letterheadUrl}" />`
     : '';
@@ -46,13 +52,13 @@ export function buildPrintHTML(reportElementOrHTML, { patientName = 'Report', mo
       <style>
         @page { margin: 0; size: A4; }
         html, body { height: 100%; margin: 0; box-sizing: border-box; }
-        body { font-family: 'Times New Roman', serif; padding: 0 10mm; color: #000; font-size: 12px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body { font-family: 'Times New Roman', serif; padding: 0 ${padL}mm 0 ${padR}mm; color: #000; font-size: ${bodyFontSize}px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         table { border-collapse: collapse; width: 100%; }
         thead { display: table-header-group; }
         tfoot { display: table-footer-group; }
         thead td, tfoot td { padding: 0; }
-        .page-footer { position: fixed; bottom: ${isPdf ? '0' : '25px'}; left: 0; right: 0; z-index: 2; background: #fff; }
-        ${letterheadUrl ? `.letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 140px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }` : ''}
+        .page-footer { position: fixed; bottom: ${footerBottom}; left: 0; right: 0; z-index: 2; background: #fff; }
+        ${letterheadUrl ? `.letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: ${lhHeight}px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }` : ''}
       </style>
     </head>
     <body>${letterheadImg}${bodyContent}</body>
@@ -70,28 +76,28 @@ export async function electronPrint(reportElement, { patientName = 'Report' } = 
 
 // Generate PDF file locally in Electron (returns File object)
 // Accepts DOM element OR raw HTML string
-export async function electronGeneratePDF(reportElementOrHTML, { patientName = 'Report', letterheadUrl = '', fileName = 'report.pdf' } = {}) {
+export async function electronGeneratePDF(reportElementOrHTML, { patientName = 'Report', letterheadUrl = '', fileName = 'report.pdf', layoutSettings = null } = {}) {
   if (!isElectron()) return null;
-  const html = buildPrintHTML(reportElementOrHTML, { patientName, mode: 'pdf', letterheadUrl });
+  const html = buildPrintHTML(reportElementOrHTML, { patientName, mode: 'pdf', letterheadUrl, layoutSettings });
   if (!html) return null;
   return generatePDFLocal(html, fileName);
 }
 
 // Generate PDF and save to Downloads folder (returns file path)
 // Accepts DOM element OR raw HTML string
-export async function electronSavePDF(reportElementOrHTML, { patientName = 'Report', letterheadUrl = '', fileName = 'report.pdf' } = {}) {
+export async function electronSavePDF(reportElementOrHTML, { patientName = 'Report', letterheadUrl = '', fileName = 'report.pdf', layoutSettings = null } = {}) {
   if (!isElectron()) return null;
-  const html = buildPrintHTML(reportElementOrHTML, { patientName, mode: 'pdf', letterheadUrl });
+  const html = buildPrintHTML(reportElementOrHTML, { patientName, mode: 'pdf', letterheadUrl, layoutSettings });
   if (!html) return null;
   return generateAndSavePDF(html, fileName);
 }
 
 // WhatsApp share in Electron: save PDF → copy to clipboard → open WhatsApp
 // User just presses Ctrl+V in WhatsApp to attach the PDF (like mobile share)
-export async function electronShareWhatsApp(reportElementOrHTML, { patientName = 'Report', letterheadUrl = '', fileName = 'report.pdf', phone = '' } = {}) {
+export async function electronShareWhatsApp(reportElementOrHTML, { patientName = 'Report', letterheadUrl = '', fileName = 'report.pdf', phone = '', layoutSettings = null } = {}) {
   if (!isElectron()) return null;
   // Generate and save PDF to Downloads
-  const filePath = await electronSavePDF(reportElementOrHTML, { patientName, letterheadUrl, fileName });
+  const filePath = await electronSavePDF(reportElementOrHTML, { patientName, letterheadUrl, fileName, layoutSettings });
   if (!filePath) return null;
   // Copy PDF to clipboard so user can Ctrl+V in WhatsApp (if supported)
   if (window.electronAPI.shell.copyFileToClipboard) {
