@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Save, RotateCcw, Eye, EyeOff, SlidersHorizontal, Type, Columns3, ArrowDown, Image } from 'lucide-react';
+import { Save, RotateCcw, Eye, EyeOff, SlidersHorizontal, Type, Columns, ArrowDown, Image } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -272,7 +272,7 @@ export default function ReportLayoutSettings() {
   const sections = [
     { id: 'header', label: 'Header & Letterhead', icon: Image },
     { id: 'content', label: 'Content & Fonts', icon: Type },
-    { id: 'columns', label: 'Column Widths', icon: Columns3 },
+    { id: 'columns', label: 'Column Widths', icon: Columns },
     { id: 'footer', label: 'Footer & Signature', icon: ArrowDown },
   ];
 
