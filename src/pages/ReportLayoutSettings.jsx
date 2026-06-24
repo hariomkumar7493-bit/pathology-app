@@ -58,8 +58,9 @@ function SliderField({ label, value, onChange, min, max, step = 1, unit = 'px', 
 }
 
 // Sample report preview
-function ReportPreview({ layout }) {
+function ReportPreview({ layout, mode = 'pdf' }) {
   const l = layout;
+  const isPdf = mode === 'pdf';
   const scale = 0.48;
   return (
     <div className="bg-gray-100 rounded-xl p-4 flex items-start justify-center overflow-auto" style={{ minHeight: '600px' }}>
@@ -79,22 +80,24 @@ function ReportPreview({ layout }) {
           transformOrigin: 'top center',
         }}
       >
-        {/* Letterhead placeholder */}
-        <div style={{
-          height: `${l.letterheadHeight}px`,
-          marginTop: `${l.headerTopPadding}px`,
-          background: 'linear-gradient(135deg, #dbeafe 0%, #ede9fe 100%)',
-          borderRadius: '0 0 4px 4px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          border: '2px dashed #93c5fd',
-        }}>
-          <div className="text-center">
-            <Image className="w-8 h-8 text-blue-400 mx-auto mb-1" />
-            <p style={{ fontSize: '13px', color: '#60a5fa', fontFamily: 'sans-serif' }}>Letterhead Area ({l.letterheadHeight}px)</p>
+        {/* Letterhead - PDF shows actual image, Print mode no letterhead */}
+        {isPdf ? (
+          <div style={{
+            height: `${l.letterheadHeight}px`,
+            marginTop: `${l.headerTopPadding}px`,
+            overflow: 'hidden',
+            borderRadius: '0 0 4px 4px',
+          }}>
+            <img
+              src="/letterhead.png"
+              alt="Letterhead"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }}
+              onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.style.background = 'linear-gradient(135deg, #dbeafe 0%, #ede9fe 100%)'; e.target.parentElement.style.border = '2px dashed #93c5fd'; }}
+            />
           </div>
-        </div>
+        ) : (
+          <div style={{ height: '8px' }}></div>
+        )}
 
         {/* Title */}
         <div style={{
@@ -170,15 +173,53 @@ function ReportPreview({ layout }) {
           <div style={{ textAlign: 'center', padding: '16px 0 8px', fontSize: '10px', color: '#666' }}>------End of Report------</div>
         </div>
 
-        {/* Footer preview */}
-        <div style={{
-          position: 'absolute',
-          bottom: `${l.footerBottomOffset}mm`,
-          left: `${l.bodyPaddingLeft}mm`,
-          right: `${l.bodyPaddingRight}mm`,
-          height: `${l.footerHeight}px`,
-        }}>
-          <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '8px' }}>
+        {/* Footer preview - PDF shows full footer, Print shows nothing */}
+        {isPdf && (
+          <div style={{
+            position: 'absolute',
+            bottom: `${l.footerBottomOffset}mm`,
+            left: `${l.bodyPaddingLeft}mm`,
+            right: `${l.bodyPaddingRight}mm`,
+            height: `${l.footerHeight}px`,
+            border: '2px dashed #93c5fd',
+            borderRadius: '4px',
+            background: 'linear-gradient(135deg, #f0f9ff 0%, #faf5ff 100%)',
+            padding: '4px',
+          }}>
+            <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '4px' }}>
+              {l.showSignature && (
+                <div style={{ height: `${l.signatureHeight}px`, background: '#f3f4f6', border: '1px dashed #d1d5db', marginLeft: 'auto', width: '80px', marginBottom: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '8px', color: '#9ca3af', fontFamily: 'sans-serif' }}>Sign</span>
+                </div>
+              )}
+              <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{l.doctorName || 'DR. C. ASHOK'}</p>
+              <p style={{ fontSize: '11px', margin: 0 }}>{l.doctorDesignation || 'MBBS MD (PATH)'}</p>
+              <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>
+            </div>
+            <div style={{ borderTop: '1px solid #999', paddingTop: '3px', fontSize: '9px', color: '#666' }}>
+              <p style={{ margin: '1px 0' }}>1. {l.footerNote1}</p>
+              <p style={{ margin: '1px 0' }}>2. {l.footerNote2}</p>
+            </div>
+            {l.showHindiFooter && (
+              <div style={{
+                marginTop: '4px',
+                background: l.hindiFooterBgColor,
+                color: '#fff',
+                padding: '4px 10px',
+                fontSize: '9px',
+                textAlign: 'center',
+                borderRadius: '2px',
+              }}>
+                {l.hindiFooterText}
+              </div>
+            )}
+            <p style={{ fontSize: '8px', color: '#60a5fa', fontFamily: 'sans-serif', textAlign: 'center', margin: '2px 0 0' }}>Footer Area ({l.footerHeight}px)</p>
+          </div>
+        )}
+
+        {/* Print mode: show doctor signature section (no letterhead, no hindi footer) */}
+        {!isPdf && (
+          <div style={{ marginTop: '40px', textAlign: 'right', paddingRight: '20px' }}>
             {l.showSignature && (
               <div style={{ height: `${l.signatureHeight}px`, background: '#f3f4f6', border: '1px dashed #d1d5db', marginLeft: 'auto', width: '80px', marginBottom: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ fontSize: '8px', color: '#9ca3af', fontFamily: 'sans-serif' }}>Sign</span>
@@ -188,23 +229,7 @@ function ReportPreview({ layout }) {
             <p style={{ fontSize: '11px', margin: 0 }}>{l.doctorDesignation || 'MBBS MD (PATH)'}</p>
             <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>
           </div>
-          <div style={{ borderTop: '1px solid #999', paddingTop: '3px', fontSize: '9px', color: '#666' }}>
-            <p style={{ margin: '1px 0' }}>1. {l.footerNote1}</p>
-            <p style={{ margin: '1px 0' }}>2. {l.footerNote2}</p>
-          </div>
-          {l.showHindiFooter && (
-            <div style={{
-              marginTop: '6px',
-              background: l.hindiFooterBgColor,
-              color: '#fff',
-              padding: '4px 10px',
-              fontSize: '9px',
-              textAlign: 'center',
-            }}>
-              {l.hindiFooterText}
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
@@ -475,7 +500,7 @@ export default function ReportLayoutSettings() {
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Live Preview</h3>
               <span className="text-xs text-gray-400">A4 at ~50% scale</span>
             </div>
-            <ReportPreview layout={layout} />
+            <ReportPreview layout={layout} mode={activeMode} />
           </div>
         )}
       </div>
