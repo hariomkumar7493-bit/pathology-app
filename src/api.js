@@ -1,7 +1,14 @@
 // Use relative URL for production (same domain), localhost for development
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+// Capacitor on Android uses https://localhost, so detect native app context
+const isCapacitor = window.location.protocol === 'capacitor:' || 
+  (window.location.hostname === 'localhost' && window.location.port === '');
+const isDev = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && !isCapacitor;
+
+const API_BASE = isDev
   ? `http://${window.location.hostname}:5000/api`
-  : '/api';
+  : isCapacitor
+    ? 'https://pathology-app-psi.vercel.app/api'
+    : '/api';
 
 // Token management
 const getToken = () => localStorage.getItem('token');

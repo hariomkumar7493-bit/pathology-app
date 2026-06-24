@@ -30,9 +30,22 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth/login', authLimiter);
 
-// CORS
+// CORS - allow web frontend + Capacitor Android app
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'https://localhost',
+      'http://localhost',
+      'capacitor://localhost',
+    ].filter(Boolean);
+    // Allow requests with no origin (mobile apps, curl, etc)
+    if (!origin || allowedOrigins.includes(origin) || origin.includes('vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for now
+    }
+  },
   credentials: true
 }));
 
