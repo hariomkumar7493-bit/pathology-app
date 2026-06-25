@@ -449,8 +449,10 @@ export default function Reports() {
           layoutSettings: layoutSettings?.pdf,
         });
         if (!result) throw new Error('Local PDF generation failed');
-        if (result.clipboardOk) {
-          addToast(`PDF copied to clipboard! Open WhatsApp chat and press Ctrl+V to attach`, 'success');
+        if (result.autoPasted) {
+          addToast(`PDF auto-attached in WhatsApp! Select contact and press Send`, 'success');
+        } else if (result.clipboardOk) {
+          addToast(`PDF copied! Press Ctrl+V in WhatsApp to attach`, 'success');
         } else {
           addToast(`PDF saved to Downloads. Attach it manually in WhatsApp`, 'info');
         }

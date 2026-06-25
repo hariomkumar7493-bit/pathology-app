@@ -97,20 +97,13 @@ export async function electronSavePDF(reportElementOrHTML, { patientName = 'Repo
   return generateAndSavePDF(html, fileName);
 }
 
-// WhatsApp share in Electron: generate PDF → copy to clipboard → open WhatsApp
-// User presses Ctrl+V in WhatsApp chat to attach the PDF (closest to mobile share on desktop)
+// WhatsApp share in Electron: generate PDF → copy to clipboard → open WhatsApp → auto-paste
+// Uses Windows UI automation to send Ctrl+V to WhatsApp Desktop automatically
 export async function electronShareWhatsApp(reportElementOrHTML, { patientName = 'Report', letterheadUrl = '', fileName = 'report.pdf', phone = '', layoutSettings = null } = {}) {
   if (!isElectron()) return null;
   // Generate and save PDF to Downloads
   const filePath = await electronSavePDF(reportElementOrHTML, { patientName, letterheadUrl, fileName, layoutSettings });
   if (!filePath) return null;
-
-  // Copy PDF to clipboard so user can Ctrl+V in WhatsApp
-  let clipboardOk = false;
-  if (window.electronAPI.shell.copyFileToClipboard) {
-    const result = await window.electronAPI.shell.copyFileToClipboard(filePath);
-    clipboardOk = result?.success;
-  }
 
   // Format phone: strip spaces/dashes, ensure country code (default +91 for India)
   let cleanPhone = (phone || '').replace(/[\s\-()]/g, '');
@@ -120,11 +113,24 @@ export async function electronShareWhatsApp(reportElementOrHTML, { patientName =
     }
   }
 
-  // Open WhatsApp with contact — try desktop app first, then web
+  // Use the new auto-paste share handler
+  if (window.electronAPI.shell.shareToWhatsApp) {
+    const result = await window.electronAPI.shell.shareToWhatsApp({
+      filePath,
+      phone: cleanPhone,
+    });
+    return { filePath, ...result };
+  }
+
+  // Fallback: old clipboard method
+  let clipboardOk = false;
+  if (window.electronAPI.shell.copyFileToClipboard) {
+    const clipResult = await window.electronAPI.shell.copyFileToClipboard(filePath);
+    clipboardOk = clipResult?.success;
+  }
   const whatsappUrl = cleanPhone
     ? `https://wa.me/${cleanPhone}`
     : `https://web.whatsapp.com/`;
   window.electronAPI.shell.openExternal(whatsappUrl);
-
-  return { filePath, clipboardOk };
+  return { filePath, clipboardOk, autoPasted: false, method: 'web' };
 }

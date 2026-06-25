@@ -662,6 +662,96 @@ ipcMain.handle('shell:copyFileToClipboard', async (event, filePath) => {
   }
 });
 
+// Open WhatsApp Desktop and auto-paste file (Ctrl+V) — closest to mobile share experience
+// Flow: copy to clipboard → open WhatsApp Desktop → find window → send Ctrl+V
+ipcMain.handle('shell:shareToWhatsApp', async (event, { filePath, phone }) => {
+  const { exec, execSync } = require('child_process');
+
+  try {
+    // Step 1: Copy file to clipboard
+    const psCopyScript = `
+      Add-Type -AssemblyName System.Windows.Forms
+      $files = New-Object System.Collections.Specialized.StringCollection
+      $files.Add('${filePath.replace(/'/g, "''")}')
+      [System.Windows.Forms.Clipboard]::SetFileDropList($files)
+    `;
+    try {
+      execSync(`powershell -STA -Command "${psCopyScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`, { timeout: 8000 });
+    } catch (e) {
+      const psCmd = `Set-Clipboard -Path "${filePath.replace(/"/g, '`"')}"`;
+      execSync(`powershell -Command "${psCmd}"`, { timeout: 5000 });
+    }
+    log('INFO', 'File copied to clipboard for WhatsApp share', { filePath });
+
+    // Step 2: Open WhatsApp Desktop (or Web fallback)
+    // Try whatsapp:// protocol first (opens desktop app)
+    const openUrl = phone
+      ? `whatsapp://send?text=${encodeURIComponent('')}&phone=${phone}`
+      : `whatsapp://send`;
+    await shell.openExternal(openUrl);
+
+    // Step 3: Wait for WhatsApp window to appear, then auto-paste
+    const psPasteScript = `
+      Add-Type -AssemblyName System.Windows.Forms
+      Add-Type @"
+        using System;
+        using System.Runtime.InteropServices;
+        public class WinAPI {
+          [DllImport("user32.dll")]
+          public static extern bool SetForegroundWindow(IntPtr hWnd);
+          [DllImport("user32.dll")]
+          public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+          [DllImport("user32.dll")]
+          public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+          [DllImport("user32.dll")]
+          public static extern IntPtr GetForegroundWindow();
+        }
+"@
+      $found = $false
+      for ($i = 0; $i -lt 10; $i++) {
+        Start-Sleep -Milliseconds 500
+        $wa = [WinAPI]::FindWindow($null, 'WhatsApp')
+        if ($wa -ne [IntPtr]::Zero) {
+          [WinAPI]::ShowWindow($wa, 9)
+          [WinAPI]::SetForegroundWindow($wa)
+          Start-Sleep -Milliseconds 800
+          $fg = [WinAPI]::GetForegroundWindow()
+          if ($fg -eq $wa) {
+            [System.Windows.Forms.SendKeys]::SendWait('^v')
+            $found = $true
+            break
+          }
+        }
+      }
+      if (-not $found) { Write-Output 'WA_NOT_FOUND' }
+    `;
+
+    return new Promise((resolve) => {
+      exec(`powershell -STA -Command "${psPasteScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`, { timeout: 15000 }, (err, stdout) => {
+        if (err) {
+          log('WARN', 'Auto-paste script error', { error: err.message });
+        }
+        if (stdout && stdout.includes('WA_NOT_FOUND')) {
+          log('INFO', 'WhatsApp Desktop not found, opening WhatsApp Web');
+          // Fallback: open WhatsApp Web in browser
+          const webUrl = phone ? `https://wa.me/${phone}` : 'https://web.whatsapp.com/';
+          shell.openExternal(webUrl);
+          resolve({ success: true, autoPasted: false, method: 'web' });
+        } else {
+          log('INFO', 'Auto-paste to WhatsApp Desktop succeeded');
+          resolve({ success: true, autoPasted: true, method: 'desktop' });
+        }
+      });
+    });
+  } catch (err) {
+    log('ERROR', 'shareToWhatsApp failed', { error: err.message });
+    // Last resort fallback
+    const webUrl = phone ? `https://wa.me/${phone}` : 'https://web.whatsapp.com/';
+    shell.openExternal(webUrl);
+    return { success: false, autoPasted: false, method: 'web', error: err.message };
+  }
+});
+
 // ===== IPC: LOGGING & DIAGNOSTICS =====
 
 // Log from renderer process
