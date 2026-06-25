@@ -181,16 +181,19 @@ export default function TestManagement() {
   };
 
   // Group tests by category (memoized)
-  const { groupedTests, filteredCategories } = useMemo(() => {
+  const { groupedTests, filteredCategories, uncategorized } = useMemo(() => {
     const catMap = {};
     categories.forEach(c => { catMap[c._id] = c.name; });
 
     const grouped = {};
+    const uncategorizedTests = [];
     tests.forEach(t => {
       const catId = t.category_id;
       if (catId && catMap[catId]) {
         if (!grouped[catId]) grouped[catId] = [];
         grouped[catId].push(t);
+      } else {
+        uncategorizedTests.push(t);
       }
     });
 
@@ -202,7 +205,11 @@ export default function TestManagement() {
       return catTests.some(t => t.name.toLowerCase().includes(s));
     });
 
-    return { groupedTests: grouped, filteredCategories: filtered };
+    const filteredUncategorized = search
+      ? uncategorizedTests.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+      : uncategorizedTests;
+
+    return { groupedTests: grouped, filteredCategories: filtered, uncategorized: filteredUncategorized };
   }, [tests, categories, search]);
 
   if (loading) {
