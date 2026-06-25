@@ -196,6 +196,8 @@ router.post('/', async (req, res) => {
         ref_range_female: p.ref_range_female || '',
         group_name: p.group_name || name,
         sort_order: p.sort_order || idx + 1,
+        calc_formula: p.calc_formula || '',
+        calc_decimals: p.calc_decimals ?? null,
       })),
     };
 
@@ -227,6 +229,8 @@ router.put('/:id', async (req, res) => {
         ref_range_female: p.ref_range_female || '',
         group_name: p.group_name || '',
         sort_order: p.sort_order || idx + 1,
+        calc_formula: p.calc_formula || '',
+        calc_decimals: p.calc_decimals ?? null,
       }));
     }
 

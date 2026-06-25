@@ -155,6 +155,8 @@ export default function TestManagement() {
         ref_range_female: '',
         group_name: prev.name || '',
         sort_order: prev.parameters.length + 1,
+        calc_formula: '',
+        calc_decimals: null,
       }],
     }));
   };
@@ -334,7 +336,10 @@ export default function TestManagement() {
                                 {test.parameters.map((p, idx) => (
                                   <tr key={idx} className="border-b border-gray-100">
                                     <td className="py-1 text-gray-400">{idx + 1}</td>
-                                    <td className="py-1 text-gray-700">{p.param_name}</td>
+                                    <td className="py-1 text-gray-700">
+                                      {p.param_name}
+                                      {p.calc_formula && <span className="text-blue-500 text-[10px] ml-1" title={p.calc_formula}>calc</span>}
+                                    </td>
                                     <td className="py-1 text-gray-500">{p.unit || '-'}</td>
                                     <td className="py-1 text-gray-500">{p.ref_range_male || '-'}</td>
                                     <td className="py-1 text-gray-500">{p.ref_range_female || '-'}</td>
@@ -482,6 +487,9 @@ export default function TestManagement() {
                     <div className="col-span-1">Order</div>
                     <div className="col-span-1"></div>
                   </div>
+                  <div className="grid grid-cols-12 gap-1 bg-blue-50 px-3 py-1 text-[10px] text-blue-600 border-b border-blue-100">
+                    <div className="col-span-12">Calc Formula (optional): Use other param names with + - * / e.g. "Total Bilirubin - Direct Bilirubin"</div>
+                  </div>
                   {/* Rows */}
                   {testForm.parameters.map((param, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-1 px-3 py-1.5 border-b border-gray-100 items-center">
@@ -543,6 +551,27 @@ export default function TestManagement() {
                         <button onClick={() => removeParam(idx)} className="p-1 hover:bg-red-50 rounded text-red-500" title="Remove parameter">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                      </div>
+                      {/* Calc formula row (collapsible) */}
+                      <div className="col-span-12 flex items-center gap-2 py-1 bg-blue-50/30 rounded px-2">
+                        <span className="text-[10px] text-blue-600 font-medium whitespace-nowrap">Calc:</span>
+                        <input
+                          type="text"
+                          value={param.calc_formula || ''}
+                          onChange={e => updateParam(idx, 'calc_formula', e.target.value)}
+                          className="flex-1 px-2 py-0.5 border border-blue-200 rounded text-[11px] focus:ring-1 focus:ring-blue-400 outline-none"
+                          placeholder="e.g. Total Bilirubin - Direct Bilirubin (leave empty for manual entry)"
+                        />
+                        <span className="text-[10px] text-gray-400 whitespace-nowrap">Decimals:</span>
+                        <input
+                          type="number"
+                          value={param.calc_decimals ?? ''}
+                          onChange={e => updateParam(idx, 'calc_decimals', e.target.value === '' ? null : parseInt(e.target.value))}
+                          className="w-12 px-1 py-0.5 border border-blue-200 rounded text-[11px] text-center focus:ring-1 focus:ring-blue-400 outline-none"
+                          placeholder="2"
+                          min="0"
+                          max="6"
+                        />
                       </div>
                     </div>
                   ))}
