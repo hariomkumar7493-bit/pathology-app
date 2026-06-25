@@ -3,58 +3,6 @@ const router = express.Router();
 const { getDB } = require('../db');
 const crypto = require('crypto');
 
-// Initialize Firebase Admin lazily
-let firebaseApp = null;
-let firebaseInitError = null;
-
-function getFirebaseApp() {
-  if (firebaseApp) return firebaseApp;
-  if (firebaseInitError) return null;
-
-  try {
-    const admin = require('firebase-admin');
-
-    const projectId = process.env.FIREBASE_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
-
-    if (!projectId || !clientEmail || !privateKey) {
-      firebaseInitError = 'Missing env vars';
-      return null;
-    }
-
-    // Handle private key format
-    if (privateKey.includes('\\n')) {
-      privateKey = privateKey.replace(/\\n/g, '\n');
-    }
-
-    if (!privateKey.includes('\n')) {
-      firebaseInitError = 'Private key has no newlines';
-      return null;
-    }
-
-    if (admin.apps && admin.apps.length > 0) {
-      firebaseApp = admin.app();
-    } else {
-      const cert = admin.credential.cert({
-        projectId,
-        clientEmail,
-        privateKey,
-      });
-      firebaseApp = admin.initializeApp({
-        credential: cert,
-      });
-    }
-
-    console.log('[Notifications] Firebase Admin initialized');
-    return firebaseApp;
-  } catch (err) {
-    firebaseInitError = err.message;
-    console.error('[Notifications] Firebase init error:', err.message);
-    return null;
-  }
-}
-
 // Create JWT for FCM HTTP v1 API authentication
 function createFCMJWT() {
   const projectId = process.env.FIREBASE_PROJECT_ID;
