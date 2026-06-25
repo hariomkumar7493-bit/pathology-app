@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
-
-// In-memory token store (resets on each serverless cold start)
-let deviceTokens = new Map(); // token -> { enabled: true, registeredAt: Date }
+const { getDB } = require('../db');
 
 // Initialize Firebase Admin lazily
 let firebaseApp = null;
@@ -42,13 +40,18 @@ function getFirebaseApp() {
   }
 }
 
-// POST /api/notifications/register - register device token
-router.post('/register', (req, res) => {
+// POST /api/notifications/register - register device token in MongoDB
+router.post('/register', async (req, res) => {
   try {
     const { token, enabled } = req.body;
     if (!token) return res.status(400).json({ error: 'Token required' });
-    deviceTokens.set(token, { enabled: enabled !== false, registeredAt: new Date() });
-    console.log(`[Notifications] Token registered. Total: ${deviceTokens.size}`);
+    const db = getDB();
+    await db.collection('push_tokens').updateOne(
+      { token },
+      { $set: { token, enabled: enabled !== false, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    console.log(`[Notifications] Token registered in DB`);
     res.json({ success: true });
   } catch (err) {
     console.error('[Notifications] Register error:', err);
@@ -57,10 +60,11 @@ router.post('/register', (req, res) => {
 });
 
 // POST /api/notifications/unregister - remove device token
-router.post('/unregister', (req, res) => {
+router.post('/unregister', async (req, res) => {
   try {
     const { token } = req.body;
-    if (token) deviceTokens.delete(token);
+    const db = getDB();
+    if (token) await db.collection('push_tokens').deleteOne({ token });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to unregister token' });
@@ -68,18 +72,31 @@ router.post('/unregister', (req, res) => {
 });
 
 // GET /api/notifications/tokens - list registered tokens (for debugging)
-router.get('/tokens', (req, res) => {
-  res.json({ count: deviceTokens.size, tokens: Array.from(deviceTokens.keys()) });
+router.get('/tokens', async (req, res) => {
+  try {
+    const db = getDB();
+    const tokens = await db.collection('push_tokens').find({}).toArray();
+    res.json({ count: tokens.length, tokens: tokens.map(t => ({ token: t.token.slice(0, 20) + '...', enabled: t.enabled })) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Send FCM push notification using HTTP v1 API via firebase-admin
 async function sendPushNotification(title, body) {
-  const enabledTokens = Array.from(deviceTokens.entries())
-    .filter(([_, info]) => info.enabled)
-    .map(([token]) => token);
+  let db;
+  try {
+    db = getDB();
+  } catch (e) {
+    console.log('[Notifications] DB not connected, skipping push');
+    return;
+  }
+
+  const tokens = await db.collection('push_tokens').find({ enabled: true }).toArray();
+  const enabledTokens = tokens.map(t => t.token);
 
   if (enabledTokens.length === 0) {
-    console.log('[Notifications] No enabled tokens, skipping push');
+    console.log('[Notifications] No enabled tokens in DB, skipping push');
     return;
   }
 
@@ -118,7 +135,7 @@ async function sendPushNotification(title, body) {
       if (err.code === 'messaging/registration-token-not-registered' ||
           err.message.includes('NotRegistered') ||
           err.message.includes('invalid-registration-token')) {
-        deviceTokens.delete(token);
+        await db.collection('push_tokens').deleteOne({ token });
         console.log(`[Notifications] Removed invalid token`);
       }
       return { token, success: false, error: err.message };
