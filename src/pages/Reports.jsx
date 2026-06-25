@@ -5,6 +5,7 @@ import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
 import { isElectron } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
+import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
 
 export default function Reports() {
   const [reports, setReports] = useState([]);
@@ -201,6 +202,21 @@ export default function Reports() {
   const handleShareNow = async () => {
     if (!shareReady) return;
     const { files, label } = shareReady;
+
+    // Mobile app: use Capacitor Share API
+    if (isMobileApp()) {
+      try {
+        const { mobileShareMultiplePDFs } = await import('../utils/mobileShare');
+        await mobileShareMultiplePDFs(files, label);
+        addToast('Shared successfully', 'success');
+      } catch (err) {
+        if (err.message?.includes('cancel') || err.message?.includes('Abort')) { setShareReady(null); return; }
+        addToast('Share failed: ' + err.message, 'error');
+      }
+      setShareReady(null);
+      return;
+    }
+
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     if (isMobile && navigator.canShare && navigator.canShare({ files })) {
       try {
@@ -249,6 +265,24 @@ export default function Reports() {
       return;
     }
 
+    // Mobile app: generate PDF via server and open externally
+    if (isMobileApp()) {
+      addToast('Generating PDF...', 'info');
+      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const dateStr = new Date(viewReport.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+      const fileName = `${viewReport.patient_name || 'Report'}_${dateStr}.pdf`;
+      const pdfRes = await fetch('/api/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report: viewReport, letterheadUrl, layoutSettings: layoutSettings?.pdf }),
+      });
+      if (!pdfRes.ok) throw new Error('PDF generation failed');
+      const pdfBlob = await pdfRes.blob();
+      await mobileOpenPDF(pdfBlob, fileName);
+      addToast('PDF opened - use your printer app', 'success');
+      return;
+    }
+
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
     const lsPrint = layoutSettings?.print || {};
@@ -275,17 +309,47 @@ export default function Reports() {
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
   };
 
-  const handleDownloadPdf = (report) => {
+  const handleDownloadPdf = async (report) => {
     if (!report) return;
-    const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings?.pdf);
-    if (!reportHTML) return;
 
     const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
-    const fileName = `${report.patient_name}_${dateStr}`;
+    const fileName = `${report.patient_name}_${dateStr}.pdf`;
+    const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
 
+    // Electron: save directly to Downloads
+    if (isElectron()) {
+      const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings?.pdf);
+      if (!reportHTML) return;
+      const filePath = await electronSavePDF(reportHTML, { patientName: report.patient_name, letterheadUrl: letterheadAbsUrl, fileName, layoutSettings: layoutSettings?.pdf });
+      if (filePath) {
+        addToast(`PDF saved: ${fileName}`, 'success');
+        window.electronAPI.file.openInExplorer(filePath);
+      } else {
+        addToast('PDF generation failed', 'error');
+      }
+      return;
+    }
+
+    // Mobile app: use server PDF and open externally
+    if (isMobileApp()) {
+      addToast('Generating PDF...', 'info');
+      const pdfRes = await fetch('/api/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report, letterheadUrl: letterheadAbsUrl, layoutSettings: layoutSettings?.pdf }),
+      });
+      if (!pdfRes.ok) throw new Error('PDF generation failed');
+      const pdfBlob = await pdfRes.blob();
+      await mobileOpenPDF(pdfBlob, fileName);
+      addToast('PDF saved and opened', 'success');
+      return;
+    }
+
+    // Web: open print dialog
+    const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings?.pdf);
+    if (!reportHTML) return;
     const pdfWindow = window.open('', '_blank', 'width=800,height=600');
     if (!pdfWindow) { window.alert('Popup blocked!\n\nTo fix:\n1. Click the blocked popup icon in the address bar\n2. Select "Always allow popups"\n3. Click the button again'); return; }
-    const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
     const lsDl = layoutSettings?.pdf || {};
     pdfWindow.document.write(`
       <html>
@@ -345,7 +409,8 @@ export default function Reports() {
         return;
       }
 
-      // Web: use server endpoint
+      // Mobile app + Web: use server endpoint for multi-page PDF
+      addToast('Generating PDF...', 'info');
       const pdfRes = await fetch('/api/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -358,7 +423,18 @@ export default function Reports() {
       const pdfBlob = await pdfRes.blob();
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-      // Store file and show "Tap to Share" button
+      // Mobile app: share directly via Capacitor Share API
+      if (isMobileApp()) {
+        try {
+          await mobileSharePDF([file], `Lab Report - ${report.patient_name}`);
+          addToast('Shared successfully', 'success');
+        } catch (err) {
+          addToast('Share failed: ' + err.message, 'error');
+        }
+        return;
+      }
+
+      // Web: Store file and show "Tap to Share" button
       setShareReady({ files: [file], label: `Lab Report - ${report.patient_name}` });
       addToast('PDF ready! Tap "Tap to Share" to send.', 'success');
     } catch (err) {

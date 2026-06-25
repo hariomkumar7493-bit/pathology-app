@@ -6,6 +6,7 @@ import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
 import { isElectron } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
+import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
 
 export default function QuickReport() {
   const [tests, setTests] = useState([]);
@@ -257,6 +258,24 @@ export default function QuickReport() {
       return;
     }
 
+    // Mobile app: generate PDF via server and open externally for printing
+    if (isMobileApp()) {
+      addToast('Generating PDF...', 'info');
+      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const dateStr = new Date(data.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+      const fileName = `${data.patient_name || 'Report'}_${dateStr}.pdf`;
+      const pdfRes = await fetch('/api/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report: data, letterheadUrl, layoutSettings: layoutSettings?.pdf }),
+      });
+      if (!pdfRes.ok) throw new Error('PDF generation failed');
+      const pdfBlob = await pdfRes.blob();
+      await mobileOpenPDF(pdfBlob, fileName);
+      addToast('PDF opened - use your printer app', 'success');
+      return;
+    }
+
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { window.alert('Popup blocked!\\n\\nTo fix:\\n1. Click the blocked popup icon in the address bar\\n2. Select "Always allow popups"\\n3. Click the button again'); return; }
     const ls = layoutSettings?.print || {};
@@ -362,6 +381,22 @@ export default function QuickReport() {
         } else {
           addToast('PDF generation failed', 'error');
         }
+        setSaving(false);
+        return;
+      }
+
+      // Mobile app: use server /api/pdf endpoint, save and open externally
+      if (isMobileApp()) {
+        addToast('Generating PDF...', 'info');
+        const pdfRes = await fetch(`/api/pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ report: fullPrintData, letterheadUrl: letterheadAbsUrl, layoutSettings: layoutSettings?.pdf }),
+        });
+        if (!pdfRes.ok) throw new Error('PDF generation failed');
+        const pdfBlob = await pdfRes.blob();
+        await mobileOpenPDF(pdfBlob, fileName);
+        addToast('PDF saved and opened', 'success');
         setSaving(false);
         return;
       }
@@ -489,9 +524,9 @@ export default function QuickReport() {
         return;
       }
 
-      // Web: use server endpoint
+      // Mobile app + Web: use server endpoint for multi-page PDF
       addToast('Generating PDF...', 'info');
-      const pdfRes = await fetch('/api/pdf', {
+      const pdfRes = await fetch(`/api/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ report: reportData, letterheadUrl, layoutSettings: layoutSettings?.pdf }),
@@ -503,7 +538,32 @@ export default function QuickReport() {
       const pdfBlob = await pdfRes.blob();
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-      // Store file and show "Tap to Share" modal
+      // Mobile app: share directly via Capacitor Share API
+      if (isMobileApp()) {
+        try {
+          await mobileSharePDF([file], `Lab Report - ${form.patient_name}`);
+          addToast('Shared successfully', 'success');
+          // Save report after share
+          if (needsSave) {
+            const resultArr = Object.entries(results).map(([uid, val]) => {
+              const param = parameters.find(p => p.uid === uid);
+              return { parameter_id: param?.id || parseInt(uid), param_name: param?.param_name || '', result_value: val.result_value, is_abnormal: val.is_abnormal };
+            });
+            const res = await api.createQuickReport({
+              patient_name: form.patient_name, age: parseInt(form.age) || 0, gender: form.gender, phone: form.phone,
+              referred_by: form.referred_by, specimen: form.specimen, test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
+            });
+            setSavedReportId(res.reportId);
+            setPrintData(res.report);
+          }
+        } catch (err) {
+          addToast('Share failed: ' + err.message, 'error');
+        }
+        setSaving(false);
+        return;
+      }
+
+      // Web: Store file and show "Tap to Share" modal
       setShareReady({ files: [file], label: `Lab Report - ${form.patient_name}`, needsSave });
       addToast('PDF ready! Tap "Tap to Share" to send.', 'success');
     } catch (err) {
