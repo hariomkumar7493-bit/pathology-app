@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Printer, X, Save, Trash2, Edit3, Plus, TestTubes, Share2 } from 'lucide-react';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
@@ -79,13 +79,16 @@ export default function Reports() {
     setLoading(false);
   }
 
-  const filteredReports = reports.filter((report) => {
-    const matchesSearch = report.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.investigation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.ref_no?.includes(searchTerm);
-    const matchesStatus = statusFilter === 'All' || report.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredReports = useMemo(
+    () => reports.filter((report) => {
+      const matchesSearch = report.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           report.investigation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           report.ref_no?.includes(searchTerm);
+      const matchesStatus = statusFilter === 'All' || report.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    }),
+    [reports, searchTerm, statusFilter]
+  );
 
   const handleViewReport = async (reportId) => {
     setViewLoading(true);

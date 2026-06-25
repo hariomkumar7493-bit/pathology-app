@@ -4,27 +4,36 @@ const { getDB } = require('../db');
 const { ObjectId } = require('mongodb');
 const { sendPushNotification } = require('./notifications');
 
-// GET all reports
+// GET all reports (uses $lookup to avoid N+1 queries)
 router.get('/', async (req, res) => {
   try {
     const db = getDB();
     const reportsCollection = db.collection('reports');
-    const patientsCollection = db.collection('patients');
-    
-    const reports = await reportsCollection.find({}).sort({ created_at: -1 }).toArray();
-    
-    const reportsWithPatient = await Promise.all(reports.map(async (report) => {
-      const patient = await patientsCollection.findOne({ _id: report.patient_id });
-      return {
-        ...report,
-        patient_name: patient?.name,
-        patient_age: patient?.age,
-        patient_gender: patient?.gender,
-        patient_phone: patient?.phone,
-        patient_referred_by: patient?.referred_by
-      };
-    }));
-    
+
+    const pipeline = [
+      { $sort: { created_at: -1 } },
+      {
+        $lookup: {
+          from: 'patients',
+          localField: 'patient_id',
+          foreignField: '_id',
+          as: 'patient_info'
+        }
+      },
+      { $unwind: { path: '$patient_info', preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          patient_name: '$patient_info.name',
+          patient_age: '$patient_info.age',
+          patient_gender: '$patient_info.gender',
+          patient_phone: '$patient_info.phone',
+          patient_referred_by: '$patient_info.referred_by'
+        }
+      },
+      { $project: { patient_info: 0 } }
+    ];
+
+    const reportsWithPatient = await reportsCollection.aggregate(pipeline).toArray();
     res.json(reportsWithPatient);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
     const categoriesCollection = db.collection('test_categories');
 
     // Run independent counts in parallel
-    const [totalPatients, pendingReports, completedReports, todayTests, recentReports, allTests, allCategories] = await Promise.all([
+    const [totalPatients, pendingReports, completedReports, todayTests, allTests, allCategories] = await Promise.all([
       patientsCollection.countDocuments(),
       reportsCollection.countDocuments({ status: 'Pending' }),
       reportsCollection.countDocuments({ status: 'Completed' }),
@@ -28,8 +28,6 @@ router.get('/', async (req, res) => {
         if (countDate > 0) return countDate;
         return reportsCollection.countDocuments({ date_of_collection: todayStr });
       })(),
-      // Recent reports
-      reportsCollection.find({}).sort({ created_at: -1 }).limit(10).toArray(),
       // All tests (for category mapping)
       testsCollection.find({}, { projection: { _id: 1, category_id: 1 } }).toArray(),
       // All categories
@@ -64,20 +62,27 @@ router.get('/', async (req, res) => {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Map recent reports - look up patient name from patients collection
-    const recentReportsFormatted = await Promise.all(recentReports.map(async (r) => {
-      let patientName = r.patient_name;
-      if (!patientName && r.patient_id) {
-        const patient = await patientsCollection.findOne({ _id: r.patient_id });
-        patientName = patient?.name;
-      }
-      return {
-        id: r._id,
-        patient_name: patientName || 'Unknown',
-        investigation: r.investigation || '',
-        status: r.status,
-        ref_no: r.ref_no,
-      };
+    // Recent reports with patient names via $lookup (avoids N+1)
+    const recentReportsAgg = await reportsCollection.aggregate([
+      { $sort: { created_at: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'patients',
+          localField: 'patient_id',
+          foreignField: '_id',
+          as: 'patient_info'
+        }
+      },
+      { $unwind: { path: '$patient_info', preserveNullAndEmptyArrays: true } },
+    ]).toArray();
+
+    const recentReportsFormatted = recentReportsAgg.map(r => ({
+      id: r._id,
+      patient_name: r.patient_info?.name || r.patient_name || 'Unknown',
+      investigation: r.investigation || '',
+      status: r.status,
+      ref_no: r.ref_no,
     }));
 
     res.json({

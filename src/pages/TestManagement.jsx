@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit3, Trash2, Save, X, ChevronDown, ChevronRight, FlaskConical, FolderOpen, Search } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
@@ -180,29 +180,30 @@ export default function TestManagement() {
     setExpandedCats(prev => ({ ...prev, [catId]: !prev[catId] }));
   };
 
-  // Group tests by category
-  const catMap = {};
-  categories.forEach(c => { catMap[c._id] = c.name; });
+  // Group tests by category (memoized)
+  const { groupedTests, filteredCategories } = useMemo(() => {
+    const catMap = {};
+    categories.forEach(c => { catMap[c._id] = c.name; });
 
-  const groupedTests = {};
-  const uncategorized = [];
-  tests.forEach(t => {
-    const catId = t.category_id;
-    if (catId && catMap[catId]) {
-      if (!groupedTests[catId]) groupedTests[catId] = [];
-      groupedTests[catId].push(t);
-    } else {
-      uncategorized.push(t);
-    }
-  });
+    const grouped = {};
+    tests.forEach(t => {
+      const catId = t.category_id;
+      if (catId && catMap[catId]) {
+        if (!grouped[catId]) grouped[catId] = [];
+        grouped[catId].push(t);
+      }
+    });
 
-  const filteredCategories = categories.filter(c => {
-    if (!search) return true;
-    const s = search.toLowerCase();
-    if (c.name.toLowerCase().includes(s)) return true;
-    const catTests = groupedTests[c._id] || [];
-    return catTests.some(t => t.name.toLowerCase().includes(s));
-  });
+    const filtered = categories.filter(c => {
+      if (!search) return true;
+      const s = search.toLowerCase();
+      if (c.name.toLowerCase().includes(s)) return true;
+      const catTests = grouped[c._id] || [];
+      return catTests.some(t => t.name.toLowerCase().includes(s));
+    });
+
+    return { groupedTests: grouped, filteredCategories: filtered };
+  }, [tests, categories, search]);
 
   if (loading) {
     return (

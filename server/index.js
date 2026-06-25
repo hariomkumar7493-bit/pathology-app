@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
-const { connectDB } = require('./db');
+const { connectDB, createIndexes } = require('./db');
 
 const app = express();
 const PORT = 5000;
@@ -51,7 +51,8 @@ app.use('/api/settings', require('./routes/settings'));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // Connect to MongoDB and start server
-connectDB().then(() => {
+connectDB().then(async () => {
+  await createIndexes();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
   });

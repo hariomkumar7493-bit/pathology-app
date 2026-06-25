@@ -15,13 +15,52 @@ const getToken = () => localStorage.getItem('token');
 const setToken = (token) => localStorage.setItem('token', token);
 const removeToken = () => localStorage.removeItem('token');
 
+// Simple in-memory cache for GET requests
+const cache = new Map();
+const CACHE_TTL = 30000; // 30 seconds
+
+function invalidateCache(prefix) {
+  for (const key of cache.keys()) {
+    if (!prefix || key.startsWith(prefix)) cache.delete(key);
+  }
+}
+
 async function request(url, options = {}) {
   const token = getToken();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const method = (options.method || 'GET').toUpperCase();
   
   // Add Authorization header if token exists
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // Cache GET requests
+  if (method === 'GET') {
+    const cacheKey = url;
+    const cached = cache.get(cacheKey);
+    if (cached && Date.now() - cached.time < CACHE_TTL) {
+      return cached.data;
+    }
+
+    const res = await fetch(`${API_BASE}${url}`, { headers, ...options });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(err.error || 'Request failed');
+    }
+    const data = await res.json();
+    cache.set(cacheKey, { data, time: Date.now() });
+    return data;
+  }
+
+  // Non-GET requests invalidate relevant cache
+  if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+    if (url.startsWith('/patients')) invalidateCache('/patients');
+    if (url.startsWith('/reports')) invalidateCache('/reports');
+    if (url.startsWith('/tests')) invalidateCache('/tests');
+    if (url.startsWith('/settings')) invalidateCache('/settings');
+    // Dashboard depends on everything
+    cache.delete('/dashboard');
   }
   
   const res = await fetch(`${API_BASE}${url}`, {

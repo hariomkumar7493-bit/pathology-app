@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Search, Plus, Phone, Mail, Calendar, X, TestTubes, Check, Minus, Trash2, Edit3, ChevronDown, ChevronRight } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
@@ -37,10 +37,13 @@ export default function Patients() {
     setLoading(false);
   }
 
-  const filteredPatients = patients.filter(
-    (p) =>
-      p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.phone?.includes(searchTerm)
+  const filteredPatients = useMemo(
+    () => patients.filter(
+      (p) =>
+        p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.phone?.includes(searchTerm)
+    ),
+    [patients, searchTerm]
   );
 
   // Get unique sub-groups for a test
