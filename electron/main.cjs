@@ -638,12 +638,27 @@ ipcMain.handle('shell:openPath', async (event, filePath) => {
 ipcMain.handle('shell:copyFileToClipboard', async (event, filePath) => {
   try {
     const { execSync } = require('child_process');
-    // PowerShell command to copy file to clipboard
-    const psCmd = `Set-Clipboard -Path "${filePath.replace(/"/g, '`"')}"`;
-    execSync(`powershell -Command "${psCmd}"`, { timeout: 5000 });
+    // Use .NET SetFileDropList — more reliable than Set-Clipboard -Path
+    // Must run in STA mode for clipboard operations
+    const psScript = `
+      Add-Type -AssemblyName System.Windows.Forms
+      $files = New-Object System.Collections.Specialized.StringCollection
+      $files.Add('${filePath.replace(/'/g, "''")}')
+      [System.Windows.Forms.Clipboard]::SetFileDropList($files)
+    `;
+    execSync(`powershell -STA -Command "${psScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`, { timeout: 8000 });
     return { success: true };
   } catch (err) {
-    return { success: false, error: err.message };
+    log('WARN', 'SetFileDropList failed, trying Set-Clipboard fallback', { error: err.message });
+    try {
+      const { execSync } = require('child_process');
+      const psCmd = `Set-Clipboard -Path "${filePath.replace(/"/g, '`"')}"`;
+      execSync(`powershell -Command "${psCmd}"`, { timeout: 5000 });
+      return { success: true };
+    } catch (err2) {
+      log('ERROR', 'Both clipboard methods failed', { error: err2.message });
+      return { success: false, error: err2.message };
+    }
   }
 });
 

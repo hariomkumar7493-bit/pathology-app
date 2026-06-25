@@ -441,15 +441,19 @@ export default function Reports() {
       if (isElectron()) {
         const reportHTML = renderReportToHTML(report, 'pdf', layoutSettings?.pdf);
         if (!reportHTML) { throw new Error('Failed to render report HTML'); }
-        const filePath = await electronShareWhatsApp(reportHTML, {
+        const result = await electronShareWhatsApp(reportHTML, {
           patientName: report.patient_name,
           letterheadUrl,
           fileName,
-          phone: report.phone || '',
+          phone: report.patient_phone || '',
           layoutSettings: layoutSettings?.pdf,
         });
-        if (!filePath) throw new Error('Local PDF generation failed');
-        addToast(`PDF copied! Press Ctrl+V in WhatsApp to attach`, 'success');
+        if (!result) throw new Error('Local PDF generation failed');
+        if (result.clipboardOk) {
+          addToast(`PDF copied to clipboard! Open WhatsApp chat and press Ctrl+V to attach`, 'success');
+        } else {
+          addToast(`PDF saved to Downloads. Attach it manually in WhatsApp`, 'info');
+        }
         return;
       }
 

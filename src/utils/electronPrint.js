@@ -97,21 +97,34 @@ export async function electronSavePDF(reportElementOrHTML, { patientName = 'Repo
   return generateAndSavePDF(html, fileName);
 }
 
-// WhatsApp share in Electron: save PDF → copy to clipboard → open WhatsApp
-// User just presses Ctrl+V in WhatsApp to attach the PDF (like mobile share)
+// WhatsApp share in Electron: generate PDF → copy to clipboard → open WhatsApp
+// User presses Ctrl+V in WhatsApp chat to attach the PDF (closest to mobile share on desktop)
 export async function electronShareWhatsApp(reportElementOrHTML, { patientName = 'Report', letterheadUrl = '', fileName = 'report.pdf', phone = '', layoutSettings = null } = {}) {
   if (!isElectron()) return null;
   // Generate and save PDF to Downloads
   const filePath = await electronSavePDF(reportElementOrHTML, { patientName, letterheadUrl, fileName, layoutSettings });
   if (!filePath) return null;
-  // Copy PDF to clipboard so user can Ctrl+V in WhatsApp (if supported)
+
+  // Copy PDF to clipboard so user can Ctrl+V in WhatsApp
+  let clipboardOk = false;
   if (window.electronAPI.shell.copyFileToClipboard) {
-    await window.electronAPI.shell.copyFileToClipboard(filePath);
+    const result = await window.electronAPI.shell.copyFileToClipboard(filePath);
+    clipboardOk = result?.success;
   }
-  // Open WhatsApp with contact pre-filled
-  const whatsappUrl = phone
-    ? `https://wa.me/${phone}`
-    : `whatsapp://send`;
+
+  // Format phone: strip spaces/dashes, ensure country code (default +91 for India)
+  let cleanPhone = (phone || '').replace(/[\s\-()]/g, '');
+  if (cleanPhone && !cleanPhone.startsWith('+') && !cleanPhone.startsWith('00')) {
+    if (cleanPhone.length === 10) {
+      cleanPhone = '91' + cleanPhone; // India country code
+    }
+  }
+
+  // Open WhatsApp with contact — try desktop app first, then web
+  const whatsappUrl = cleanPhone
+    ? `https://wa.me/${cleanPhone}`
+    : `https://web.whatsapp.com/`;
   window.electronAPI.shell.openExternal(whatsappUrl);
-  return filePath;
+
+  return { filePath, clipboardOk };
 }
