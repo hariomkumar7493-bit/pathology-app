@@ -281,44 +281,54 @@ router.get('/test', async (req, res) => {
 
     debugInfo.accessTokenObtained = true;
 
-    const token = tokens[0].token;
-    debugInfo.sendingTo = token.slice(0, 30) + '...';
-
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+    const results = [];
 
-    try {
-      const response = await fetch(fcmUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: {
-            token,
-            notification: { title: 'Test Notification', body: 'Debug test from server' },
-            data: { title: 'Test Notification', body: 'Debug test from server' },
-            android: {
-              priority: 'high',
-              notification: {
-                channelId: 'reports',
-                sound: 'default',
-                icon: 'ic_launcher',
+    for (const t of tokens) {
+      const token = t.token;
+      try {
+        const response = await fetch(fcmUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: {
+              token,
+              notification: { title: 'Test Notification', body: 'Debug test from server' },
+              data: { title: 'Test Notification', body: 'Debug test from server' },
+              android: {
+                priority: 'high',
+                notification: {
+                  channelId: 'reports',
+                  sound: 'default',
+                  icon: 'ic_launcher',
+                },
               },
             },
-          },
-        }),
-      });
+          }),
+        });
 
-      const result = await response.json();
-      if (response.ok) {
-        res.json({ ...debugInfo, success: true, response: result });
-      } else {
-        res.json({ ...debugInfo, success: false, statusCode: response.status, error: result });
+        const result = await response.json();
+        if (response.ok) {
+          results.push({ token: token.slice(0, 20) + '...', success: true });
+        } else {
+          if (result.error?.details?.[0]?.errorCode === 'UNREGISTERED' ||
+              result.error?.status === 'NOT_FOUND') {
+            await db.collection('push_tokens').deleteOne({ token });
+            results.push({ token: token.slice(0, 20) + '...', success: false, removed: true });
+          } else {
+            results.push({ token: token.slice(0, 20) + '...', success: false, error: result.error?.message });
+          }
+        }
+      } catch (err) {
+        results.push({ token: token.slice(0, 20) + '...', success: false, error: err.message });
       }
-    } catch (err) {
-      res.json({ ...debugInfo, success: false, error: err.message });
     }
+
+    const anySuccess = results.some(r => r.success);
+    res.json({ ...debugInfo, success: anySuccess, results });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
