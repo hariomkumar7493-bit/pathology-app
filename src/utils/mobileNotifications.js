@@ -57,7 +57,7 @@ export async function initPushNotifications() {
 async function sendTokenToServer(token) {
   try {
     const notificationSetting = localStorage.getItem('notifications_enabled');
-    const enabled = notificationSetting !== 'false'; // default true
+    const enabled = notificationSetting === null ? true : notificationSetting === 'true';
     await fetch('https://patholabpro.online/api/notifications/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
