@@ -32,15 +32,16 @@ function getFirebaseApp() {
       return null;
     }
 
-    if (admin.apps.length > 0) {
+    if (admin.apps && admin.apps.length > 0) {
       firebaseApp = admin.app();
     } else {
+      const cert = admin.credential.cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      });
       firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId,
-          clientEmail,
-          privateKey,
-        }),
+        credential: cert,
       });
     }
 
