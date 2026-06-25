@@ -4,19 +4,31 @@ const { getDB } = require('../db');
 
 // Initialize Firebase Admin lazily
 let firebaseApp = null;
+let firebaseInitError = null;
 
 function getFirebaseApp() {
   if (firebaseApp) return firebaseApp;
+  if (firebaseInitError) return null; // Don't retry after failure
 
   try {
     const admin = require('firebase-admin');
 
     const projectId = process.env.FIREBASE_PROJECT_ID;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
     if (!projectId || !clientEmail || !privateKey) {
-      console.log('[Notifications] Firebase env vars not set, push will be skipped');
+      firebaseInitError = 'Missing env vars';
+      return null;
+    }
+
+    // Handle private key format - Vercel may store it differently
+    if (privateKey.includes('\\n')) {
+      privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+    // Ensure proper PEM format
+    if (!privateKey.includes('\n')) {
+      firebaseInitError = 'Private key has no newlines. Format: -----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----';
       return null;
     }
 
@@ -35,6 +47,7 @@ function getFirebaseApp() {
     console.log('[Notifications] Firebase Admin initialized');
     return firebaseApp;
   } catch (err) {
+    firebaseInitError = err.message;
     console.error('[Notifications] Firebase init error:', err.message);
     return null;
   }
@@ -107,7 +120,7 @@ router.get('/test', async (req, res) => {
 
     const app = getFirebaseApp();
     if (!app) {
-      return res.json({ ...debugInfo, error: 'Firebase not initialized. Check env vars.' });
+      return res.json({ ...debugInfo, error: 'Firebase not initialized', initError: firebaseInitError, privateKeyHasNewlines: process.env.FIREBASE_PRIVATE_KEY?.includes('\\n'), privateKeyLength: process.env.FIREBASE_PRIVATE_KEY?.length });
     }
 
     debugInfo.firebaseInitialized = true;
