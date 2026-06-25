@@ -34,9 +34,23 @@ export default function Reports() {
     api.getReportLayout().then(setLayoutSettings).catch(() => {});
 
     // Listen for notification tap to open report preview
-    const handleNotifOpen = (e) => {
+    const handleNotifOpen = async (e) => {
       const { reportId } = e.detail;
-      if (reportId) handleViewReport(reportId);
+      if (!reportId) return;
+      // Wait a bit for reports to load if needed
+      setViewLoading(true);
+      try {
+        const full = await api.getReport(reportId);
+        setViewReport(full);
+        const init = {};
+        (full.results || []).forEach((r, idx) => {
+          init[idx] = { result_value: r.result_value || '', is_abnormal: r.is_abnormal };
+        });
+        setEditResults(init);
+      } catch (err) {
+        console.error('Failed to load report from notification:', err);
+      }
+      setViewLoading(false);
     };
     window.addEventListener('notification-open-report', handleNotifOpen);
     return () => window.removeEventListener('notification-open-report', handleNotifOpen);

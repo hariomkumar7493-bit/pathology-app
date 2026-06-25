@@ -91,23 +91,29 @@ export async function updateNotificationPreference(enabled) {
 // Handle notification tap - dispatch event to open report preview
 function handleNotificationTap(data) {
   if (data.type === 'report' && data.reportId) {
-    // Navigate to reports page first, then dispatch event
-    window.location.hash = '#/reports';
+    navigateTo('/reports');
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('notification-open-report', {
         detail: { reportId: data.reportId }
       }));
-    }, 500);
+    }, 1000);
   } else if (data.type === 'patient' && data.patientId) {
-    window.location.hash = '#/patients';
+    navigateTo('/patients');
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('notification-open-patient', {
         detail: { patientId: data.patientId }
       }));
-    }, 500);
+    }, 1000);
   } else {
-    // Default: go to reports
-    window.location.hash = '#/reports';
+    navigateTo('/reports');
+  }
+}
+
+// Navigate using BrowserRouter (pushState + popstate)
+function navigateTo(path) {
+  if (window.location.pathname !== path) {
+    window.history.pushState({}, '', path);
+    window.dispatchEvent(new PopStateEvent('popstate'));
   }
 }
 
