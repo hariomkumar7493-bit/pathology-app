@@ -7,6 +7,7 @@ import { isElectron } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
 import { getPendingNotificationTap } from '../utils/mobileNotifications';
+import { autoCalculate } from '../utils/calcFormulas';
 
 export default function Reports() {
   const [reports, setReports] = useState([]);
@@ -134,7 +135,14 @@ export default function Reports() {
   const handleResultChange = (resultId, value, refRangeMale, refRangeFemale) => {
     const refRange = viewReport?.gender === 'Female' ? refRangeFemale : refRangeMale;
     const abnormal = isAbnormal(value, refRange);
-    setEditResults(prev => ({ ...prev, [resultId]: { result_value: value, is_abnormal: abnormal } }));
+    const newResults = { ...editResults, [resultId]: { result_value: value, is_abnormal: abnormal } };
+    // Auto-calculate derived parameters
+    const params = (viewReport?.results || []).map((r, idx) => ({
+      ...r,
+      uid: idx,
+    }));
+    const calcResults = autoCalculate(params, newResults, viewReport?.gender, isAbnormal);
+    setEditResults(calcResults);
   };
 
   const toggleSelect = (id) => {
@@ -837,13 +845,18 @@ export default function Reports() {
                       const abnFlag = editResults[idx]?.is_abnormal || false;
                       return (
                         <div key={idx} className={`grid grid-cols-12 items-center px-4 py-1.5 border-b border-gray-100 last:border-0 ${abnFlag ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
-                          <div className="col-span-4 text-xs text-gray-700">{r.param_name}</div>
+                          <div className="col-span-4 text-xs text-gray-700">
+                            {r.param_name}
+                            {r.calc_formula && <span className="text-blue-500 text-[10px] ml-1" title={r.calc_formula}>calc</span>}
+                          </div>
                           <div className="col-span-3">
                             <input
                               type="text"
-                              className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'}`}
+                              className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'} ${r.calc_formula ? 'bg-blue-50 text-blue-700' : ''}`}
                               value={editResults[idx]?.result_value || ''}
                               onChange={e => handleResultChange(idx, e.target.value, r.ref_range_male, r.ref_range_female)}
+                              readOnly={!!r.calc_formula}
+                              placeholder={r.calc_formula ? 'auto' : ''}
                             />
                           </div>
                           <div className="col-span-1 text-xs text-gray-500 text-center">{r.unit || ''}</div>

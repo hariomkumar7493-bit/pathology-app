@@ -84,6 +84,8 @@ router.get('/:id', async (req, res) => {
         ref_range_female: parameter?.ref_range_female,
         group_name: parameter?.group_name,
         sort_order: parameter?.sort_order,
+        calc_formula: parameter?.calc_formula || null,
+        calc_decimals: parameter?.calc_decimals ?? null,
         test_name: testDoc?.name,
         category_name: category?.name
       };

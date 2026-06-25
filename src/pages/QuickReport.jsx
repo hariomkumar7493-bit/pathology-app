@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext';
 import { isElectron } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
+import { autoCalculate } from '../utils/calcFormulas';
 
 export default function QuickReport() {
   const [tests, setTests] = useState([]);
@@ -153,10 +154,13 @@ export default function QuickReport() {
   const updateResult = (paramId, value, refRangeMale, refRangeFemale) => {
     const refRange = form.gender === 'Female' ? refRangeFemale : refRangeMale;
     const abnormal = checkAbnormal(value, refRange);
-    setResults(prev => ({
-      ...prev,
+    const newResults = {
+      ...results,
       [paramId]: { result_value: value, is_abnormal: abnormal }
-    }));
+    };
+    // Auto-calculate derived parameters
+    const calcResults = autoCalculate(parameters, newResults, form.gender, checkAbnormal);
+    setResults(calcResults);
   };
 
   // Group parameters by category_name then group_name (same category in same box)
@@ -841,13 +845,18 @@ export default function QuickReport() {
                           const abnFlag = results[param.uid]?.is_abnormal || false;
                           return (
                             <div key={param.uid} className={`grid grid-cols-12 items-center px-3 sm:px-4 py-1.5 sm:py-2 ${abnFlag ? 'bg-red-50' : 'hover:bg-gray-50'}`}>
-                              <div className="col-span-4 text-xs text-gray-700 pl-1 sm:pl-2 truncate">{param.param_name}</div>
+                              <div className="col-span-4 text-xs text-gray-700 pl-1 sm:pl-2 truncate">
+                                {param.param_name}
+                                {param.calc_formula && <span className="text-blue-500 text-[10px] ml-1" title={param.calc_formula}>calc</span>}
+                              </div>
                               <div className="col-span-3">
                                 <input
                                   type="text"
-                                  className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'}`}
+                                  className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'} ${param.calc_formula ? 'bg-blue-50 text-blue-700' : ''}`}
                                   value={results[param.uid]?.result_value || ''}
                                   onChange={e => updateResult(param.uid, e.target.value, param.ref_range_male, param.ref_range_female)}
+                                  readOnly={!!param.calc_formula}
+                                  placeholder={param.calc_formula ? 'auto' : ''}
                                 />
                               </div>
                               <div className="col-span-1 text-xs text-gray-500 text-center hidden sm:block">{param.unit || ''}</div>
