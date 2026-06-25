@@ -82,6 +82,67 @@ router.get('/tokens', async (req, res) => {
   }
 });
 
+// GET /api/notifications/test - send a test push notification
+router.get('/test', async (req, res) => {
+  try {
+    const debugInfo = {
+      FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID ? 'SET' : 'NOT SET',
+      FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL ? 'SET' : 'NOT SET',
+      FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY ? `SET (${process.env.FIREBASE_PRIVATE_KEY.length} chars)` : 'NOT SET',
+    };
+
+    let db;
+    try {
+      db = getDB();
+    } catch (e) {
+      return res.json({ ...debugInfo, error: 'DB not connected: ' + e.message });
+    }
+
+    const tokens = await db.collection('push_tokens').find({ enabled: true }).toArray();
+    debugInfo.enabledTokens = tokens.length;
+
+    if (tokens.length === 0) {
+      return res.json({ ...debugInfo, error: 'No enabled tokens in DB' });
+    }
+
+    const app = getFirebaseApp();
+    if (!app) {
+      return res.json({ ...debugInfo, error: 'Firebase not initialized. Check env vars.' });
+    }
+
+    debugInfo.firebaseInitialized = true;
+
+    const admin = require('firebase-admin');
+    const messaging = admin.messaging();
+
+    const token = tokens[0].token;
+    debugInfo.sendingTo = token.slice(0, 30) + '...';
+
+    try {
+      const message = {
+        token,
+        notification: { title: 'Test Notification', body: 'Debug test from server' },
+        data: { title: 'Test Notification', body: 'Debug test from server' },
+        android: {
+          notification: {
+            channelId: 'reports',
+            priority: 'high',
+            sound: 'default',
+            icon: 'ic_launcher',
+          },
+        },
+      };
+
+      const response = await messaging.send(message);
+      res.json({ ...debugInfo, success: true, response });
+    } catch (err) {
+      res.json({ ...debugInfo, success: false, error: err.message, code: err.code });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Send FCM push notification using HTTP v1 API via firebase-admin
 async function sendPushNotification(title, body) {
   let db;
