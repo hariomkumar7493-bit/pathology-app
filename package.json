@@ -41,6 +41,8 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.294.0",
     "mongoose": "^8.0.0",
+    "msnodesqlv8": "^5.2.0",
+    "mssql": "^12.6.0",
     "puppeteer-core": "^25.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
