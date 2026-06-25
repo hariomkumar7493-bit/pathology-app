@@ -1,9 +1,46 @@
 const express = require('express');
 const router = express.Router();
 
-// In-memory token store (resets on each serverless cold start, but good enough for MVP)
-// For production, move to database
+// In-memory token store (resets on each serverless cold start)
 let deviceTokens = new Map(); // token -> { enabled: true, registeredAt: Date }
+
+// Initialize Firebase Admin lazily
+let firebaseApp = null;
+
+function getFirebaseApp() {
+  if (firebaseApp) return firebaseApp;
+
+  try {
+    const admin = require('firebase-admin');
+
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+    if (!projectId || !clientEmail || !privateKey) {
+      console.log('[Notifications] Firebase env vars not set, push will be skipped');
+      return null;
+    }
+
+    if (admin.apps.length > 0) {
+      firebaseApp = admin.app();
+    } else {
+      firebaseApp = admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId,
+          clientEmail,
+          privateKey,
+        }),
+      });
+    }
+
+    console.log('[Notifications] Firebase Admin initialized');
+    return firebaseApp;
+  } catch (err) {
+    console.error('[Notifications] Firebase init error:', err.message);
+    return null;
+  }
+}
 
 // POST /api/notifications/register - register device token
 router.post('/register', (req, res) => {
@@ -35,8 +72,7 @@ router.get('/tokens', (req, res) => {
   res.json({ count: deviceTokens.size, tokens: Array.from(deviceTokens.keys()) });
 });
 
-// Send FCM push notification to all registered devices
-// Called internally when a report or patient is created
+// Send FCM push notification using HTTP v1 API via firebase-admin
 async function sendPushNotification(title, body) {
   const enabledTokens = Array.from(deviceTokens.entries())
     .filter(([_, info]) => info.enabled)
@@ -47,53 +83,49 @@ async function sendPushNotification(title, body) {
     return;
   }
 
-  console.log(`[Notifications] Sending push to ${enabledTokens.length} device(s)`);
-
-  // Use FCM legacy API (simple, no OAuth needed)
-  // Requires FCM_SERVER_KEY env var
-  const serverKey = process.env.FCM_SERVER_KEY;
-  if (!serverKey) {
-    console.log('[Notifications] FCM_SERVER_KEY not set, skipping push');
+  const app = getFirebaseApp();
+  if (!app) {
+    console.log('[Notifications] Firebase not initialized, skipping push');
     return;
   }
 
-  for (const token of enabledTokens) {
+  const admin = require('firebase-admin');
+  const messaging = admin.messaging();
+
+  console.log(`[Notifications] Sending push to ${enabledTokens.length} device(s)`);
+
+  const promises = enabledTokens.map(async (token) => {
     try {
-      const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-        method: 'POST',
-        headers: {
-          'Authorization': `key=${serverKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: token,
+      const message = {
+        token,
+        notification: { title, body },
+        data: { title, body },
+        android: {
           notification: {
-            title,
-            body,
+            channelId: 'reports',
+            priority: 'high',
             sound: 'default',
-            click_action: 'FCM_PLUGIN_ACTIVITY',
             icon: 'ic_launcher',
           },
-          data: {
-            title,
-            body,
-          },
-          priority: 'high',
-        }),
-      });
-      const result = await response.json();
-      if (result.failure > 0) {
-        console.log(`[Notifications] Failed for token ${token.slice(0, 20)}...:`, result.results);
-        // Remove invalid tokens
-        if (result.results && result.results[0] && result.results[0].error === 'NotRegistered') {
-          deviceTokens.delete(token);
-          console.log(`[Notifications] Removed invalid token`);
-        }
-      }
+        },
+      };
+
+      const response = await messaging.send(message);
+      console.log(`[Notifications] Sent to ${token.slice(0, 20)}...:`, response);
+      return { token, success: true };
     } catch (err) {
-      console.error(`[Notifications] Push error for token:`, err.message);
+      console.error(`[Notifications] Failed for token ${token.slice(0, 20)}...:`, err.message);
+      if (err.code === 'messaging/registration-token-not-registered' ||
+          err.message.includes('NotRegistered') ||
+          err.message.includes('invalid-registration-token')) {
+        deviceTokens.delete(token);
+        console.log(`[Notifications] Removed invalid token`);
+      }
+      return { token, success: false, error: err.message };
     }
-  }
+  });
+
+  await Promise.all(promises);
 }
 
 module.exports = router;
