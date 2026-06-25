@@ -288,7 +288,8 @@ export default function ReportLayoutSettings() {
         print: { ...DEFAULT_LAYOUT, ...data?.print },
       });
     } catch (err) {
-      addToast('Failed to load layout settings', 'error');
+      console.error('Failed to load layout settings:', err);
+      addToast('Failed to load layout settings: ' + err.message, 'error');
     }
     setLoading(false);
   };

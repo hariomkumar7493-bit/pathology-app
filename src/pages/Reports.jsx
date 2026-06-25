@@ -33,7 +33,7 @@ export default function Reports() {
 
   useEffect(() => {
     loadReports();
-    api.getReportLayout().then(setLayoutSettings).catch(() => {});
+    api.getReportLayout().then(setLayoutSettings).catch((err) => console.error('Layout settings load failed:', err));
 
     // Open report from notification tap
     const openReportFromNotification = async (reportId) => {

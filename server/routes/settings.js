@@ -67,8 +67,8 @@ const DEFAULT_LAYOUT = {
 // Default structure: separate settings for print and pdf modes
 const DEFAULT_SETTINGS = { pdf: { ...DEFAULT_LAYOUT }, print: { ...DEFAULT_LAYOUT } };
 
-// GET /api/settings/report-layout — anyone authenticated can read (needed for rendering reports)
-router.get('/report-layout', authenticate, async (req, res) => {
+// GET /api/settings/report-layout — public (needed for rendering reports, no sensitive data)
+router.get('/report-layout', async (req, res) => {
   try {
     const db = getDB();
     const settings = await db.collection('settings').findOne({ key: 'report_layout' });
