@@ -164,9 +164,9 @@ async function sendPushNotification(title, body) {
             notification: { title, body },
             data: { title, body },
             android: {
+              priority: 'high',
               notification: {
                 channelId: 'reports',
-                priority: 'high',
                 sound: 'default',
                 icon: 'ic_launcher',
               },
@@ -299,9 +299,9 @@ router.get('/test', async (req, res) => {
             notification: { title: 'Test Notification', body: 'Debug test from server' },
             data: { title: 'Test Notification', body: 'Debug test from server' },
             android: {
+              priority: 'high',
               notification: {
                 channelId: 'reports',
-                priority: 'high',
                 sound: 'default',
                 icon: 'ic_launcher',
               },
