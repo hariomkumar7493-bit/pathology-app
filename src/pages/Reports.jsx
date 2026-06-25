@@ -32,6 +32,14 @@ export default function Reports() {
   useEffect(() => {
     loadReports();
     api.getReportLayout().then(setLayoutSettings).catch(() => {});
+
+    // Listen for notification tap to open report preview
+    const handleNotifOpen = (e) => {
+      const { reportId } = e.detail;
+      if (reportId) handleViewReport(reportId);
+    };
+    window.addEventListener('notification-open-report', handleNotifOpen);
+    return () => window.removeEventListener('notification-open-report', handleNotifOpen);
   }, []);
 
   async function loadReports() {
@@ -829,6 +837,14 @@ export default function Reports() {
               </>
             )}
           </div>
+          {isMobileApp() && !viewLoading && (
+            <button
+              onClick={() => { setViewReport(null); setEditMode(false); }}
+              className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-red-500 hover:bg-red-600 text-white font-medium px-8 py-3 rounded-full shadow-lg text-sm flex items-center gap-2"
+            >
+              <X className="w-5 h-5" /> Close Preview
+            </button>
+          )}
         </div>
       )}
 

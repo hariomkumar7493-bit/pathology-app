@@ -51,7 +51,7 @@ router.post('/', async (req, res) => {
     const newPatient = await patientsCollection.findOne({ _id: result.insertedId });
 
     // Send push notification to mobile devices
-    try { await sendPushNotification('New Patient Registered', `${name} - ${age}Y/${gender || ''}`); } catch(e) { console.error('Push error:', e); }
+    try { await sendPushNotification('New Patient Registered', `${name} - ${age}Y/${gender || ''}`, { type: 'patient', patientId: String(result.insertedId) }); } catch(e) { console.error('Push error:', e); }
 
     res.status(201).json(newPatient);
   } catch (err) {

@@ -38,15 +38,15 @@ export async function initPushNotifications() {
     // Handle foreground notifications
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
       console.log('[Push] Notification received in foreground:', notification);
-      // Show in-app notification banner
-      showInAppNotification(notification.title, notification.body);
+      // Show in-app notification banner with tap action
+      showInAppNotification(notification.title, notification.body, notification.data);
     });
 
-    // Handle notification tap
+    // Handle notification tap (from background/killed)
     PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
       console.log('[Push] Notification tapped:', action);
-      // Navigate to reports page
-      window.location.hash = '#/reports';
+      const data = action.notification?.data || {};
+      handleNotificationTap(data);
     });
   } catch (err) {
     console.error('[Push] Init error:', err);
@@ -88,8 +88,31 @@ export async function updateNotificationPreference(enabled) {
   }
 }
 
-// Show in-app notification banner (foreground)
-function showInAppNotification(title, body) {
+// Handle notification tap - dispatch event to open report preview
+function handleNotificationTap(data) {
+  if (data.type === 'report' && data.reportId) {
+    // Navigate to reports page first, then dispatch event
+    window.location.hash = '#/reports';
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('notification-open-report', {
+        detail: { reportId: data.reportId }
+      }));
+    }, 500);
+  } else if (data.type === 'patient' && data.patientId) {
+    window.location.hash = '#/patients';
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('notification-open-patient', {
+        detail: { patientId: data.patientId }
+      }));
+    }, 500);
+  } else {
+    // Default: go to reports
+    window.location.hash = '#/reports';
+  }
+}
+
+// Show in-app notification banner (foreground) - tappable to open report
+function showInAppNotification(title, body, data) {
   const banner = document.createElement('div');
   banner.style.cssText = `
     position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
@@ -98,18 +121,30 @@ function showInAppNotification(title, body) {
     font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     display: flex; align-items: center; gap: 8px;
     animation: slideDown 0.3s ease-out;
+    cursor: pointer;
   `;
   banner.innerHTML = `
     <div style="flex: 1;">
       <div style="font-weight: 600; font-size: 13px;">${title || 'New Report'}</div>
       <div style="font-size: 12px; opacity: 0.9;">${body || ''}</div>
     </div>
-    <div style="cursor: pointer; padding: 4px 8px; font-size: 18px; opacity: 0.7;" onclick="this.parentElement.remove()">×</div>
+    <div style="cursor: pointer; padding: 4px 8px; font-size: 18px; opacity: 0.7;" id="notif-close">×</div>
   `;
+  
+  // Tap on banner (except close button) opens the report
+  banner.addEventListener('click', (e) => {
+    if (e.target.id === 'notif-close') {
+      banner.remove();
+    } else {
+      banner.remove();
+      if (data) handleNotificationTap(data);
+    }
+  });
+  
   document.body.appendChild(banner);
   setTimeout(() => {
     if (banner.parentElement) banner.remove();
-  }, 5000);
+  }, 8000);
 
   // Add slide animation
   const style = document.createElement('style');

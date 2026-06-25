@@ -117,7 +117,7 @@ async function getAccessToken() {
 }
 
 // Send FCM push notification using HTTP v1 API directly
-async function sendPushNotification(title, body) {
+async function sendPushNotification(title, body, dataPayload) {
   let db;
   try {
     db = getDB();
@@ -162,7 +162,7 @@ async function sendPushNotification(title, body) {
           message: {
             token,
             notification: { title, body },
-            data: { title, body },
+            data: { title, body, ...(dataPayload || {}) },
             android: {
               priority: 'high',
               notification: {
