@@ -1,10 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, Building2, User, Bell, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { isMobileApp, updateNotificationPreference } from '../utils/mobileNotifications';
 
 export default function Settings() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
+  const [notifEnabled, setNotifEnabled] = useState(true);
+  const mobileApp = isMobileApp();
+
+  useEffect(() => {
+    if (mobileApp) {
+      const saved = localStorage.getItem('notifications_enabled');
+      setNotifEnabled(saved !== 'false');
+    }
+  }, [mobileApp]);
+
+  const handleNotifToggle = async (enabled) => {
+    setNotifEnabled(enabled);
+    await updateNotificationPreference(enabled);
+  };
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -104,26 +119,46 @@ export default function Settings() {
           {activeTab === 'notifications' && (
             <div className="space-y-6">
               <h2 className="text-lg font-semibold text-gray-900">Notification Preferences</h2>
-              <div className="space-y-4">
-                {[
-                  { label: 'Report Ready Notifications', desc: 'Get notified when a report is ready' },
-                  { label: 'Sample Status Updates', desc: 'Track sample processing updates' },
-                  { label: 'New Patient Registration', desc: 'Notification for new patient registrations' },
-                  { label: 'Payment Alerts', desc: 'Get alerts for payment received or pending' },
-                  { label: 'SMS Notifications', desc: 'Send SMS to patients for report updates' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+              {mobileApp ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{item.label}</p>
-                      <p className="text-xs text-gray-500">{item.desc}</p>
+                      <p className="text-sm font-medium text-gray-900">Push Notifications</p>
+                      <p className="text-xs text-gray-500">Get notified on this device when new reports or patients are created</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" defaultChecked={i < 3} className="sr-only peer" />
+                      <input type="checkbox" checked={notifEnabled} onChange={(e) => handleNotifToggle(e.target.checked)} className="sr-only peer" />
                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
                     </label>
                   </div>
-                ))}
-              </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-xs text-blue-700">
+                      When enabled, you'll receive push notifications on this device whenever a new report or patient is created from any device (web, desktop, or mobile).
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {[
+                    { label: 'Report Ready Notifications', desc: 'Get notified when a report is ready' },
+                    { label: 'Sample Status Updates', desc: 'Track sample processing updates' },
+                    { label: 'New Patient Registration', desc: 'Notification for new patient registrations' },
+                    { label: 'Payment Alerts', desc: 'Get alerts for payment received or pending' },
+                    { label: 'SMS Notifications', desc: 'Send SMS to patients for report updates' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{item.label}</p>
+                        <p className="text-xs text-gray-500">{item.desc}</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" defaultChecked={i < 3} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

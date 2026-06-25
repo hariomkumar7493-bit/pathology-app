@@ -58,6 +58,7 @@ app.use('/api/tests', require('../server/routes/tests'));
 app.use('/api/reports', require('../server/routes/reports'));
 app.use('/api/dashboard', require('../server/routes/dashboard'));
 app.use('/api/settings', require('../server/routes/settings'));
+app.use('/api/notifications', require('../server/routes/notifications'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

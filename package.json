@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/push-notifications": "^8.1.1",
     "@capacitor/share": "^8.0.1",
     "@sparticuz/chromium": "^149.0.0",
     "bcryptjs": "^2.4.3",

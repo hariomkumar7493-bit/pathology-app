@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db');
 const { ObjectId } = require('mongodb');
+const { sendPushNotification } = require('./notifications');
 
 // GET all patients
 router.get('/', async (req, res) => {
@@ -48,6 +49,10 @@ router.post('/', async (req, res) => {
     
     const result = await patientsCollection.insertOne(patient);
     const newPatient = await patientsCollection.findOne({ _id: result.insertedId });
+
+    // Send push notification to mobile devices
+    sendPushNotification('New Patient Registered', `${name} - ${age}Y/${gender || ''}`).catch(e => console.error('Push error:', e));
+
     res.status(201).json(newPatient);
   } catch (err) {
     res.status(500).json({ error: err.message });

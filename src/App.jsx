@@ -1,10 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
 import UpdateNotification from './components/UpdateNotification';
+import { initPushNotifications } from './utils/mobileNotifications';
 
 // Lazy load heavy pages for faster initial load
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -59,6 +60,10 @@ function AppRoutes() {
 }
 
 export default function App() {
+  useEffect(() => {
+    initPushNotifications();
+  }, []);
+
   return (
     <BrowserRouter>
       <AuthProvider>

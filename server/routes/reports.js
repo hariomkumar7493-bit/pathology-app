@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db');
 const { ObjectId } = require('mongodb');
+const { sendPushNotification } = require('./notifications');
 
 // GET all reports
 router.get('/', async (req, res) => {
@@ -176,6 +177,10 @@ router.post('/', async (req, res) => {
     
     const result = await reportsCollection.insertOne(report);
     const newReport = await reportsCollection.findOne({ _id: result.insertedId });
+
+    // Send push notification to mobile devices
+    sendPushNotification('New Report Created', `Report #${refNo} - ${investigationText || 'New report'}`).catch(e => console.error('Push error:', e));
+
     res.status(201).json(newReport);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -321,6 +326,9 @@ router.post('/quick', async (req, res) => {
     };
     
     const reportResult = await reportsCollection.insertOne(report);
+    
+    // Send push notification to mobile devices
+    sendPushNotification('New Quick Report', `${patient_name} - ${test_ids?.length || 0} test(s)`).catch(e => console.error('Push error:', e));
     
     // Return full report data so frontend doesn't need a second fetch
     res.status(201).json({ 
