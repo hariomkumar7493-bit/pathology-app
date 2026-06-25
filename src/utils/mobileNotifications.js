@@ -48,9 +48,37 @@ export async function initPushNotifications() {
       const data = action.notification?.data || {};
       handleNotificationTap(data);
     });
+
+    // Check for pending notification tap from cold start
+    // (app was killed, user tapped notification which opened the app)
+    const pending = localStorage.getItem('pending_notification_tap');
+    if (pending) {
+      localStorage.removeItem('pending_notification_tap');
+      try {
+        const data = JSON.parse(pending);
+        console.log('[Push] Processing pending notification tap:', data);
+        setTimeout(() => handleNotificationTap(data), 2000);
+      } catch (e) {
+        console.error('[Push] Failed to parse pending tap:', e);
+      }
+    }
   } catch (err) {
     console.error('[Push] Init error:', err);
   }
+}
+
+// Get pending notification tap (for components to check on mount)
+export function getPendingNotificationTap() {
+  const pending = localStorage.getItem('pending_notification_tap');
+  if (pending) {
+    localStorage.removeItem('pending_notification_tap');
+    try {
+      return JSON.parse(pending);
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
 }
 
 // Send FCM token to server
@@ -90,23 +118,40 @@ export async function updateNotificationPreference(enabled) {
 
 // Handle notification tap - dispatch event to open report preview
 function handleNotificationTap(data) {
+  // Store in localStorage as fallback for cold start
+  localStorage.setItem('pending_notification_tap', JSON.stringify(data));
+
   if (data.type === 'report' && data.reportId) {
     navigateTo('/reports');
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('notification-open-report', {
-        detail: { reportId: data.reportId }
-      }));
-    }, 1000);
+    // Dispatch event with retries - component might not be mounted yet on cold start
+    dispatchWithRetry('notification-open-report', { reportId: data.reportId });
   } else if (data.type === 'patient' && data.patientId) {
     navigateTo('/patients');
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('notification-open-patient', {
-        detail: { patientId: data.patientId }
-      }));
-    }, 1000);
+    dispatchWithRetry('notification-open-patient', { patientId: data.patientId });
   } else {
     navigateTo('/reports');
   }
+}
+
+// Dispatch custom event with retries (handles cold start where React isn't ready)
+function dispatchWithRetry(eventName, detail, retries = 5) {
+  let attempt = 0;
+  const dispatch = () => {
+    attempt++;
+    console.log(`[Push] Dispatching ${eventName} (attempt ${attempt})`);
+    window.dispatchEvent(new CustomEvent(eventName, { detail }));
+    if (attempt < retries) {
+      // Also schedule a retry in case component wasn't ready
+      setTimeout(() => {
+        // Only retry if no one consumed it (check via a flag)
+        if (!window.__notifConsumed) {
+          window.dispatchEvent(new CustomEvent(eventName, { detail }));
+        }
+        window.__notifConsumed = false;
+      }, attempt * 1000);
+    }
+  };
+  dispatch();
 }
 
 // Navigate using BrowserRouter (pushState + popstate)

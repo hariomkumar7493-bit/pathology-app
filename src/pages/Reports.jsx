@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { isElectron } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
+import { getPendingNotificationTap } from '../utils/mobileNotifications';
 
 export default function Reports() {
   const [reports, setReports] = useState([]);
@@ -33,11 +34,9 @@ export default function Reports() {
     loadReports();
     api.getReportLayout().then(setLayoutSettings).catch(() => {});
 
-    // Listen for notification tap to open report preview
-    const handleNotifOpen = async (e) => {
-      const { reportId } = e.detail;
-      if (!reportId) return;
-      // Wait a bit for reports to load if needed
+    // Open report from notification tap
+    const openReportFromNotification = async (reportId) => {
+      window.__notifConsumed = true;
       setViewLoading(true);
       try {
         const full = await api.getReport(reportId);
@@ -52,7 +51,19 @@ export default function Reports() {
       }
       setViewLoading(false);
     };
+
+    const handleNotifOpen = (e) => {
+      const { reportId } = e.detail;
+      if (reportId) openReportFromNotification(reportId);
+    };
     window.addEventListener('notification-open-report', handleNotifOpen);
+
+    // Check for pending notification tap (cold start case)
+    const pending = getPendingNotificationTap();
+    if (pending && pending.type === 'report' && pending.reportId) {
+      setTimeout(() => openReportFromNotification(pending.reportId), 1500);
+    }
+
     return () => window.removeEventListener('notification-open-report', handleNotifOpen);
   }, []);
 
