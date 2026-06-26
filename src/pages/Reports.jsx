@@ -861,7 +861,7 @@ export default function Reports() {
                           <div className="col-span-3">
                             <input
                               type="text"
-                              className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'} ${r.calc_formula ? 'bg-blue-50 text-blue-700' : ''}`}
+                              className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'} ${r.calc_formula ? 'bg-blue-50 text-blue-700' : ''} dark:bg-white dark:text-black dark:border-gray-300`}
                               value={editResults[idx]?.result_value || ''}
                               onChange={e => handleResultChange(idx, e.target.value, r.ref_range_male, r.ref_range_female)}
                               readOnly={!!r.calc_formula}
