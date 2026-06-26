@@ -146,11 +146,11 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res) => {
       { returnDocument: 'after', projection: { password: 0 } }
     );
 
-    if (!result.value) {
+    if (!result) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json(result.value);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
