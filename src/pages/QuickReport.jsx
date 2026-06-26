@@ -672,53 +672,50 @@ export default function QuickReport() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Patient Info + Test Selection */}
-        <div className="space-y-4">
-          {/* Patient Details */}
-          <div className="card">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Patient Details</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Patient Name *</label>
-                <input type="text" className="input-field text-sm" value={form.patient_name} onChange={e => setForm({ ...form, patient_name: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Age *</label>
-                  <input type="number" className="input-field text-sm" required value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Gender *</label>
-                  <select className="input-field text-sm" required value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
-                    <option value="">Select</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
-                <input type="tel" className="input-field text-sm" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Referred By</label>
-                  <input type="text" className="input-field text-sm" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Specimen</label>
-                  <input type="text" className="input-field text-sm" value={form.specimen} onChange={e => setForm({ ...form, specimen: e.target.value })} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Date of Collection</label>
-                <input type="date" className="input-field text-sm" value={form.date_of_collection} onChange={e => setForm({ ...form, date_of_collection: e.target.value })} />
-              </div>
+      {/* Patient Details — full width */}
+      <div className="card">
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Patient Details</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Patient Name *</label>
+            <input type="text" className="input-field text-sm" value={form.patient_name} onChange={e => setForm({ ...form, patient_name: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-2 col-span-1 sm:col-span-1 lg:col-span-1">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Age *</label>
+              <input type="number" className="input-field text-sm" required value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Gender *</label>
+              <select className="input-field text-sm" required value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
+                <option value="">Select</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
             </div>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
+            <input type="tel" className="input-field text-sm" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Referred By</label>
+            <input type="text" className="input-field text-sm" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Specimen</label>
+            <input type="text" className="input-field text-sm" value={form.specimen} onChange={e => setForm({ ...form, specimen: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Date of Collection</label>
+            <input type="date" className="input-field text-sm" value={form.date_of_collection} onChange={e => setForm({ ...form, date_of_collection: e.target.value })} />
+          </div>
+        </div>
+      </div>
 
-          {/* Test Selection - Hierarchical Tree */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Test Selection */}
+        <div className="space-y-4">
           <div className="card">
             <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
               <TestTubes className="w-4 h-4 text-primary-600" />
