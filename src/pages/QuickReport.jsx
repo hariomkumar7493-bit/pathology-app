@@ -79,6 +79,14 @@ export default function QuickReport() {
     }).catch(console.error);
   }, [selectedTests, selectedGroups]);
 
+  // Guard: ensure patient details are filled before selecting tests
+  const checkPatientDetails = () => {
+    if (!form.patient_name) { addToast('Please select Patient Name to continue', 'warning'); return false; }
+    if (!form.age) { addToast('Please select Age to continue', 'warning'); return false; }
+    if (!form.gender) { addToast('Please select Gender to continue', 'warning'); return false; }
+    return true;
+  };
+
   // Toggle entire test (all sub-groups)
   const toggleTest = (testId) => {
     const test = tests.find(t => t._id === testId);
@@ -86,11 +94,13 @@ export default function QuickReport() {
     const isSelected = selectedTests.includes(testId);
 
     if (isSelected) {
+      // Deselecting is always allowed
       // Deselect test and all its groups
       setSelectedTests(prev => prev.filter(id => id !== testId));
       setSelectedGroups(prev => { const n = { ...prev }; delete n[testId]; return n; });
     } else {
-      // Select test with all groups
+      // Select test with all groups — require patient details first
+      if (!checkPatientDetails()) return;
       setSelectedTests(prev => [...prev, testId]);
       setSelectedGroups(prev => ({ ...prev, [testId]: [...allGroups] }));
     }
@@ -107,6 +117,8 @@ export default function QuickReport() {
     if (isGroupSelected) {
       newGroups = currentGroups.filter(g => g !== groupName);
     } else {
+      // Selecting a new group — require patient details first
+      if (!checkPatientDetails()) return;
       newGroups = [...currentGroups, groupName];
     }
 
