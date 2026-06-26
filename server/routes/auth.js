@@ -4,7 +4,7 @@ const { getDB } = require('../db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'pathlab-pro-v2-secret-2024';
 
 // Middleware: verify JWT token
 function authenticate(req, res, next) {
