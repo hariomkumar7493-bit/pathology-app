@@ -672,19 +672,19 @@ export default function QuickReport() {
         )}
       </div>
 
-      {/* Patient Details — compact */}
+      {/* Patient Details — compact, single line on desktop */}
       <div className="card p-3">
         <h3 className="text-xs font-semibold text-gray-900 mb-2">Patient Details</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          <div className="col-span-2 sm:col-span-1">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex-1 min-w-[120px]">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Patient Name *</label>
             <input type="text" className="input-field text-xs py-1.5" value={form.patient_name} onChange={e => setForm({ ...form, patient_name: e.target.value })} />
           </div>
-          <div>
+          <div className="w-16">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Age *</label>
             <input type="number" className="input-field text-xs py-1.5" required value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} />
           </div>
-          <div>
+          <div className="w-24">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Gender *</label>
             <select className="input-field text-xs py-1.5" required value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
               <option value="">Select</option>
@@ -692,19 +692,19 @@ export default function QuickReport() {
               <option value="Female">Female</option>
             </select>
           </div>
-          <div>
+          <div className="w-28">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Phone</label>
             <input type="tel" className="input-field text-xs py-1.5" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
           </div>
-          <div>
+          <div className="w-28">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Referred By</label>
             <input type="text" className="input-field text-xs py-1.5" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })} />
           </div>
-          <div>
+          <div className="w-24">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Specimen</label>
             <input type="text" className="input-field text-xs py-1.5" value={form.specimen} onChange={e => setForm({ ...form, specimen: e.target.value })} />
           </div>
-          <div className="col-span-2 sm:col-span-1">
+          <div className="w-36">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Date of Collection</label>
             <input type="date" className="input-field text-xs py-1.5" value={form.date_of_collection} onChange={e => setForm({ ...form, date_of_collection: e.target.value })} />
           </div>
