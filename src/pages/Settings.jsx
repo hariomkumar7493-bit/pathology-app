@@ -8,7 +8,18 @@ export default function Settings() {
   const { user } = useAuth();
   const [openSection, setOpenSection] = useState(null);
   const [notifEnabled, setNotifEnabled] = useState(true);
+  const [exeDownloadUrl, setExeDownloadUrl] = useState(null);
   const mobileApp = isMobileApp();
+
+  useEffect(() => {
+    fetch('https://api.github.com/repos/hariomkumar7493-bit/pathology-app/releases/latest')
+      .then(res => res.json())
+      .then(data => {
+        const asset = data.assets?.find(a => a.name.includes('Setup') && a.name.endsWith('.exe'));
+        if (asset) setExeDownloadUrl(asset.browser_download_url);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (mobileApp) {
@@ -160,22 +171,22 @@ export default function Settings() {
       );
     }
     if (id === 'download') {
-      const exeUrl = 'https://github.com/hariomkumar7493-bit/pathology-app/releases/latest/download/PathLabPro-Setup.exe';
       return (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Windows / Electron */}
             <a
-              href={exeUrl}
+              href={exeDownloadUrl || '#'}
               download
-              className="flex items-center gap-3 p-4 border border-gray-200 rounded-xl hover:border-primary-300 hover:bg-primary-50 transition-all group"
+              className={`flex items-center gap-3 p-4 border border-gray-200 rounded-xl transition-all group ${exeDownloadUrl ? 'hover:border-primary-300 hover:bg-primary-50 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+              onClick={e => { if (!exeDownloadUrl) e.preventDefault(); }}
             >
               <div className="w-11 h-11 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                 <Monitor className="w-6 h-6 text-blue-600" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-gray-900">Windows Desktop App</p>
-                <p className="text-xs text-gray-500">Download the installer directly</p>
+                <p className="text-xs text-gray-500">{exeDownloadUrl ? 'Download the installer directly' : 'Checking latest release...'}</p>
               </div>
               <Download className="w-4 h-4 text-gray-400 group-hover:text-primary-600 transition-colors" />
             </a>
