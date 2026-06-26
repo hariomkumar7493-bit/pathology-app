@@ -1,15 +1,16 @@
 import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Users, 
-  FileText, 
-  Zap, 
+import {
+  LayoutDashboard,
+  Users,
+  FileText,
+  Zap,
   Settings,
-  LogOut, 
+  LogOut,
   Menu,
   X,
   FlaskConical,
-  SlidersHorizontal
+  SlidersHorizontal,
+  UserCog
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -23,6 +24,7 @@ const navItems = [
 const adminNavItems = [
   { path: '/test-management', icon: FlaskConical, label: 'Test Management' },
   { path: '/report-layout', icon: SlidersHorizontal, label: 'Report Layout' },
+  { path: '/staff-management', icon: UserCog, label: 'Staff Management' },
 ];
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {

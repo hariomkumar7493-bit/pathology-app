@@ -13,13 +13,13 @@ async function initDatabase() {
       const hashedPassword = await bcrypt.hash('admin123', 10);
       await usersCollection.insertOne({
         name: 'Dr. C. Ashok',
-        email: 'admin@pathlab.com',
+        phone: '9999999999',
         password: hashedPassword,
         role: 'admin',
         lab_name: 'S & S Diagnostic Center',
         created_at: new Date()
       });
-      console.log('Default admin user created with hashed password');
+      console.log('Default admin user created with phone: 9999999999, password: admin123');
     }
 
     // Seed test categories

@@ -76,15 +76,8 @@ async function request(url, options = {}) {
 
 export const api = {
   // Auth
-  login: async (email, password) => {
-    const response = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-    if (response.token) {
-      setToken(response.token);
-    }
-    return response;
-  },
-  register: async (name, email, password) => {
-    const response = await request('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
+  login: async (phone, password) => {
+    const response = await request('/auth/login', { method: 'POST', body: JSON.stringify({ phone, password }) });
     if (response.token) {
       setToken(response.token);
     }
@@ -94,6 +87,12 @@ export const api = {
     removeToken();
     return Promise.resolve();
   },
+
+  // Staff Management (admin-only)
+  getUsers: () => request('/auth/users'),
+  createUser: (data) => request('/auth/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (id, data) => request(`/auth/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteUser: (id) => request(`/auth/users/${id}`, { method: 'DELETE' }),
 
   // Dashboard
   getDashboard: () => request('/dashboard'),

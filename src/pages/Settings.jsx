@@ -44,12 +44,8 @@ export default function Settings() {
               <input type="text" className="input-field" defaultValue={user?.name} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input type="email" className="input-field" defaultValue={user?.email} />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-              <input type="tel" className="input-field" defaultValue="+91 9876543210" />
+              <input type="tel" className="input-field" defaultValue={user?.phone} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>

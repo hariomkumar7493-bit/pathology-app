@@ -1,17 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
+import { Activity, Eye, EyeOff, Phone, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, register } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -20,34 +18,16 @@ export default function Login() {
     setLoading(true);
 
     try {
-      let result;
-      if (isSignUp) {
-        if (password.length < 6) {
-          setError('Password must be at least 6 characters');
-          setLoading(false);
-          return;
-        }
-        result = await register(name, email, password);
-      } else {
-        result = await login(email, password);
-      }
+      const result = await login(phone, password);
       if (result.success) {
         navigate('/dashboard');
       } else {
         setError(result.error);
       }
     } catch (err) {
-      setError(isSignUp ? 'Registration failed. Please try again.' : 'Login failed. Make sure the server is running.');
+      setError('Login failed. Make sure the server is running.');
     }
     setLoading(false);
-  };
-
-  const toggleMode = () => {
-    setIsSignUp(!isSignUp);
-    setError('');
-    setName('');
-    setEmail('');
-    setPassword('');
   };
 
   return (
@@ -115,8 +95,8 @@ export default function Login() {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900">{isSignUp ? 'Create an account' : 'Welcome back'}</h2>
-            <p className="text-gray-500 mt-2">{isSignUp ? 'Sign up to get started' : 'Sign in to your account to continue'}</p>
+            <h2 className="text-2xl font-bold text-gray-900">Welcome back</h2>
+            <p className="text-gray-500 mt-2">Sign in to your account to continue</p>
           </div>
 
           {error && (
@@ -126,32 +106,15 @@ export default function Login() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {isSignUp && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your full name"
-                    className="input-field pl-11"
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Enter your phone number"
                   className="input-field pl-11"
                   required
                 />
@@ -166,7 +129,7 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={isSignUp ? 'Min 6 characters' : 'Enter your password'}
+                  placeholder="Enter your password"
                   className="input-field pl-11 pr-11"
                   required
                 />
@@ -180,17 +143,12 @@ export default function Login() {
               </div>
             </div>
 
-            {!isSignUp && (
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
-                  <span className="text-sm text-gray-600">Remember me</span>
-                </label>
-                <a href="#" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-                  Forgot password?
-                </a>
-              </div>
-            )}
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500" />
+                <span className="text-sm text-gray-600">Remember me</span>
+              </label>
+            </div>
 
             <button
               type="submit"
@@ -200,16 +158,13 @@ export default function Login() {
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                isSignUp ? 'Sign Up' : 'Sign In'
+                'Sign In'
               )}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-600">
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button onClick={toggleMode} className="text-primary-600 hover:text-primary-700 font-medium">
-              {isSignUp ? 'Sign In' : 'Sign Up'}
-            </button>
+          <p className="mt-6 text-center text-sm text-gray-500">
+            Contact your administrator for account access.
           </p>
 
         </div>

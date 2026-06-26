@@ -42,7 +42,7 @@ async function createIndexes() {
     db.collection('reports').createIndex({ date_of_collection: -1 }),
     db.collection('tests').createIndex({ category_id: 1 }),
     db.collection('tests').createIndex({ name: 1 }),
-    db.collection('users').createIndex({ email: 1 }, { unique: true }),
+    db.collection('users').createIndex({ phone: 1 }, { unique: true }),
   ]);
 
   console.log('MongoDB indexes ensured');
