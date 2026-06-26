@@ -31,3 +31,7 @@ Thumbs.db
 *.tmp
 *.temp
 vite.config.js.timestamp-*.mjs
+
+# Large app binaries (served from public/ but too large for git)
+public/PathLabPro-Setup.exe
+public/PathLabPro.apk

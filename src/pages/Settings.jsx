@@ -164,15 +164,13 @@ export default function Settings() {
       );
     }
     if (id === 'download') {
-      const ghReleases = 'https://github.com/hariomkumar7493-bit/pathology-app/releases/latest';
       return (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Windows / Electron */}
             <a
-              href={ghReleases}
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/PathLabPro-Setup.exe"
+              download
               className="flex items-center gap-3 p-4 border border-gray-200 rounded-xl hover:border-primary-300 hover:bg-primary-50 transition-all group"
             >
               <div className="w-11 h-11 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -180,16 +178,15 @@ export default function Settings() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-gray-900">Windows Desktop App</p>
-                <p className="text-xs text-gray-500">Download the Electron installer for Windows</p>
+                <p className="text-xs text-gray-500">Download the installer directly</p>
               </div>
               <Download className="w-4 h-4 text-gray-400 group-hover:text-primary-600 transition-colors" />
             </a>
 
             {/* Android */}
             <a
-              href={`${ghReleases}`}
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/PathLabPro.apk"
+              download
               className="flex items-center gap-3 p-4 border border-gray-200 rounded-xl hover:border-green-300 hover:bg-green-50 transition-all group"
             >
               <div className="w-11 h-11 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -197,14 +194,14 @@ export default function Settings() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-gray-900">Android Mobile App</p>
-                <p className="text-xs text-gray-500">Download the APK from GitHub Releases</p>
+                <p className="text-xs text-gray-500">Download the APK directly</p>
               </div>
               <Download className="w-4 h-4 text-gray-400 group-hover:text-green-600 transition-colors" />
             </a>
           </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-xs text-blue-700">
-              Both apps work offline and sync with your data when online. Download from GitHub Releases page.
+              Both apps work offline and sync with your data when online.
             </p>
           </div>
         </div>
