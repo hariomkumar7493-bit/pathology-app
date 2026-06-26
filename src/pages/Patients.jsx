@@ -296,12 +296,12 @@ export default function Patients() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
-                  <input type="number" className="input-field" value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Age *</label>
+                  <input type="number" className="input-field" required value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                  <select className="input-field" value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
+                  <select className="input-field" required value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
                     <option value="">Select</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -469,12 +469,12 @@ export default function Patients() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
-                  <input type="number" className="input-field" value={editForm.age} onChange={e => setEditForm({ ...editForm, age: e.target.value })} />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Age *</label>
+                  <input type="number" className="input-field" required value={editForm.age} onChange={e => setEditForm({ ...editForm, age: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                  <select className="input-field" value={editForm.gender} onChange={e => setEditForm({ ...editForm, gender: e.target.value })}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender *</label>
+                  <select className="input-field" required value={editForm.gender} onChange={e => setEditForm({ ...editForm, gender: e.target.value })}>
                     <option value="">Select</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>

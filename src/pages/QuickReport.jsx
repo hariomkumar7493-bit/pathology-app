@@ -175,6 +175,8 @@ export default function QuickReport() {
 
   const handleSaveAndPrint = async () => {
     if (!form.patient_name) { addToast('Patient name is required', 'warning'); return; }
+    if (!form.age) { addToast('Age is required', 'warning'); return; }
+    if (!form.gender) { addToast('Gender is required', 'warning'); return; }
     if (selectedTests.length === 0) { addToast('Select at least one test', 'warning'); return; }
 
     setSaving(true);
@@ -308,6 +310,8 @@ export default function QuickReport() {
 
   const handleSaveAndDownloadPdf = async () => {
     if (!form.patient_name) { addToast('Patient name is required', 'warning'); return; }
+    if (!form.age) { addToast('Age is required', 'warning'); return; }
+    if (!form.gender) { addToast('Gender is required', 'warning'); return; }
     if (selectedTests.length === 0) { addToast('Select at least one test', 'warning'); return; }
 
     setSaving(true);
@@ -456,6 +460,8 @@ export default function QuickReport() {
 
   const handleShareWhatsApp = async () => {
     if (!form.patient_name) { addToast('Patient name is required', 'warning'); return; }
+    if (!form.age) { addToast('Age is required', 'warning'); return; }
+    if (!form.gender) { addToast('Gender is required', 'warning'); return; }
     if (selectedTests.length === 0) { addToast('Select at least one test', 'warning'); return; }
 
     setSaving(true);
@@ -667,12 +673,12 @@ export default function QuickReport() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Age</label>
-                  <input type="number" className="input-field text-sm" value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} />
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Age *</label>
+                  <input type="number" className="input-field text-sm" required value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Gender</label>
-                  <select className="input-field text-sm" value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Gender *</label>
+                  <select className="input-field text-sm" required value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
                     <option value="">Select</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
