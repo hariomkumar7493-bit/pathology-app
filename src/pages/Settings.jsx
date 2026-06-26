@@ -160,12 +160,13 @@ export default function Settings() {
       );
     }
     if (id === 'download') {
+      const exeUrl = 'https://github.com/hariomkumar7493-bit/pathology-app/releases/latest/download/PathLabPro-Setup.exe';
       return (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Windows / Electron */}
             <a
-              href="/PathLabPro-Setup.exe"
+              href={exeUrl}
               download
               className="flex items-center gap-3 p-4 border border-gray-200 rounded-xl hover:border-primary-300 hover:bg-primary-50 transition-all group"
             >
