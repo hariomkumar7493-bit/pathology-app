@@ -48,7 +48,6 @@ app.use('/api/tests', require('./routes/tests'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/settings', require('./routes/settings'));
-app.use('/api/whatsapp', require('./routes/whatsapp'));
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
 // Connect to MongoDB and start server
@@ -56,9 +55,6 @@ connectDB().then(async () => {
   await createIndexes();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
-    // Initialize WhatsApp client after server starts
-    const { initClient } = require('./whatsappClient');
-    initClient().catch(err => console.error('[WhatsApp] Init error:', err.message));
   });
 }).catch(err => {
   console.error('Failed to start server:', err);

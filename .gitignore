@@ -34,6 +34,3 @@ vite.config.js.timestamp-*.mjs
 
 # Large app binaries (served from public/ but too large for git)
 public/PathLabPro-Setup.exe
-
-# WhatsApp Web session data
-server/.wwebjs_auth

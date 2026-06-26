@@ -38,31 +38,6 @@ export default function QuickReport() {
     date_of_collection: new Date().toISOString().split('T')[0],
   });
 
-  // Send WhatsApp notifications after report save
-  const sendWhatsAppNotifications = async (refNo) => {
-    const staffNumbers = JSON.parse(localStorage.getItem('whatsapp_staff_numbers') || '[]');
-    const testName = selectedTests.map(id => tests.find(t => t.id === id)?.name).filter(Boolean).join(', ');
-
-    // Send to patient if phone provided
-    if (form.phone) {
-      try {
-        await api.sendWhatsAppReport(form.phone, form.patient_name, refNo, '');
-      } catch (err) {
-        console.error('[WhatsApp] Patient notification failed:', err.message);
-      }
-    }
-
-    // Send to all staff numbers
-    for (const num of staffNumbers) {
-      try {
-        await api.sendWhatsAppStaff(num, form.patient_name, refNo, testName);
-        await new Promise(r => setTimeout(r, 2000));
-      } catch (err) {
-        console.error('[WhatsApp] Staff notification failed:', err.message);
-      }
-    }
-  };
-
   useEffect(() => {
     api.getTests().then(setTests).catch(console.error);
     api.getReportLayout().then(setLayoutSettings).catch(() => {});
@@ -245,7 +220,6 @@ export default function QuickReport() {
 
         setSavedReportId(res.reportId);
         addToast('Report saved successfully', 'success');
-        sendWhatsAppNotifications(res.report?.ref_no || res.reportId);
       }
 
       // Build printData client-side with full param details for grouping
@@ -381,7 +355,6 @@ export default function QuickReport() {
 
         setSavedReportId(res.reportId);
         addToast('Report saved successfully', 'success');
-        sendWhatsAppNotifications(res.report?.ref_no || res.reportId);
       }
 
       // Build printData client-side with full param details for grouping
