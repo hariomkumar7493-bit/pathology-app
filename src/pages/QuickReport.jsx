@@ -19,6 +19,7 @@ export default function QuickReport() {
   const [saving, setSaving] = useState(false);
   const [savedReportId, setSavedReportId] = useState(null);
   const [printData, setPrintData] = useState(null);
+  const [expandedCategory, setExpandedCategory] = useState(null); // only one category open at a time
   const [testSearch, setTestSearch] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [shareReady, setShareReady] = useState(null); // { files: File[], label: string, needsSave: bool, saveData: obj }
@@ -731,17 +732,17 @@ export default function QuickReport() {
             </div>
             <div className="space-y-1 max-h-[400px] overflow-y-auto pr-1">
               {Object.entries(filteredTestsByCategory).map(([cat, catTests]) => {
-                const isCatCollapsed = collapsedGroups[`cat__${cat}`];
+                const isCatOpen = expandedCategory === cat;
                 return (
                 <div key={cat} className="mb-1">
                   <div
                     className="flex items-center gap-1 cursor-pointer select-none py-1.5 hover:bg-gray-50 rounded px-1"
-                    onClick={() => setCollapsedGroups(prev => ({ ...prev, [`cat__${cat}`]: !prev[`cat__${cat}`] }))}
+                    onClick={() => setExpandedCategory(isCatOpen ? null : cat)}
                   >
-                    {isCatCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
+                    {isCatOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
                     <p className="text-xs font-bold text-gray-700 uppercase">{cat}</p>
                   </div>
-                  {!isCatCollapsed && catTests.map(test => {
+                  {isCatOpen && catTests.map(test => {
                     const groups = getTestGroups(test);
                     const hasSubGroups = groups.length > 1;
                     const checkState = getTestCheckState(test._id);
