@@ -120,8 +120,11 @@ const KFT_PARAMETERS = [
     ref_range_female: '> 90',
     group_name: 'KFT',
     sort_order: 10,
-    // CKD-EPI 2021 (race-free) equation
-    calc_formula: '142 * min(Serum Creatinine / (0.9 - 0.2 * {gender_female}), 1) * pow(max(Serum Creatinine / (0.9 - 0.2 * {gender_female}), 1), -1.200) * pow(0.9938, {age}) * (1 + 0.012 * {gender_female})',
+    // CKD-EPI 2021 (race-free) equation:
+    // eGFR = 142 × min(Scr/κ, 1)^α × max(Scr/κ, 1)^-1.200 × 0.9938^age × 1.012 (if female)
+    // κ = 0.7 (female), 0.9 (male) → 0.9 - 0.2 * {gender_female}
+    // α = -0.241 (female), -0.302 (male) → -0.302 + 0.061 * {gender_female}
+    calc_formula: '142 * pow(min(Serum Creatinine / (0.9 - 0.2 * {gender_female}), 1), -0.302 + 0.061 * {gender_female}) * pow(max(Serum Creatinine / (0.9 - 0.2 * {gender_female}), 1), -1.200) * pow(0.9938, {age}) * (1 + 0.012 * {gender_female})',
     calc_decimals: 0,
   },
   {
