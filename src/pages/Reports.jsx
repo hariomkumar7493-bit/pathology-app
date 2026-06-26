@@ -144,7 +144,7 @@ export default function Reports() {
       ...r,
       uid: idx,
     }));
-    const calcResults = autoCalculate(params, newResults, viewReport?.gender, isAbnormal);
+    const calcResults = autoCalculate(params, newResults, viewReport?.gender, isAbnormal, viewReport?.age);
     setEditResults(calcResults);
   };
 

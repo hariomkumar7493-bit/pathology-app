@@ -1,9 +1,10 @@
 /**
- * Seed/update KFT (Kidney Function Test) parameters with Indian standard reference ranges.
- * Run: node server/seedKFT.js
+ * Update KIDNEY FUNCTION TEST(KFT) under BIOCHEMISTRY with full parameter set.
+ * Merges new params into existing ones (Blood Urea, Creatinine, Uric Acid already exist).
+ * Renames "Creatinine" → "Serum Creatinine" for formula compatibility.
+ * Adds: Sodium, Potassium, Chloride, Calcium, Phosphorus, BUN, eGFR, BUN/Creatinine Ratio
  * 
- * If KFT test already exists, updates its parameters (does not duplicate).
- * If not, creates it under the first available category (or creates a KFT category).
+ * Run: node server/seedKFT.js
  */
 
 const { MongoClient, ObjectId } = require('mongodb');
@@ -101,24 +102,37 @@ const KFT_PARAMETERS = [
   },
   {
     id: 9,
+    param_name: 'BUN',
+    unit: 'mg/dL',
+    ref_range_male: '7 - 20',
+    ref_range_female: '7 - 20',
+    group_name: 'KFT',
+    sort_order: 9,
+    // BUN = Blood Urea / 2.14
+    calc_formula: 'Blood Urea / 2.14',
+    calc_decimals: 1,
+  },
+  {
+    id: 10,
     param_name: 'eGFR',
     unit: 'mL/min/1.73m²',
     ref_range_male: '> 90',
     ref_range_female: '> 90',
     group_name: 'KFT',
-    sort_order: 9,
-    calc_formula: '',
+    sort_order: 10,
+    // CKD-EPI 2021 (race-free) equation
+    calc_formula: '142 * min(Serum Creatinine / (0.9 - 0.2 * {gender_female}), 1) * pow(max(Serum Creatinine / (0.9 - 0.2 * {gender_female}), 1), -1.200) * pow(0.9938, {age}) * (1 + 0.012 * {gender_female})',
     calc_decimals: 0,
   },
   {
-    id: 10,
+    id: 11,
     param_name: 'BUN/Creatinine Ratio',
     unit: 'Ratio',
     ref_range_male: '10 - 20',
     ref_range_female: '10 - 20',
     group_name: 'KFT',
-    sort_order: 10,
-    // BUN = Blood Urea / 2.14; BUN/Creat Ratio = (Blood Urea / 2.14) / Serum Creatinine
+    sort_order: 11,
+    // BUN/Creat Ratio = (Blood Urea / 2.14) / Serum Creatinine
     calc_formula: 'Blood Urea / (2.14 * Serum Creatinine)',
     calc_decimals: 1,
   },
@@ -132,60 +146,61 @@ async function run() {
   const testsCollection = db.collection('tests');
   const categoriesCollection = db.collection('test_categories');
 
-  // Check if KFT test already exists (case-insensitive)
-  const existingKFT = await testsCollection.findOne({
-    name: { $regex: /^KFT$/i }
+  // Find the existing KIDNEY FUNCTION TEST(KFT) test
+  const existingTest = await testsCollection.findOne({
+    name: { $regex: /kidney function test/i }
   });
 
-  // Find or create a category for KFT
-  let category = await categoriesCollection.findOne({ name: { $regex: /^KFT$/i } });
-  if (!category) {
-    // Try "Kidney Function" or "Clinical Pathology"
-    category = await categoriesCollection.findOne({ name: { $regex: /kidney/i } });
-  }
-  if (!category) {
-    // Create KFT category
-    const result = await categoriesCollection.insertOne({ name: 'KFT' });
-    category = await categoriesCollection.findOne({ _id: result.insertedId });
-    console.log('Created category: KFT');
+  // Find BIOCHEMISTRY category
+  const biochemCategory = await categoriesCollection.findOne({ name: { $regex: /biochem/i } });
+  if (!biochemCategory) {
+    console.error('BIOCHEMISTRY category not found!');
+    await client.close();
+    return;
   }
 
-  if (existingKFT) {
-    // Update existing KFT test with new parameters
-    console.log('KFT test found, updating parameters...');
-    
-    // Check which parameters already exist (by param_name) to avoid duplicates
-    const existingParamNames = (existingKFT.parameters || []).map(p => p.param_name.toLowerCase());
-    const newParams = KFT_PARAMETERS.filter(p => !existingParamNames.includes(p.param_name.toLowerCase()));
-    const updatedParams = KFT_PARAMETERS.map(p => {
-      const existing = (existingKFT.parameters || []).find(ep => ep.param_name.toLowerCase() === p.param_name.toLowerCase());
-      if (existing) {
-        // Update reference ranges but keep existing id
-        return { ...p, id: existing.id };
+  if (existingTest) {
+    console.log('Found existing test:', existingTest.name);
+    console.log('Existing params:', (existingTest.parameters || []).map(p => p.param_name).join(', '));
+
+    const existingParams = existingTest.parameters || [];
+
+    // Build the final parameter list — merge existing with new
+    const updatedParams = KFT_PARAMETERS.map(newParam => {
+      // Try exact match first
+      let existing = existingParams.find(ep => ep.param_name.toLowerCase() === newParam.param_name.toLowerCase());
+      // Special case: "Creatinine" matches "Serum Creatinine"
+      if (!existing && newParam.param_name === 'Serum Creatinine') {
+        existing = existingParams.find(ep => ep.param_name.toLowerCase() === 'creatinine');
       }
-      return p;
+      if (existing) {
+        return { ...newParam, id: existing.id };
+      }
+      return newParam;
     });
 
+    // Re-assign IDs to be sequential
+    updatedParams.forEach((p, idx) => { p.id = idx + 1; });
+
     await testsCollection.updateOne(
-      { _id: existingKFT._id },
-      { $set: { parameters: updatedParams, category_id: category._id } }
+      { _id: existingTest._id },
+      { $set: { parameters: updatedParams, category_id: biochemCategory._id } }
     );
-    console.log(`KFT updated with ${updatedParams.length} parameters (${newParams.length} new added)`);
+    console.log(`Updated test with ${updatedParams.length} parameters`);
   } else {
-    // Create new KFT test
-    console.log('KFT test not found, creating...');
+    console.log('KIDNEY FUNCTION TEST(KFT) not found, creating under BIOCHEMISTRY...');
     await testsCollection.insertOne({
-      name: 'KFT',
-      category_id: category._id,
+      name: 'KIDNEY FUNCTION TEST(KFT)',
+      category_id: biochemCategory._id,
       specimen: 'BLOOD',
       parameters: KFT_PARAMETERS,
     });
-    console.log(`KFT test created with ${KFT_PARAMETERS.length} parameters`);
+    console.log(`Created test with ${KFT_PARAMETERS.length} parameters`);
   }
 
   // Print summary
-  const finalTest = await testsCollection.findOne({ name: { $regex: /^KFT$/i } });
-  console.log('\nFinal KFT parameters:');
+  const finalTest = await testsCollection.findOne({ name: { $regex: /kidney function test/i } });
+  console.log('\nFinal parameters for "' + finalTest.name + '":');
   (finalTest.parameters || []).forEach(p => {
     console.log(`  ${p.sort_order}. ${p.param_name} (${p.unit}) | M: ${p.ref_range_male} | F: ${p.ref_range_female} | ${p.calc_formula ? 'CALC: ' + p.calc_formula : 'Numeric'}`);
   });

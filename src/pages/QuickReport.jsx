@@ -159,7 +159,7 @@ export default function QuickReport() {
       [paramId]: { result_value: value, is_abnormal: abnormal }
     };
     // Auto-calculate derived parameters
-    const calcResults = autoCalculate(parameters, newResults, form.gender, checkAbnormal);
+    const calcResults = autoCalculate(parameters, newResults, form.gender, checkAbnormal, form.age);
     setResults(calcResults);
   };
 
