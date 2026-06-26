@@ -17,8 +17,8 @@ export default function Header({ onMenuToggle, sidebarCollapsed }) {
         <div className="flex items-center gap-2">
           <img src="/icon.ico" alt="PathLab Pro" className="w-9 h-9 rounded-lg" />
           <div>
-            <h1 className="text-base font-bold text-gray-900 leading-tight dark:text-gray-100">PathLab Pro</h1>
-            <p className="text-xs text-gray-500 leading-tight dark:text-gray-400">Diagnostics Portal</p>
+            <h1 className="text-base font-bold text-gray-900 leading-tight dark:text-gray-50">PathLab Pro</h1>
+            <p className="text-xs text-gray-500 leading-tight dark:text-gray-50 dark:font-medium">Diagnostics Portal</p>
           </div>
         </div>
       </div>

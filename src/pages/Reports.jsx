@@ -558,8 +558,8 @@ export default function Reports() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-          <p className="text-gray-500 text-sm mt-1">View, edit, and print test reports</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Reports</h1>
+          <p className="text-gray-500 text-sm mt-1 dark:text-gray-50 dark:font-medium">View, edit, and print test reports</p>
         </div>
         {selectedIds.length > 0 && (
           <div className="flex items-center gap-2">
@@ -582,8 +582,8 @@ export default function Reports() {
             <FileText className="w-6 h-6 text-blue-600" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-gray-900">{reports.length}</p>
-            <p className="text-sm text-gray-500">Total Reports</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-50">{reports.length}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-50 dark:font-medium">Total Reports</p>
           </div>
         </div>
         <div className="card flex items-center gap-4">
@@ -591,8 +591,8 @@ export default function Reports() {
             <CheckCircle className="w-6 h-6 text-green-600" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-gray-900">{statusCounts.Completed}</p>
-            <p className="text-sm text-gray-500">Completed</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-50">{statusCounts.Completed}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-50 dark:font-medium">Completed</p>
           </div>
         </div>
         <div className="card flex items-center gap-4">
@@ -600,8 +600,8 @@ export default function Reports() {
             <Clock className="w-6 h-6 text-yellow-600" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-gray-900">{statusCounts.Pending}</p>
-            <p className="text-sm text-gray-500">Pending</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-50">{statusCounts.Pending}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-50 dark:font-medium">Pending</p>
           </div>
         </div>
       </div>

@@ -221,8 +221,8 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
-        <p className="text-gray-500 text-sm mt-1 dark:text-gray-400">Manage your account and lab preferences</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Settings</h1>
+        <p className="text-gray-500 text-sm mt-1 dark:text-gray-50 dark:font-medium">Manage your account and lab preferences</p>
       </div>
 
       {/* Accordion sections - one open at a time */}

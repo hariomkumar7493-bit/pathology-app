@@ -37,8 +37,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">Overview of your laboratory performance</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Dashboard</h1>
+        <p className="text-gray-500 text-sm mt-1 dark:text-gray-50 dark:font-medium">Overview of your laboratory performance</p>
       </div>
 
       {/* Stats Cards */}
@@ -48,7 +48,7 @@ export default function Dashboard() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs sm:text-sm text-gray-500">{stat.label}</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-50 mt-1">{stat.value}</p>
               </div>
               <div className={`${stat.color} p-2 sm:p-3 rounded-lg`}>
                 <stat.icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />

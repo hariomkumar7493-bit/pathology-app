@@ -225,8 +225,8 @@ export default function TestManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Test Management</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage test categories, tests, and parameters</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Test Management</h1>
+          <p className="text-gray-500 text-sm mt-1 dark:text-gray-50 dark:font-medium">Manage test categories, tests, and parameters</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => openCatModal()} className="btn-secondary flex items-center gap-2 text-sm">

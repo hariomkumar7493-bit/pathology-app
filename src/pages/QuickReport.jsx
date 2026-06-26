@@ -662,7 +662,7 @@ export default function QuickReport() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-lg font-bold text-gray-900 dark:text-gray-50 flex items-center gap-2">
             <Zap className="w-5 h-5 text-yellow-500" />
             Quick Report
           </h1>

@@ -91,12 +91,12 @@ export default function Login() {
             <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
               <Activity className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">PathLab Pro</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-50">PathLab Pro</h1>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome back</h2>
-            <p className="text-gray-500 mt-2 dark:text-gray-400">Sign in to your account to continue</p>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Welcome back</h2>
+            <p className="text-gray-500 mt-2 dark:text-gray-50 dark:font-medium">Sign in to your account to continue</p>
           </div>
 
           {error && (
@@ -163,7 +163,7 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-50 dark:font-medium">
             Contact your administrator for account access.
           </p>
 

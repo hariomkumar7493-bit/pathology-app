@@ -173,8 +173,8 @@ export default function Patients() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Patients</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage patient records and create test orders</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Patients</h1>
+          <p className="text-gray-500 text-sm mt-1 dark:text-gray-50 dark:font-medium">Manage patient records and create test orders</p>
         </div>
         <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 w-fit">
           <Plus className="w-4 h-4" />
