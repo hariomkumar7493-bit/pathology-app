@@ -221,8 +221,8 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-500 text-sm mt-1">Manage your account and lab preferences</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+        <p className="text-gray-500 text-sm mt-1 dark:text-gray-400">Manage your account and lab preferences</p>
       </div>
 
       {/* Accordion sections - one open at a time */}
@@ -235,16 +235,16 @@ export default function Settings() {
               <button
                 onClick={() => toggleSection(section.id)}
                 className={`w-full flex items-center justify-between px-5 py-4 transition-all ${
-                  isOpen ? 'bg-primary-50' : 'hover:bg-gray-50'
+                  isOpen ? 'bg-primary-50 dark:bg-primary-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                    isOpen ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-500'
+                    isOpen ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                   }`}>
                     <section.icon className="w-5 h-5" />
                   </div>
-                  <span className={`text-sm font-semibold ${isOpen ? 'text-primary-700' : 'text-gray-700'}`}>
+                  <span className={`text-sm font-semibold ${isOpen ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-200'}`}>
                     {section.label}
                   </span>
                 </div>
@@ -253,7 +253,7 @@ export default function Settings() {
 
               {/* Content - only render when open */}
               {isOpen && (
-                <div className="px-5 py-5 border-t border-gray-100">
+                <div className="px-5 py-5 border-t border-gray-100 dark:border-gray-700">
                   {renderContent(section.id)}
                 </div>
               )}

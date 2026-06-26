@@ -38,10 +38,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       )}
 
       {/* Desktop sidebar — always visible, collapses to icons */}
-      <aside className={`hidden lg:flex fixed left-0 top-0 h-full bg-white border-r border-gray-200 z-50 flex-col transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'}`}>
+      <aside className={`hidden lg:flex fixed left-0 top-0 h-full bg-white border-r border-gray-200 z-50 flex-col transition-all duration-300 dark:bg-gray-800 dark:border-gray-700 ${collapsed ? 'w-16' : 'w-64'}`}>
         {/* Toggle button — replaces logo */}
-        <div className={`p-4 border-b border-gray-100 flex ${collapsed ? 'justify-center' : 'justify-end'}`}>
-          <button onClick={onToggle} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+        <div className={`p-4 border-b border-gray-100 flex ${collapsed ? 'justify-center' : 'justify-end'} dark:border-gray-700`}>
+          <button onClick={onToggle} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700">
             {collapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
           </button>
         </div>
@@ -56,8 +56,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
               className={({ isActive }) =>
                 `flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                   isActive
-                    ? 'bg-primary-50 text-primary-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100'
                 }`
               }
             >
@@ -70,10 +70,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
             <>
               {!collapsed && (
                 <div className="mt-4 mb-2 px-4">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Admin</p>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider dark:text-gray-500">Admin</p>
                 </div>
               )}
-              {collapsed && <div className="mt-4 mb-2 border-t border-gray-100 mx-2" />}
+              {collapsed && <div className="mt-4 mb-2 border-t border-gray-100 mx-2 dark:border-gray-700" />}
               {adminNavItems.map((item) => (
                 <NavLink
                   key={item.path}
@@ -82,8 +82,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                   className={({ isActive }) =>
                     `flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isActive
-                        ? 'bg-primary-50 text-primary-700'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100'
                     }`
                   }
                 >
@@ -96,11 +96,11 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         </nav>
 
         {/* Footer */}
-        <div className="p-2 border-t border-gray-100 space-y-1">
+        <div className="p-2 border-t border-gray-100 space-y-1 dark:border-gray-700">
           <NavLink
             to="/settings"
             title={collapsed ? 'Settings' : ''}
-            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-3 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200`}
+            className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-3 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100`}
           >
             <Settings className="w-5 h-5 flex-shrink-0" />
             {!collapsed && 'Settings'}
@@ -117,10 +117,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       </aside>
 
       {/* Mobile sidebar — slide in/out */}
-      <aside className={`lg:hidden fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-50 flex flex-col transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`lg:hidden fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-50 flex flex-col transition-transform duration-300 dark:bg-gray-800 dark:border-gray-700 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         {/* Toggle button */}
-        <div className="p-4 border-b border-gray-100 flex justify-end">
-          <button onClick={onMobileClose} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+        <div className="p-4 border-b border-gray-100 flex justify-end dark:border-gray-700">
+          <button onClick={onMobileClose} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -135,8 +135,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                   isActive
-                    ? 'bg-primary-50 text-primary-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100'
                 }`
               }
             >
@@ -148,7 +148,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
           {user?.role === 'admin' && (
             <>
               <div className="mt-4 mb-2 px-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Admin</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider dark:text-gray-500">Admin</p>
               </div>
               {adminNavItems.map((item) => (
                 <NavLink
@@ -158,8 +158,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isActive
-                        ? 'bg-primary-50 text-primary-700'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100'
                     }`
                   }
                 >
@@ -172,11 +172,11 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-100 space-y-1">
+        <div className="p-4 border-t border-gray-100 space-y-1 dark:border-gray-700">
           <NavLink
             to="/settings"
             onClick={onMobileClose}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100"
           >
             <Settings className="w-5 h-5" />
             Settings
