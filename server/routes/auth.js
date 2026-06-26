@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db');
+const { ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -140,7 +141,7 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res) => {
     }
 
     const result = await usersCollection.findOneAndUpdate(
-      { _id: new require('mongodb').ObjectId(req.params.id) },
+      { _id: new ObjectId(req.params.id) },
       { $set: update },
       { returnDocument: 'after', projection: { password: 0 } }
     );
@@ -166,7 +167,7 @@ router.delete('/users/:id', authenticate, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
 
-    const result = await usersCollection.deleteOne({ _id: new require('mongodb').ObjectId(req.params.id) });
+    const result = await usersCollection.deleteOne({ _id: new ObjectId(req.params.id) });
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'User not found' });
