@@ -1,14 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Save, Building2, User, Bell, Shield, ChevronDown, Download, Monitor, Smartphone } from 'lucide-react';
+import { Save, Building2, User, Bell, Shield, ChevronDown, Download, Monitor, Smartphone, MessageCircle, RefreshCw, QrCode } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { isMobileApp, updateNotificationPreference } from '../utils/mobileNotifications';
 import { isElectron } from '../utils/electron';
+import { api } from '../api';
 
 export default function Settings() {
   const { user } = useAuth();
   const [openSection, setOpenSection] = useState(null);
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [exeDownloadUrl, setExeDownloadUrl] = useState(null);
+  const [waStatus, setWaStatus] = useState(null);
+  const [waQR, setWaQR] = useState(null);
+  const [waLoading, setWaLoading] = useState(false);
+  const [staffNumbers, setStaffNumbers] = useState(() => {
+    const saved = localStorage.getItem('whatsapp_staff_numbers');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [newStaffNumber, setNewStaffNumber] = useState('');
   const mobileApp = isMobileApp();
 
   useEffect(() => {
@@ -28,6 +37,50 @@ export default function Settings() {
     }
   }, [mobileApp]);
 
+  // WhatsApp status check
+  const checkWhatsAppStatus = async () => {
+    try {
+      const status = await api.getWhatsAppStatus();
+      setWaStatus(status);
+      if (!status.ready && !status.hasQR) {
+        setTimeout(async () => {
+          const qr = await api.getWhatsAppQR();
+          if (qr.qr) setWaQR(qr.qr);
+        }, 3000);
+      } else if (!status.ready && status.hasQR) {
+        const qr = await api.getWhatsAppQR();
+        if (qr.qr) setWaQR(qr.qr);
+      }
+    } catch (err) {
+      setWaStatus({ ready: false, error: 'Server not reachable' });
+    }
+  };
+
+  useEffect(() => {
+    checkWhatsAppStatus();
+  }, []);
+
+  const handleRefreshQR = async () => {
+    setWaLoading(true);
+    await checkWhatsAppStatus();
+    setWaLoading(false);
+  };
+
+  const handleAddStaffNumber = () => {
+    const cleaned = newStaffNumber.replace(/\D/g, '');
+    if (cleaned.length < 10) return;
+    const updated = [...staffNumbers, cleaned];
+    setStaffNumbers(updated);
+    localStorage.setItem('whatsapp_staff_numbers', JSON.stringify(updated));
+    setNewStaffNumber('');
+  };
+
+  const handleRemoveStaffNumber = (idx) => {
+    const updated = staffNumbers.filter((_, i) => i !== idx);
+    setStaffNumbers(updated);
+    localStorage.setItem('whatsapp_staff_numbers', JSON.stringify(updated));
+  };
+
   const handleNotifToggle = async (enabled) => {
     setNotifEnabled(enabled);
     await updateNotificationPreference(enabled);
@@ -42,6 +95,7 @@ export default function Settings() {
     { id: 'lab', label: 'Lab Settings', icon: Building2 },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
+    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
     ...(!isElectron() && !mobileApp ? [{ id: 'download', label: 'Download Apps', icon: Download }] : []),
   ];
 
@@ -167,6 +221,82 @@ export default function Settings() {
             <Shield className="w-4 h-4" />
             Update Password
           </button>
+        </div>
+      );
+    }
+    if (id === 'whatsapp') {
+      return (
+        <div className="space-y-6">
+          {/* Connection Status */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${waStatus?.ready ? 'bg-green-500' : waStatus?.error ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'}`} />
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-50">
+                  {waStatus?.ready ? 'WhatsApp Connected' : waStatus?.error ? 'Server Not Reachable' : 'Not Connected'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-50 dark:font-medium">
+                  {waStatus?.ready ? 'Ready to send messages' : 'Scan QR code to connect'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleRefreshQR}
+              disabled={waLoading}
+              className="btn-secondary flex items-center gap-2 text-sm"
+            >
+              <RefreshCw className={`w-4 h-4 ${waLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+
+          {/* QR Code */}
+          {!waStatus?.ready && waQR && (
+            <div className="flex flex-col items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+              <div className="bg-white p-4 rounded-lg">
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(waQR)}`} alt="WhatsApp QR" className="w-48 h-48" />
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-50 dark:font-medium text-center">
+                Open WhatsApp &gt; Settings &gt; Linked Devices &gt; Link a Device<br />Scan this QR code
+              </p>
+            </div>
+          )}
+
+          {/* Staff Numbers */}
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-50 mb-2">Internal Staff Numbers</label>
+              <p className="text-xs text-gray-500 dark:text-gray-50 dark:font-medium mb-3">These numbers will receive notifications when new reports are created.</p>
+              <div className="flex gap-2">
+                <input
+                  type="tel"
+                  className="input-field flex-1"
+                  placeholder="Enter phone number (e.g. 9876543210)"
+                  value={newStaffNumber}
+                  onChange={(e) => setNewStaffNumber(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddStaffNumber(); } }}
+                />
+                <button onClick={handleAddStaffNumber} className="btn-primary flex items-center gap-2">
+                  Add
+                </button>
+              </div>
+            </div>
+            {staffNumbers.length > 0 && (
+              <div className="space-y-2">
+                {staffNumbers.map((num, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <span className="text-sm text-gray-700 dark:text-gray-50 dark:font-medium">+{num.length > 10 ? num : '91' + num}</span>
+                    <button
+                      onClick={() => handleRemoveStaffNumber(idx)}
+                      className="text-red-500 hover:text-red-700 text-sm font-medium"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       );
     }

@@ -131,4 +131,11 @@ export const api = {
   getReportLayout: () => request('/settings/report-layout'),
   updateReportLayout: (data) => request('/settings/report-layout', { method: 'PUT', body: JSON.stringify(data) }),
   resetReportLayout: () => request('/settings/report-layout/reset', { method: 'POST' }),
+
+  // WhatsApp
+  getWhatsAppStatus: () => request('/whatsapp/status'),
+  getWhatsAppQR: () => request('/whatsapp/qr'),
+  sendWhatsApp: (phone, message) => request('/whatsapp/send', { method: 'POST', body: JSON.stringify({ phone, message }) }),
+  sendWhatsAppReport: (phone, patientName, refNo, reportUrl) => request('/whatsapp/send-report', { method: 'POST', body: JSON.stringify({ phone, patientName, refNo, reportUrl }) }),
+  sendWhatsAppStaff: (phone, patientName, refNo, testName) => request('/whatsapp/send-staff', { method: 'POST', body: JSON.stringify({ phone, patientName, refNo, testName }) }),
 };
