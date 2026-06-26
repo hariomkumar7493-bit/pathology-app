@@ -866,7 +866,7 @@ export default function QuickReport() {
                               <div className="col-span-3">
                                 <input
                                   type="text"
-                                  className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'} ${param.calc_formula ? 'bg-blue-50 text-blue-700' : ''}`}
+                                  className={`w-full px-2 py-1 border rounded text-xs text-center focus:ring-1 focus:ring-primary-500 outline-none ${abnFlag ? 'border-red-300 text-red-700 font-bold' : 'border-gray-200'} ${param.calc_formula ? 'bg-blue-50 text-blue-700' : ''} dark:bg-white dark:text-black dark:border-gray-300`}
                                   value={results[param.uid]?.result_value || ''}
                                   onChange={e => updateResult(param.uid, e.target.value, param.ref_range_male, param.ref_range_female)}
                                   readOnly={!!param.calc_formula}
