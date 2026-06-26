@@ -658,57 +658,55 @@ export default function QuickReport() {
   }, {});
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Zap className="w-6 h-6 text-yellow-500" />
+          <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-yellow-500" />
             Quick Report
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Enter patient details, fill results, and print immediately</p>
+          <p className="text-gray-400 text-xs mt-0.5">Enter patient details, fill results, and print immediately</p>
         </div>
         {savedReportId && (
-          <button onClick={handleReset} className="btn-secondary w-fit">New Report</button>
+          <button onClick={handleReset} className="btn-secondary w-fit text-sm py-1.5">New Report</button>
         )}
       </div>
 
-      {/* Patient Details — full width */}
-      <div className="card">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Patient Details</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Patient Name *</label>
-            <input type="text" className="input-field text-sm" value={form.patient_name} onChange={e => setForm({ ...form, patient_name: e.target.value })} />
-          </div>
-          <div className="grid grid-cols-2 gap-2 col-span-1 sm:col-span-1 lg:col-span-1">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Age *</label>
-              <input type="number" className="input-field text-sm" required value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Gender *</label>
-              <select className="input-field text-sm" required value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
-                <option value="">Select</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </select>
-            </div>
+      {/* Patient Details — compact */}
+      <div className="card p-3">
+        <h3 className="text-xs font-semibold text-gray-900 mb-2">Patient Details</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="col-span-2 sm:col-span-1">
+            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Patient Name *</label>
+            <input type="text" className="input-field text-xs py-1.5" value={form.patient_name} onChange={e => setForm({ ...form, patient_name: e.target.value })} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
-            <input type="tel" className="input-field text-sm" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Age *</label>
+            <input type="number" className="input-field text-xs py-1.5" required value={form.age} onChange={e => setForm({ ...form, age: e.target.value })} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Referred By</label>
-            <input type="text" className="input-field text-sm" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })} />
+            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Gender *</label>
+            <select className="input-field text-xs py-1.5" required value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })}>
+              <option value="">Select</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Specimen</label>
-            <input type="text" className="input-field text-sm" value={form.specimen} onChange={e => setForm({ ...form, specimen: e.target.value })} />
+            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Phone</label>
+            <input type="tel" className="input-field text-xs py-1.5" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Date of Collection</label>
-            <input type="date" className="input-field text-sm" value={form.date_of_collection} onChange={e => setForm({ ...form, date_of_collection: e.target.value })} />
+            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Referred By</label>
+            <input type="text" className="input-field text-xs py-1.5" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Specimen</label>
+            <input type="text" className="input-field text-xs py-1.5" value={form.specimen} onChange={e => setForm({ ...form, specimen: e.target.value })} />
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Date of Collection</label>
+            <input type="date" className="input-field text-xs py-1.5" value={form.date_of_collection} onChange={e => setForm({ ...form, date_of_collection: e.target.value })} />
           </div>
         </div>
       </div>
