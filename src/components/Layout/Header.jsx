@@ -1,14 +1,14 @@
 import { Menu, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function Header({ onMenuToggle }) {
+export default function Header({ onMenuToggle, sidebarOpen }) {
   const { user } = useAuth();
 
   return (
-    <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-white border-b border-gray-200 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm">
+    <header className={`fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm transition-all duration-300 ${sidebarOpen ? 'lg:left-64' : 'lg:left-0'}`}>
       <div className="flex items-center gap-3">
-        {/* Hamburger for mobile */}
-        <button onClick={onMenuToggle} className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
+        {/* Hamburger — visible on all screen sizes */}
+        <button onClick={onMenuToggle} className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg">
           <Menu className="w-5 h-5" />
         </button>
       </div>
