@@ -341,63 +341,12 @@ router.post('/quick', async (req, res) => {
     
     // Send push notification to mobile devices
     try { await sendPushNotification('New Quick Report', `${patient_name} - ${test_ids?.length || 0} test(s)`, { type: 'report', reportId: String(reportResult.insertedId) }); } catch(e) { console.error('Push error:', e); }
-
-    // Send email with PDF if patient has email
-    let emailSent = false;
-    let emailError = null;
-    const patientEmail = email || (patientId ? (await patientsCollection.findOne({ _id: patientId }))?.email : null);
-    if (patientEmail) {
-      try {
-        // Fetch layout settings
-        const settingsDoc = await db.collection('settings').findOne({ key: 'report_layout' });
-        const layoutSettings = settingsDoc?.value?.pdf || null;
-
-        // Build the full report object for PDF generation
-        const fullReport = {
-          ...report,
-          _id: reportResult.insertedId,
-          patient_name: patient_name,
-          age,
-          gender,
-          referred_by: referred_by || 'SELF',
-        };
-
-        // Determine the base URL for letterhead
-        const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : (process.env.BASE_URL || 'http://localhost:5173');
-        const letterheadUrl = `${baseUrl}/letterhead.png`;
-
-        const emailRes = await fetch(`${baseUrl}/api/send-report-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            report: fullReport,
-            letterheadUrl,
-            layoutSettings,
-            email: patientEmail,
-            patientName: patient_name,
-          }),
-        });
-
-        if (emailRes.ok) {
-          emailSent = true;
-        } else {
-          const errData = await emailRes.json().catch(() => ({}));
-          emailError = errData.error || 'Email send failed';
-          console.error('Email send failed:', emailError);
-        }
-      } catch (e) {
-        emailError = e.message;
-        console.error('Email send error:', e);
-      }
-    }
     
     // Return full report data so frontend doesn't need a second fetch
     res.status(201).json({ 
       reportId: reportResult.insertedId, 
       patientId, 
       refNo,
-      emailSent,
-      emailError,
       report: {
         ...report,
         _id: reportResult.insertedId,

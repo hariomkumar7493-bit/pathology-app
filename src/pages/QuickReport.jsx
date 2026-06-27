@@ -222,8 +222,6 @@ export default function QuickReport() {
 
         setSavedReportId(res.reportId);
         addToast('Report saved successfully', 'success');
-        if (res.emailSent) addToast('Report emailed to patient', 'success');
-        if (res.emailError) addToast(`Email failed: ${res.emailError}`, 'warning');
       }
 
       // Build printData client-side with full param details for grouping
@@ -360,8 +358,6 @@ export default function QuickReport() {
 
         setSavedReportId(res.reportId);
         addToast('Report saved successfully', 'success');
-        if (res.emailSent) addToast('Report emailed to patient', 'success');
-        if (res.emailError) addToast(`Email failed: ${res.emailError}`, 'warning');
       }
 
       // Build printData client-side with full param details for grouping
@@ -489,8 +485,6 @@ export default function QuickReport() {
         });
         setSavedReportId(res.reportId);
         addToast('Report saved successfully', 'success');
-        if (res.emailSent) { addToast('Report emailed to patient', 'success'); setSaving(false); return; }
-        if (res.emailError) addToast(`Auto email failed, retrying...`, 'warning');
       }
 
       // Build report data for PDF

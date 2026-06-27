@@ -1,9 +1,8 @@
-import { createRequire } from 'module';
+const { Resend } = require('resend');
 
-const require = createRequire(import.meta.url);
-const { sendReportEmail } = require('../server/utils/sendReportEmail');
-
-// Reuse the same HTML builder from pdf.js
+/**
+ * Build report HTML (same as api/pdf.js buildReportHtml)
+ */
 function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
   const ls = layoutSettings || {};
   const DEFAULT_LAYOUT = {
@@ -182,7 +181,13 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
 </html>`;
 }
 
+/**
+ * Generate PDF buffer using Puppeteer + Chromium
+ */
 async function generatePdfBuffer(report, letterheadUrl, layoutSettings) {
+  const chromium = require('@sparticuz/chromium');
+  const puppeteer = require('puppeteer-core');
+
   let browser = null;
   try {
     browser = await puppeteer.launch({
@@ -209,25 +214,60 @@ async function generatePdfBuffer(report, letterheadUrl, layoutSettings) {
   }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+/**
+ * Send report PDF via email using Resend
+ * Returns { success: boolean, error?: string }
+ */
+async function sendReportEmail({ report, letterheadUrl, layoutSettings, email, patientName }) {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
+    return { success: false, error: 'RESEND_API_KEY environment variable is not set' };
   }
 
-  const { report, letterheadUrl, layoutSettings, email, patientName } = req.body;
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'reports@pathlabpro.com';
 
-  if (!email) {
-    return res.status(400).json({ error: 'Email address is required' });
-  }
-  if (!report) {
-    return res.status(400).json({ error: 'Report data is required' });
-  }
+  try {
+    // Generate PDF
+    const pdfBuffer = await generatePdfBuffer(report, letterheadUrl, layoutSettings);
 
-  const result = await sendReportEmail({ report, letterheadUrl, layoutSettings, email, patientName });
+    // Send email with PDF attachment via Resend
+    const resend = new Resend(resendApiKey);
+    const fileName = `${patientName || report.patient_name || 'Report'}.pdf`;
 
-  if (result.success) {
-    res.json({ success: true, messageId: result.messageId });
-  } else {
-    res.status(500).json({ error: result.error || 'Failed to send email' });
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: email,
+      subject: `Lab Report - ${patientName || report.patient_name || 'Patient'} (Ref: ${report.ref_no || ''})`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1e40af;">Laboratory Investigation Report</h2>
+          <p>Dear ${patientName || report.patient_name || 'Patient'},</p>
+          <p>Please find attached your lab report.</p>
+          <p><strong>Reference No:</strong> ${report.ref_no || 'N/A'}<br/>
+          <strong>Date:</strong> ${new Date().toLocaleDateString('en-IN')}</p>
+          <p>For any queries, please contact the laboratory.</p>
+          <hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;"/>
+          <p style="font-size: 12px; color: #666;">This is an automated email. Please do not reply.</p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: fileName,
+          content: pdfBuffer.toString('base64'),
+        },
+      ],
+    });
+
+    if (error) {
+      console.error('Resend error:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, messageId: data?.id };
+  } catch (err) {
+    console.error('Send report email error:', err);
+    return { success: false, error: err.message };
   }
 }
+
+module.exports = { sendReportEmail, generatePdfBuffer, buildReportHtml };
