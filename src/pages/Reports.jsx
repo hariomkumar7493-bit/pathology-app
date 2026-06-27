@@ -746,6 +746,20 @@ export default function Reports() {
                         <Edit3 className="w-4 h-4 text-blue-500" />
                       </button>
                       <button
+                        onClick={() => handleShareWhatsApp(report)}
+                        className="p-1.5 hover:bg-green-50 rounded-lg transition-colors"
+                        title="Share on WhatsApp"
+                      >
+                        <Share2 className="w-4 h-4 text-green-600" />
+                      </button>
+                      <button
+                        onClick={() => handleSendEmail(report)}
+                        className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Send Email"
+                      >
+                        <Mail className="w-4 h-4 text-blue-600" />
+                      </button>
+                      <button
                         onClick={() => handleDeleteReport(report._id)}
                         className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete Report"
