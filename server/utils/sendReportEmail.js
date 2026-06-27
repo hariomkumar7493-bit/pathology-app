@@ -224,7 +224,7 @@ async function sendReportEmail({ report, letterheadUrl, layoutSettings, email, p
     return { success: false, error: 'RESEND_API_KEY environment variable is not set' };
   }
 
-  const fromEmail = process.env.RESEND_FROM_EMAIL || 'reports@pathlabpro.com';
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
   try {
     // Generate PDF
