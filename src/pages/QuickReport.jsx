@@ -33,6 +33,7 @@ export default function QuickReport() {
     age: '',
     gender: '',
     phone: '',
+    email: '',
     referred_by: 'SELF',
     specimen: 'BLOOD',
     date_of_collection: new Date().toISOString().split('T')[0],
@@ -211,6 +212,7 @@ export default function QuickReport() {
           age: parseInt(form.age) || 0,
           gender: form.gender,
           phone: form.phone,
+          email: form.email || undefined,
           referred_by: form.referred_by,
           specimen: form.specimen,
           test_ids: selectedTests,
@@ -220,6 +222,8 @@ export default function QuickReport() {
 
         setSavedReportId(res.reportId);
         addToast('Report saved successfully', 'success');
+        if (res.emailSent) addToast('Report emailed to patient', 'success');
+        if (res.emailError) addToast(`Email failed: ${res.emailError}`, 'warning');
       }
 
       // Build printData client-side with full param details for grouping
@@ -346,6 +350,7 @@ export default function QuickReport() {
           age: parseInt(form.age) || 0,
           gender: form.gender,
           phone: form.phone,
+          email: form.email || undefined,
           referred_by: form.referred_by,
           specimen: form.specimen,
           test_ids: selectedTests,
@@ -355,6 +360,8 @@ export default function QuickReport() {
 
         setSavedReportId(res.reportId);
         addToast('Report saved successfully', 'success');
+        if (res.emailSent) addToast('Report emailed to patient', 'success');
+        if (res.emailError) addToast(`Email failed: ${res.emailError}`, 'warning');
       }
 
       // Build printData client-side with full param details for grouping
@@ -461,7 +468,7 @@ export default function QuickReport() {
   };
 
   const handleReset = () => {
-    setForm({ patient_name: '', age: '', gender: '', phone: '', referred_by: 'SELF', specimen: 'BLOOD', date_of_collection: new Date().toISOString().split('T')[0] });
+    setForm({ patient_name: '', age: '', gender: '', phone: '', email: '', referred_by: 'SELF', specimen: 'BLOOD', date_of_collection: new Date().toISOString().split('T')[0] });
     setSelectedTests([]);
     setSelectedGroups({});
     setExpandedTests({});
@@ -696,6 +703,10 @@ export default function QuickReport() {
           <div className="w-28">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Phone</label>
             <input type="tel" className="input-field text-xs py-1.5" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+          </div>
+          <div className="flex-1 min-w-[140px]">
+            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Email</label>
+            <input type="email" className="input-field text-xs py-1.5" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="patient@email.com" />
           </div>
           <div className="w-28">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Referred By</label>
