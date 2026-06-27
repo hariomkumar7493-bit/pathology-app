@@ -185,8 +185,8 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
  * Generate PDF buffer using Puppeteer + Chromium
  */
 async function generatePdfBuffer(report, letterheadUrl, layoutSettings) {
-  const chromium = require('@sparticuz/chromium');
-  const puppeteer = require('puppeteer-core');
+  const chromium = (await import('@sparticuz/chromium')).default;
+  const puppeteer = (await import('puppeteer-core')).default;
 
   let browser = null;
   try {
