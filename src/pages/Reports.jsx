@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Printer, X, Save, Trash2, Edit3, Plus, TestTubes, Share2 } from 'lucide-react';
+import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Printer, X, Save, Trash2, Edit3, Plus, TestTubes, Share2, Mail } from 'lucide-react';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
@@ -492,6 +492,48 @@ export default function Reports() {
     }
   };
 
+  const handleSendEmail = async (report) => {
+    if (!report) return;
+    try {
+      // Get patient email - check report first, then fetch patient
+      let email = report.patient_email;
+      if (!email && report.patient_id) {
+        try {
+          const patient = await api.getPatient(report.patient_id);
+          email = patient?.email;
+        } catch (e) { /* ignore */ }
+      }
+
+      if (!email) {
+        addToast('No email on file for this patient', 'warning');
+        return;
+      }
+
+      addToast('Generating & sending email...', 'info');
+      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const emailRes = await fetch('/api/send-report-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          report,
+          letterheadUrl,
+          layoutSettings: layoutSettings?.pdf,
+          email,
+          patientName: report.patient_name,
+        }),
+      });
+
+      if (emailRes.ok) {
+        addToast('Report emailed successfully', 'success');
+      } else {
+        const err = await emailRes.json().catch(() => ({}));
+        addToast('Email failed: ' + (err.error || 'Unknown error'), 'error');
+      }
+    } catch (err) {
+      addToast('Error: ' + err.message, 'error');
+    }
+  };
+
   const handleSaveResults = async () => {
     setSaving(true);
     try {
@@ -760,6 +802,9 @@ export default function Reports() {
                     </button>
                     <button onClick={() => handleShareWhatsApp(viewReport)} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition-colors">
                       <Share2 className="w-3.5 h-3.5" /> Share
+                    </button>
+                    <button onClick={() => handleSendEmail(viewReport)} className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors">
+                      <Mail className="w-3.5 h-3.5" /> Email
                     </button>
                     <button onClick={handlePrint} className="btn-primary flex items-center gap-1 text-xs">
                       <Printer className="w-3.5 h-3.5" /> Print

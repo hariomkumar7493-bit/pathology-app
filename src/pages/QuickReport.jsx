@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronDown, ChevronUp, ChevronRight, Share2 } from 'lucide-react';
+import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronDown, ChevronUp, ChevronRight, Share2, Mail } from 'lucide-react';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
@@ -467,6 +467,83 @@ export default function QuickReport() {
     setSaving(false);
   };
 
+  const handleSendEmail = async () => {
+    if (!form.patient_name) { addToast('Patient name is required', 'warning'); return; }
+    if (!form.age) { addToast('Age is required', 'warning'); return; }
+    if (!form.gender) { addToast('Gender is required', 'warning'); return; }
+    if (selectedTests.length === 0) { addToast('Select at least one test', 'warning'); return; }
+    if (!form.email) { addToast('Patient email is required to send email', 'warning'); return; }
+
+    setSaving(true);
+    try {
+      // Save report if not already saved
+      if (!savedReportId) {
+        const resultArr = Object.entries(results).map(([uid, val]) => {
+          const param = parameters.find(p => p.uid === uid);
+          return { parameter_id: param?.id || parseInt(uid), param_name: param?.param_name || '', result_value: val.result_value, is_abnormal: val.is_abnormal };
+        });
+        const res = await api.createQuickReport({
+          patient_name: form.patient_name, age: parseInt(form.age) || 0, gender: form.gender, phone: form.phone,
+          email: form.email || undefined, referred_by: form.referred_by, specimen: form.specimen,
+          test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
+        });
+        setSavedReportId(res.reportId);
+        addToast('Report saved successfully', 'success');
+        if (res.emailSent) { addToast('Report emailed to patient', 'success'); setSaving(false); return; }
+        if (res.emailError) addToast(`Auto email failed, retrying...`, 'warning');
+      }
+
+      // Build report data for PDF
+      const reportData = {
+        patient_name: form.patient_name,
+        age: parseInt(form.age) || 0,
+        gender: form.gender,
+        referred_by: form.referred_by,
+        specimen: form.specimen,
+        date_of_collection: form.date_of_collection,
+        date_of_reporting: new Date().toISOString(),
+        results: Object.entries(results).map(([uid, val]) => {
+          const param = parameters.find(p => p.uid === uid);
+          return {
+            param_name: param?.param_name || '',
+            result_value: val.result_value,
+            is_abnormal: val.is_abnormal,
+            unit: param?.unit || '',
+            ref_range_male: param?.ref_range_male || '',
+            ref_range_female: param?.ref_range_female || '',
+            category_name: param?.category_name || '',
+            group_name: param?.group_name || '',
+            specimen: param?.specimen || form.specimen || 'BLOOD',
+          };
+        }),
+      };
+
+      addToast('Generating & sending email...', 'info');
+      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const emailRes = await fetch('/api/send-report-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          report: reportData,
+          letterheadUrl,
+          layoutSettings: layoutSettings?.pdf,
+          email: form.email,
+          patientName: form.patient_name,
+        }),
+      });
+
+      if (emailRes.ok) {
+        addToast('Report emailed successfully', 'success');
+      } else {
+        const err = await emailRes.json().catch(() => ({}));
+        addToast('Email failed: ' + (err.error || 'Unknown error'), 'error');
+      }
+    } catch (err) {
+      addToast('Error: ' + err.message, 'error');
+    }
+    setSaving(false);
+  };
+
   const handleReset = () => {
     setForm({ patient_name: '', age: '', gender: '', phone: '', email: '', referred_by: 'SELF', specimen: 'BLOOD', date_of_collection: new Date().toISOString().split('T')[0] });
     setSelectedTests([]);
@@ -921,10 +998,16 @@ export default function QuickReport() {
                   Save & Download PDF
                 </button>
               </div>
-              <button onClick={handleShareWhatsApp} disabled={saving} className="w-full mt-2 flex items-center gap-2 justify-center py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors disabled:opacity-50">
-                <Share2 className="w-4 h-4" />
-                Save & Share on WhatsApp
-              </button>
+              <div className="flex gap-3 mt-2">
+                <button onClick={handleShareWhatsApp} disabled={saving} className="flex-1 flex items-center gap-2 justify-center py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors disabled:opacity-50">
+                  <Share2 className="w-4 h-4" />
+                  Save & Share on WhatsApp
+                </button>
+                <button onClick={handleSendEmail} disabled={saving} className="flex-1 flex items-center gap-2 justify-center py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors disabled:opacity-50">
+                  <Mail className="w-4 h-4" />
+                  Save & Send Email
+                </button>
+              </div>
             </>
           )}
         </div>
