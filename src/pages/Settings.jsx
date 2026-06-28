@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Save, Building2, User, Bell, Shield, ChevronDown, Download, Monitor, Smartphone } from 'lucide-react';
+import { Save, Building2, User, Bell, Shield, ChevronDown, Download, Monitor, Smartphone, Plus, Trash2, Stethoscope } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 import { isMobileApp, updateNotificationPreference } from '../utils/mobileNotifications';
 import { isElectron } from '../utils/electron';
 
 export default function Settings() {
   const { user } = useAuth();
+  const { addToast } = useToast();
   const [openSection, setOpenSection] = useState(null);
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [exeDownloadUrl, setExeDownloadUrl] = useState(null);
+  const [doctors, setDoctors] = useState(['SELF']);
+  const [newDoctor, setNewDoctor] = useState('');
+  const [savingDoctors, setSavingDoctors] = useState(false);
   const mobileApp = isMobileApp();
 
   useEffect(() => {
@@ -28,6 +34,10 @@ export default function Settings() {
     }
   }, [mobileApp]);
 
+  useEffect(() => {
+    api.getReferringDoctors().then(data => setDoctors(data.doctors || ['SELF'])).catch(() => {});
+  }, []);
+
   const handleNotifToggle = async (enabled) => {
     setNotifEnabled(enabled);
     await updateNotificationPreference(enabled);
@@ -40,6 +50,7 @@ export default function Settings() {
   const sections = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'lab', label: 'Lab Settings', icon: Building2 },
+    { id: 'doctors', label: 'Referring Doctors', icon: Stethoscope },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
     ...(!isElectron() && !mobileApp ? [{ id: 'download', label: 'Download Apps', icon: Download }] : []),
@@ -98,6 +109,66 @@ export default function Settings() {
           <button className="btn-primary flex items-center gap-2">
             <Save className="w-4 h-4" />
             Save Changes
+          </button>
+        </div>
+      );
+    }
+    if (id === 'doctors') {
+      const handleAddDoctor = () => {
+        const name = newDoctor.trim();
+        if (!name) return;
+        if (doctors.includes(name)) { addToast('Doctor already exists', 'warning'); return; }
+        setDoctors([...doctors, name]);
+        setNewDoctor('');
+      };
+      const handleRemoveDoctor = (name) => {
+        if (name === 'SELF') { addToast('Cannot remove SELF', 'warning'); return; }
+        setDoctors(doctors.filter(d => d !== name));
+      };
+      const handleSaveDoctors = async () => {
+        setSavingDoctors(true);
+        try {
+          const res = await api.updateReferringDoctors(doctors);
+          setDoctors(res.doctors);
+          addToast('Referring doctors saved', 'success');
+        } catch (err) {
+          addToast('Failed to save: ' + err.message, 'error');
+        }
+        setSavingDoctors(false);
+      };
+      return (
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="input-field flex-1"
+              placeholder="Enter doctor name (e.g. Dr. Sharma)"
+              value={newDoctor}
+              onChange={e => setNewDoctor(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddDoctor(); } }}
+            />
+            <button onClick={handleAddDoctor} className="btn-secondary flex items-center gap-1 px-3">
+              <Plus className="w-4 h-4" /> Add
+            </button>
+          </div>
+          <div className="space-y-2">
+            {doctors.map(doc => (
+              <div key={doc} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <span className="text-sm font-medium text-gray-700">{doc}</span>
+                {doc !== 'SELF' && (
+                  <button onClick={() => handleRemoveDoctor(doc)} className="p-1 hover:bg-red-50 rounded-lg transition-colors">
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-xs text-blue-700">These doctors will appear in the "Referred By" dropdown when creating quick reports. SELF cannot be removed.</p>
+          </div>
+          <button onClick={handleSaveDoctors} disabled={savingDoctors} className="btn-primary flex items-center gap-2 disabled:opacity-50">
+            <Save className="w-4 h-4" />
+            {savingDoctors ? 'Saving...' : 'Save Doctors'}
           </button>
         </div>
       );

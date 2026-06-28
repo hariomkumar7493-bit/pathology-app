@@ -121,4 +121,39 @@ router.post('/report-layout/reset', authenticate, requireAdmin, async (req, res)
   }
 });
 
+// GET /api/settings/referring-doctors — public (needed for QuickReport dropdown)
+router.get('/referring-doctors', async (req, res) => {
+  try {
+    const db = getDB();
+    const settings = await db.collection('settings').findOne({ key: 'referring_doctors' });
+    const doctors = settings?.value || ['SELF'];
+    res.json({ doctors });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/settings/referring-doctors — admin only
+router.put('/referring-doctors', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const db = getDB();
+    const { doctors } = req.body;
+    if (!Array.isArray(doctors)) {
+      return res.status(400).json({ error: 'doctors must be an array' });
+    }
+    // Ensure SELF is always present
+    if (!doctors.includes('SELF')) {
+      doctors.unshift('SELF');
+    }
+    await db.collection('settings').updateOne(
+      { key: 'referring_doctors' },
+      { $set: { key: 'referring_doctors', value: doctors, updated_at: new Date() } },
+      { upsert: true }
+    );
+    res.json({ success: true, doctors });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

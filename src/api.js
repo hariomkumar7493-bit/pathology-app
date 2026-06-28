@@ -131,4 +131,8 @@ export const api = {
   getReportLayout: () => request('/settings/report-layout'),
   updateReportLayout: (data) => request('/settings/report-layout', { method: 'PUT', body: JSON.stringify(data) }),
   resetReportLayout: () => request('/settings/report-layout/reset', { method: 'POST' }),
+
+  // Referring Doctors
+  getReferringDoctors: () => request('/settings/referring-doctors'),
+  updateReferringDoctors: (doctors) => request('/settings/referring-doctors', { method: 'PUT', body: JSON.stringify({ doctors }) }),
 };

@@ -24,6 +24,7 @@ export default function QuickReport() {
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [shareReady, setShareReady] = useState(null); // { files: File[], label: string, needsSave: bool, saveData: obj }
   const [layoutSettings, setLayoutSettings] = useState(null);
+  const [referringDoctors, setReferringDoctors] = useState(['SELF']);
   const printRef = useRef();
   const pdfRef = useRef();
   const { addToast } = useToast();
@@ -42,6 +43,7 @@ export default function QuickReport() {
   useEffect(() => {
     api.getTests().then(setTests).catch(console.error);
     api.getReportLayout().then(setLayoutSettings).catch(() => {});
+    api.getReferringDoctors().then(data => setReferringDoctors(data.doctors || ['SELF'])).catch(() => {});
   }, []);
 
   // Get unique sub-groups for a test
@@ -779,9 +781,11 @@ export default function QuickReport() {
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Email</label>
             <input type="email" className="input-field text-xs py-1.5" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="patient@email.com" />
           </div>
-          <div className="w-28">
+          <div className="w-36">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Referred By</label>
-            <input type="text" className="input-field text-xs py-1.5" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })} />
+            <select className="input-field text-xs py-1.5" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })}>
+              {referringDoctors.map(doc => <option key={doc} value={doc}>{doc}</option>)}
+            </select>
           </div>
           <div className="w-24">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Specimen</label>
