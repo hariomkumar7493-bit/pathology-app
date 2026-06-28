@@ -171,8 +171,22 @@ function registerIpcHandlers(log) {
   // ===== TESTS =====
   ipcMain.handle('db:getTests', async () => {
     const db = getDb();
-    const tests = db.prepare('SELECT * FROM tests ORDER BY name').all();
-    return tests.map(t => ({ ...t, parameters: parseJson(t.parameters) }));
+    const categories = db.prepare('SELECT * FROM test_categories').all();
+    const categoryMap = {};
+    categories.forEach(c => { categoryMap[c._id] = c.name; });
+    const tests = db.prepare('SELECT * FROM tests').all();
+    const testsWithCategory = tests.map(t => ({
+      ...t,
+      parameters: (parseJson(t.parameters) || []).map((p, idx) => ({ ...p, id: p.id || idx + 1 })),
+      category_name: t.category_name || categoryMap[t.category_id] || null,
+    }));
+    testsWithCategory.sort((a, b) => {
+      if ((a.category_name || '') !== (b.category_name || '')) {
+        return (a.category_name || '').localeCompare(b.category_name || '');
+      }
+      return (a.name || '').localeCompare(b.name || '');
+    });
+    return testsWithCategory;
   });
 
   ipcMain.handle('db:getCategories', async () => {
@@ -189,12 +203,32 @@ function registerIpcHandlers(log) {
   ipcMain.handle('db:getBulkParameters', async (event, { testIds }) => {
     const db = getDb();
     const placeholders = testIds.map(() => '?').join(',');
-    const tests = db.prepare(`SELECT _id, parameters FROM tests WHERE _id IN (${placeholders})`).all(...testIds);
-    const result = {};
-    for (const t of tests) {
-      result[t._id] = parseJson(t.parameters) || [];
-    }
-    return result;
+    const tests = db.prepare(`SELECT * FROM tests WHERE _id IN (${placeholders})`).all(...testIds);
+    const categories = db.prepare('SELECT * FROM test_categories').all();
+    const categoryMap = {};
+    categories.forEach(c => { categoryMap[c._id] = c.name; });
+    
+    let allParameters = [];
+    tests.forEach(test => {
+      const params = parseJson(test.parameters) || [];
+      params.forEach((param, idx) => {
+        allParameters.push({
+          ...param,
+          id: param.id || idx + 1,
+          test_name: test.name,
+          category_name: test.category_name || categoryMap[test.category_id] || null,
+        });
+      });
+    });
+    
+    allParameters.sort((a, b) => {
+      if ((a.test_name || '') !== (b.test_name || '')) {
+        return (a.test_name || '').localeCompare(b.test_name || '');
+      }
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
+    
+    return allParameters;
   });
 
   ipcMain.handle('db:createTest', async (event, data) => {
