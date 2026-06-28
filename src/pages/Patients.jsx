@@ -15,6 +15,7 @@ export default function Patients() {
   // New patient form
   const [form, setForm] = useState({ name: '', age: '', gender: '', phone: '', email: '', address: '', referred_by: 'SELF', specimen: 'BLOOD' });
   const [editForm, setEditForm] = useState({ name: '', age: '', gender: '', phone: '', email: '', address: '', referred_by: '' });
+  const [referringDoctors, setReferringDoctors] = useState(['SELF']);
   const [selectedTests, setSelectedTests] = useState([]);
   const [selectedGroups, setSelectedGroups] = useState({}); // { testId: ['group1', ...] }
   const [expandedTests, setExpandedTests] = useState({}); // { testId: true/false }
@@ -28,9 +29,10 @@ export default function Patients() {
   async function loadData() {
     setLoading(true);
     try {
-      const [pats, tsts] = await Promise.all([api.getPatients(), api.getTests()]);
+      const [pats, tsts, docs] = await Promise.all([api.getPatients(), api.getTests(), api.getReferringDoctors()]);
       setPatients(pats);
       setTests(tsts);
+      setReferringDoctors(docs.doctors || ['SELF']);
     } catch (err) {
       console.error(err);
     }
@@ -310,7 +312,9 @@ export default function Patients() {
                 </div>
                 <div className="col-span-2 sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Referred By</label>
-                  <input type="text" className="input-field" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })} />
+                  <select className="input-field" value={form.referred_by} onChange={e => setForm({ ...form, referred_by: e.target.value })}>
+                    {referringDoctors.map(doc => <option key={doc} value={doc}>{doc}</option>)}
+                  </select>
                 </div>
               </div>
               <div>
@@ -496,7 +500,9 @@ export default function Patients() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Referred By</label>
-                <input type="text" className="input-field" value={editForm.referred_by} onChange={e => setEditForm({ ...editForm, referred_by: e.target.value })} />
+                <select className="input-field" value={editForm.referred_by} onChange={e => setEditForm({ ...editForm, referred_by: e.target.value })}>
+                  {referringDoctors.map(doc => <option key={doc} value={doc}>{doc}</option>)}
+                </select>
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setEditPatient(null)} className="btn-secondary flex-1">Cancel</button>
