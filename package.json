@@ -75,10 +75,10 @@
       "dist/**/*",
       "public/letterhead.png",
       "public/doctor-sign.png",
-      "node_modules/better-sqlite3/**/*",
-      "!node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+      "node_modules/better-sqlite3/**/*"
     ],
     "asarUnpack": [
+      "**/*.{node,dll}",
       "node_modules/better-sqlite3/**/*"
     ],
     "win": {
