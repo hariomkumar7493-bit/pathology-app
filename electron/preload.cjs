@@ -82,4 +82,61 @@ contextBridge.exposeInMainWorld('electronAPI', {
     export: () => ipcRenderer.invoke('log:export'),
   },
   diagnostics: () => ipcRenderer.invoke('diagnostics:info'),
+
+  // ===== LOCAL DATABASE (offline support) =====
+  db: {
+    login: (credentials) => ipcRenderer.invoke('db:login', credentials),
+    getUsers: () => ipcRenderer.invoke('db:getUsers'),
+    createUser: (data) => ipcRenderer.invoke('db:createUser', data),
+    updateUser: (data) => ipcRenderer.invoke('db:updateUser', data),
+    deleteUser: (data) => ipcRenderer.invoke('db:deleteUser', data),
+
+    getDashboard: () => ipcRenderer.invoke('db:getDashboard'),
+
+    getPatients: () => ipcRenderer.invoke('db:getPatients'),
+    getPatient: (id) => ipcRenderer.invoke('db:getPatient', { id }),
+    createPatient: (data) => ipcRenderer.invoke('db:createPatient', data),
+    updatePatient: (id, data) => ipcRenderer.invoke('db:updatePatient', { id, data }),
+    deletePatient: (id) => ipcRenderer.invoke('db:deletePatient', { id }),
+    searchPatients: (term) => ipcRenderer.invoke('db:searchPatients', { term }),
+
+    getTests: () => ipcRenderer.invoke('db:getTests'),
+    getCategories: () => ipcRenderer.invoke('db:getCategories'),
+    getTestParameters: (id) => ipcRenderer.invoke('db:getTestParameters', { id }),
+    getBulkParameters: (testIds) => ipcRenderer.invoke('db:getBulkParameters', { testIds }),
+    createTest: (data) => ipcRenderer.invoke('db:createTest', data),
+    updateTest: (id, data) => ipcRenderer.invoke('db:updateTest', { id, data }),
+    deleteTest: (id) => ipcRenderer.invoke('db:deleteTest', { id }),
+    createCategory: (data) => ipcRenderer.invoke('db:createCategory', data),
+    updateCategory: (id, data) => ipcRenderer.invoke('db:updateCategory', { id, data }),
+    deleteCategory: (id) => ipcRenderer.invoke('db:deleteCategory', { id }),
+
+    getReports: () => ipcRenderer.invoke('db:getReports'),
+    getReport: (id) => ipcRenderer.invoke('db:getReport', { id }),
+    createReport: (data) => ipcRenderer.invoke('db:createReport', data),
+    updateReportResults: (id, results) => ipcRenderer.invoke('db:updateReportResults', { id, results }),
+    createQuickReport: (data) => ipcRenderer.invoke('db:createQuickReport', data),
+    deleteReport: (id) => ipcRenderer.invoke('db:deleteReport', { id }),
+    addTestToReport: (reportId, testId) => ipcRenderer.invoke('db:addTestToReport', { reportId, testId }),
+    removeTestFromReport: (reportId, testId) => ipcRenderer.invoke('db:removeTestFromReport', { reportId, testId }),
+
+    getReportLayout: () => ipcRenderer.invoke('db:getReportLayout'),
+    updateReportLayout: (data) => ipcRenderer.invoke('db:updateReportLayout', data),
+    resetReportLayout: () => ipcRenderer.invoke('db:resetReportLayout'),
+    getReferringDoctors: () => ipcRenderer.invoke('db:getReferringDoctors'),
+    updateReferringDoctors: (doctors) => ipcRenderer.invoke('db:updateReferringDoctors', { doctors }),
+
+    getSyncStatus: () => ipcRenderer.invoke('db:getSyncStatus'),
+  },
+
+  // ===== SYNC ENGINE =====
+  sync: {
+    now: (token) => ipcRenderer.invoke('sync:now', token),
+    status: () => ipcRenderer.invoke('sync:status'),
+    onStatusChange: (cb) => {
+      const h = (e, d) => cb(d);
+      ipcRenderer.on('sync:status-change', h);
+      return () => ipcRenderer.removeListener('sync:status-change', h);
+    },
+  },
 });

@@ -2,9 +2,13 @@ const { app, BrowserWindow, ipcMain, shell, dialog, globalShortcut, crashReporte
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
+const { registerIpcHandlers } = require('./ipc-handlers.cjs');
+const { sync, isOnline, pullAllFromRemote } = require('./sync.cjs');
 
-// Production URL - your deployed web application
+// Production URL - fallback for online mode
 const PRODUCTION_URL = 'https://patholabpro.online';
+// Local bundled app (offline mode)
+const LOCAL_APP_PATH = path.join(__dirname, '..', 'dist', 'index.html');
 // Development URL - local React dev server (matches vite.config.js port)
 const DEV_URL = 'http://localhost:3000';
 
@@ -190,9 +194,73 @@ function sendToRenderer(channel, data) {
   }
 }
 
-// ===== WINDOW CREATION =====
-function createWindow() {
-  log('INFO', 'Creating main window', { isDev, version: app.getVersion() });
+  // Register IPC handlers for local database
+  registerIpcHandlers(log);
+
+  // ===== SYNC ENGINE =====
+  let syncTimer = null;
+  let lastSyncResult = null;
+
+  async function doSync() {
+    const token = getStoredToken();
+    if (!token) { sendToRenderer('sync:status-change', { syncing: false, error: 'No token' }); return; }
+    sendToRenderer('sync:status-change', { syncing: true });
+    log('INFO', 'Sync started');
+    const result = await sync(token);
+    lastSyncResult = result;
+    log('INFO', 'Sync result', result);
+    sendToRenderer('sync:status-change', { syncing: false, result });
+  }
+
+  function getStoredToken() {
+    try {
+      const tokenFile = path.join(app.getPath('userData'), 'auth_token.txt');
+      if (fs.existsSync(tokenFile)) return fs.readFileSync(tokenFile, 'utf8').trim();
+    } catch {}
+    return null;
+  }
+
+  function saveToken(token) {
+    try {
+      fs.writeFileSync(path.join(app.getPath('userData'), 'auth_token.txt'), token);
+    } catch {}
+  }
+
+  function clearToken() {
+    try {
+      const f = path.join(app.getPath('userData'), 'auth_token.txt');
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    } catch {}
+  }
+
+  ipcMain.handle('sync:now', async (event, token) => {
+    if (token) saveToken(token);
+    const result = await sync(token || getStoredToken());
+    lastSyncResult = result;
+    return result;
+  });
+
+  ipcMain.handle('sync:status', async () => {
+    return { lastSync: lastSyncResult, online: await isOnline() };
+  });
+
+  // Auto-sync every 5 minutes when online
+  syncTimer = setInterval(async () => {
+    if (await isOnline()) {
+      doSync();
+    }
+  }, 5 * 60 * 1000);
+
+  // Initial sync attempt after 15 seconds
+  setTimeout(async () => {
+    if (await isOnline()) {
+      doSync();
+    }
+  }, 15000);
+
+  // ===== WINDOW CREATION =====
+  function createWindow() {
+    log('INFO', 'Creating main window', { isDev, version: app.getVersion() });
 
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -214,13 +282,32 @@ function createWindow() {
   });
 
   // Load the appropriate URL
-  const loadURL = isDev ? DEV_URL : PRODUCTION_URL;
-  log('INFO', 'Loading URL', { url: loadURL });
+  // In production (packaged): try local file first, fall back to remote URL
+  let loadURL;
+  if (isDev) {
+    loadURL = DEV_URL;
+  } else {
+    // Check if local dist exists
+    if (fs.existsSync(LOCAL_APP_PATH)) {
+      loadURL = `file://${LOCAL_APP_PATH.replace(/\\/g, '/')}`;
+      log('INFO', 'Loading local bundled app (offline mode)', { path: loadURL });
+    } else {
+      loadURL = PRODUCTION_URL;
+      log('INFO', 'Loading remote URL (local dist not found)', { url: loadURL });
+    }
+  }
   mainWindow.loadURL(loadURL);
 
   // Log page load errors (network issues on client machines)
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     log('ERROR', 'Page failed to load', { errorCode, errorDescription, url: validatedURL });
+    // If remote URL fails, try local file as fallback
+    if (validatedURL.startsWith('http') && fs.existsSync(LOCAL_APP_PATH)) {
+      const localUrl = `file://${LOCAL_APP_PATH.replace(/\\/g, '/')}`;
+      log('INFO', 'Falling back to local app', { path: localUrl });
+      mainWindow.loadURL(localUrl);
+      return;
+    }
     // Show a user-friendly error page
     mainWindow.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
       <html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;">
@@ -283,7 +370,7 @@ function createWindow() {
       return { action: 'deny' };
     }
     // Allow popups for app domain (needed for print windows)
-    if (url.includes('patholabpro.online') || url.includes('localhost') || url === 'about:blank') {
+    if (url.includes('patholabpro.online') || url.includes('localhost') || url === 'about:blank' || url.startsWith('file://')) {
       return { action: 'allow' };
     }
     // External URLs - open in default browser
@@ -293,9 +380,9 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  // Handle navigation - keep within app domain
+  // Handle navigation - keep within app domain or local file
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const allowed = [PRODUCTION_URL, DEV_URL, 'http://localhost'];
+    const allowed = [PRODUCTION_URL, DEV_URL, 'http://localhost', 'file://'];
     const isAllowed = allowed.some(base => url.startsWith(base));
     if (!isAllowed) {
       event.preventDefault();
