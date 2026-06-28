@@ -1,6 +1,7 @@
 import { Menu, User, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { getAssetUrl } from '../../utils/electron';
 
 export default function Header({ onMenuToggle, sidebarCollapsed }) {
   const { user } = useAuth();
@@ -15,7 +16,7 @@ export default function Header({ onMenuToggle, sidebarCollapsed }) {
         </button>
         {/* Logo + Title */}
         <div className="flex items-center gap-2">
-          <img src="/icon.ico" alt="PathLab Pro" className="w-9 h-9 rounded-lg" />
+          <img src={getAssetUrl('icon.ico')} alt="PathLab Pro" className="w-9 h-9 rounded-lg" onError={(e) => e.target.style.display = 'none'} />
           <div>
             <h1 className="text-base font-bold text-gray-900 leading-tight dark:text-gray-50">PathLab Pro</h1>
             <p className="text-xs text-gray-500 leading-tight dark:text-gray-50 dark:font-medium">Diagnostics Portal</p>

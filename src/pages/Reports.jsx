@@ -3,7 +3,7 @@ import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Print
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
-import { isElectron } from '../utils/electron';
+import { isElectron, getAssetUrl } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
 import { getPendingNotificationTap } from '../utils/mobileNotifications';
@@ -200,7 +200,7 @@ export default function Reports() {
     try {
       addToast('Generating PDFs...', 'info');
       const reportsData = await Promise.all(selectedIds.map(id => api.getReport(id)));
-      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const letterheadUrl = getAssetUrl('letterhead.png');
       const files = [];
 
       if (isElectron()) {
@@ -312,7 +312,7 @@ export default function Reports() {
     // Mobile app: generate PDF via server and open externally
     if (isMobileApp()) {
       addToast('Generating PDF...', 'info');
-      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const letterheadUrl = getAssetUrl('letterhead.png');
       const dateStr = new Date(viewReport.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${viewReport.patient_name || 'Report'}_${dateStr}.pdf`;
       const pdfRes = await fetch('/api/pdf', {
@@ -358,7 +358,7 @@ export default function Reports() {
 
     const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
     const fileName = `${report.patient_name}_${dateStr}.pdf`;
-    const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
+    const letterheadAbsUrl = getAssetUrl('letterhead.png');
 
     // Electron: save directly to Downloads
     if (isElectron()) {
@@ -433,7 +433,7 @@ export default function Reports() {
     if (!report) return;
     try {
       addToast('Generating PDF...', 'info');
-      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const letterheadUrl = getAssetUrl('letterhead.png');
       const dateStr = new Date(report.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${report.patient_name || 'Report'}_${dateStr}.pdf`;
 
@@ -510,7 +510,7 @@ export default function Reports() {
       }
 
       addToast('Generating & sending email...', 'info');
-      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const letterheadUrl = getAssetUrl('letterhead.png');
       const emailRes = await fetch('/api/send-report-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

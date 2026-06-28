@@ -1,4 +1,5 @@
 import { forwardRef, Fragment } from 'react';
+import { getAssetUrl } from '../utils/electron';
 
 /*
   Each category gets its own <table> with full header in <thead> and footer spacer in <tfoot>.
@@ -128,7 +129,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
           {isIOS ? (
             <>
               <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '8px' }}>
-                {isPdf && l.showSignature && <img src={`${window.location.origin}/doctor-sign.png`} alt="signature" style={{ height: `${l.signatureHeight}px`, marginLeft: 'auto', display: 'block', objectFit: 'contain' }} />}
+                {isPdf && l.showSignature && <img src={getAssetUrl('doctor-sign.png')} alt="signature" style={{ height: `${l.signatureHeight}px`, marginLeft: 'auto', display: 'block', objectFit: 'contain' }} />}
                 <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{l.doctorName || report.doctor_name || 'DR. C. ASHOK'}</p>
                 <p style={{ fontSize: '11px', margin: 0 }}>{l.doctorDesignation || report.doctor_designation || 'MBBS MD (PATH)'}</p>
                 <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>
@@ -155,7 +156,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
       {/* FOOTER - position:fixed pins to bottom on desktop; hidden on iOS */}
       {!isIOS && <div className="page-footer" style={{ height: `${footerH}px` }}>
         <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '8px' }}>
-          {isPdf && l.showSignature && <img src={`${window.location.origin}/doctor-sign.png`} alt="signature" style={{ height: `${l.signatureHeight}px`, marginLeft: 'auto', display: 'block', objectFit: 'contain' }} />}
+          {isPdf && l.showSignature && <img src={getAssetUrl('doctor-sign.png')} alt="signature" style={{ height: `${l.signatureHeight}px`, marginLeft: 'auto', display: 'block', objectFit: 'contain' }} />}
           <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{l.doctorName || report.doctor_name || 'DR. C. ASHOK'}</p>
           <p style={{ fontSize: '11px', margin: 0 }}>{l.doctorDesignation || report.doctor_designation || 'MBBS MD (PATH)'}</p>
           <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>

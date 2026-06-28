@@ -4,7 +4,7 @@ import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronD
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
-import { isElectron } from '../utils/electron';
+import { isElectron, getAssetUrl } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
 import { autoCalculate } from '../utils/calcFormulas';
@@ -284,7 +284,7 @@ export default function QuickReport() {
     // Mobile app: generate PDF via server and open externally for printing
     if (isMobileApp()) {
       addToast('Generating PDF...', 'info');
-      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const letterheadUrl = getAssetUrl('letterhead.png');
       const dateStr = new Date(data.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${data.patient_name || 'Report'}_${dateStr}.pdf`;
       const pdfRes = await fetch('/api/pdf', {
@@ -396,7 +396,7 @@ export default function QuickReport() {
 
       const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${form.patient_name}_${dateStr}.pdf`;
-      const letterheadAbsUrl = `${window.location.origin}/letterhead.png`;
+      const letterheadAbsUrl = getAssetUrl('letterhead.png');
 
       // Electron: save directly to Downloads with correct filename
       if (isElectron()) {
@@ -515,7 +515,7 @@ export default function QuickReport() {
       };
 
       addToast('Generating & sending email...', 'info');
-      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const letterheadUrl = getAssetUrl('letterhead.png');
       const emailRes = await fetch('/api/send-report-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -591,7 +591,7 @@ export default function QuickReport() {
 
       const dateStr = new Date(form.date_of_collection || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
       const fileName = `${form.patient_name || 'Report'}_${dateStr}.pdf`;
-      const letterheadUrl = `${window.location.origin}/letterhead.png`;
+      const letterheadUrl = getAssetUrl('letterhead.png');
 
       // Electron: generate PDF locally using same DOM approach as Save/Download PDF
       if (isElectron()) {

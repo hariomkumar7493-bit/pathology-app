@@ -3,6 +3,7 @@ import { Save, RotateCcw, Eye, EyeOff, SlidersHorizontal, Type, Columns, ArrowDo
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { getAssetUrl } from '../utils/electron';
 
 const DEFAULT_LAYOUT = {
   letterheadHeight: 140,
@@ -89,7 +90,7 @@ function ReportPreview({ layout, mode = 'pdf' }) {
             borderRadius: '0 0 4px 4px',
           }}>
             <img
-              src="/letterhead.png"
+              src={getAssetUrl('letterhead.png')}
               alt="Letterhead"
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }}
               onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.style.background = 'linear-gradient(135deg, #dbeafe 0%, #ede9fe 100%)'; e.target.parentElement.style.border = '2px dashed #93c5fd'; }}

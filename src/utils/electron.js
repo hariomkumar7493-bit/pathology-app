@@ -11,6 +11,15 @@
 // Check if running inside Electron
 export const isElectron = () => !!(window.electronAPI && window.electronAPI.isElectron);
 
+// Get the correct base URL for public assets (works with http://, https://, and file://)
+export const getAssetUrl = (fileName) => {
+  if (isElectron()) {
+    // In Electron, the app is loaded from file:// and assets are in the same folder
+    return `./${fileName}`;
+  }
+  return `${window.location.origin}/${fileName}`;
+};
+
 // Get app version (returns null in web)
 export const getAppVersion = async () => {
   if (!isElectron()) return null;
