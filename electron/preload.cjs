@@ -114,7 +114,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getReports: () => ipcRenderer.invoke('db:getReports'),
     getReport: (id) => ipcRenderer.invoke('db:getReport', { id }),
     createReport: (data) => ipcRenderer.invoke('db:createReport', data),
-    updateReportResults: (id, results) => ipcRenderer.invoke('db:updateReportResults', { id, results }),
+    updateReportResults: (id, data) => ipcRenderer.invoke('db:updateReportResults', { id, ...data }),
     createQuickReport: (data) => ipcRenderer.invoke('db:createQuickReport', data),
     deleteReport: (id) => ipcRenderer.invoke('db:deleteReport', { id }),
     addTestToReport: (reportId, testId) => ipcRenderer.invoke('db:addTestToReport', { reportId, testId }),

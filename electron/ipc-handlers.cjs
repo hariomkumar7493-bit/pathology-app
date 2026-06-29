@@ -321,14 +321,35 @@ function registerIpcHandlers(log) {
     const count = db.prepare('SELECT COUNT(*) as c FROM reports').get().c;
     const refNo = String(count + 1);
 
-    // Resolve test_ids → investigation text + tests array
+    // Resolve test_ids → investigation text + tests array + results with parameters
     let investigationText = data.investigation || '';
     let testsArray = data.tests || [];
+    let resultsArray = data.results || [];
+
     if (data.test_ids && data.test_ids.length > 0) {
       const placeholders = data.test_ids.map(() => '?').join(',');
       const testRows = db.prepare(`SELECT * FROM tests WHERE _id IN (${placeholders})`).all(...data.test_ids);
       investigationText = testRows.map(t => t.name).join(', ');
-      testsArray = testRows.map(t => ({ test_id: t._id, test_name: t.name, specimen: t.specimen, category_name: t.category_name || null }));
+      testsArray = [];
+      resultsArray = [];
+      for (const test of testRows) {
+        const categoryName = test.category_name || null;
+        testsArray.push({ test_id: test._id, test_name: test.name, specimen: test.specimen, category_name: categoryName });
+        const params = parseJson(test.parameters) || [];
+        for (const param of params) {
+          resultsArray.push({
+            test_id: test._id, test_name: test.name, category_name: categoryName,
+            param_name: param.param_name, result_value: '', is_abnormal: false,
+            unit: param.unit || '', ref_range_male: param.ref_range_male || '',
+            ref_range_female: param.ref_range_female || '', group_name: param.group_name || '',
+            sort_order: param.sort_order || 0, calc_formula: param.calc_formula || '',
+          });
+        }
+      }
+      resultsArray.sort((a, b) => {
+        if (a.test_name !== b.test_name) return a.test_name.localeCompare(b.test_name);
+        return (a.sort_order || 0) - (b.sort_order || 0);
+      });
     }
 
     // Get lab settings for doctor info
@@ -340,14 +361,14 @@ function registerIpcHandlers(log) {
       refNo, data.specimen || 'BLOOD', investigationText,
       data.doctor_name || layout.doctorName || '', data.doctor_designation || layout.doctorDesignation || '',
       'Pending', data.date_of_collection || now.slice(0, 10), now, now,
-      stringifyJson(testsArray), stringifyJson(data.results || []), 'pending'
+      stringifyJson(testsArray), stringifyJson(resultsArray), 'pending'
     );
-    return { _id: id, refNo, ...data, investigation: investigationText, tests: testsArray };
+    return { _id: id, refNo, ...data, investigation: investigationText, tests: testsArray, results: resultsArray };
   });
 
-  ipcMain.handle('db:updateReportResults', async (event, { id, results }) => {
+  ipcMain.handle('db:updateReportResults', async (event, { id, results, status }) => {
     const db = getDb();
-    db.prepare('UPDATE reports SET results = ?, sync_status = ? WHERE _id = ?').run(stringifyJson(results), 'pending', id);
+    db.prepare('UPDATE reports SET results = ?, status = ?, sync_status = ? WHERE _id = ?').run(stringifyJson(results), status || 'Completed', 'pending', id);
     return { success: true };
   });
 

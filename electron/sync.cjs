@@ -47,17 +47,16 @@ async function pullAllFromRemote(token) {
   const db = getDb();
 
   try {
-    // Pull patients — smart merge
+    // Pull patients — safe merge (never delete local — re-mark unmatched as pending to retry push)
     const patientsRes = await fetchJson(`${REMOTE_API}/patients`, { headers });
     if (patientsRes.status === 200 && Array.isArray(patientsRes.data)) {
       const remoteIds = new Set(patientsRes.data.map(p => String(p._id)));
-      // Remove locally-synced patients that no longer exist on remote (remotely deleted)
+      // If a locally-synced patient is missing from remote, it may be an ID mismatch (not a real deletion)
+      // Re-mark as pending so it gets re-pushed with ID reconciliation on next sync
       const localSynced = db.prepare("SELECT _id FROM patients WHERE sync_status = 'synced'").all();
       for (const local of localSynced) {
         if (!remoteIds.has(local._id)) {
-          db.prepare('DELETE FROM patients WHERE _id = ?').run(local._id);
-          // Also remove their synced reports
-          db.prepare("DELETE FROM reports WHERE patient_id = ? AND sync_status = 'synced'").run(local._id);
+          db.prepare("UPDATE patients SET sync_status = 'pending' WHERE _id = ?").run(local._id);
         }
       }
       // Upsert remote rows — skip rows that are locally pending or deleted
@@ -102,14 +101,13 @@ async function pullAllFromRemote(token) {
       }
     }
 
-    // Pull reports — smart merge
+    // Pull reports — safe merge (re-mark unmatched as pending, never delete)
     const reportsRes = await fetchJson(`${REMOTE_API}/reports`, { headers });
     if (reportsRes.status === 200 && Array.isArray(reportsRes.data)) {
       const remoteIds = new Set(reportsRes.data.map(r => String(r._id)));
-      // Remove locally-synced reports that no longer exist on remote
       const localSynced = db.prepare("SELECT _id FROM reports WHERE sync_status = 'synced'").all();
       for (const local of localSynced) {
-        if (!remoteIds.has(local._id)) db.prepare('DELETE FROM reports WHERE _id = ?').run(local._id);
+        if (!remoteIds.has(local._id)) db.prepare("UPDATE reports SET sync_status = 'pending' WHERE _id = ?").run(local._id);
       }
       // Upsert remote rows — skip pending/deleted local rows
       const upsert = db.prepare(`INSERT OR REPLACE INTO reports (_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`);
