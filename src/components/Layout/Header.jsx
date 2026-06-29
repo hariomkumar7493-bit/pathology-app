@@ -1,14 +1,36 @@
-import { Menu, User, Sun, Moon, Wifi, WifiOff, RefreshCw, Upload } from 'lucide-react';
+import { Menu, User, Sun, Moon, Wifi, WifiOff, RefreshCw, Upload, CheckCircle, Cloud } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useSync } from '../../context/SyncContext';
+import { useToast } from '../../context/ToastContext';
 import { getAssetUrl, isElectron } from '../../utils/electron';
 
 export default function Header({ onMenuToggle, sidebarCollapsed }) {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { online, syncing, pendingChanges, triggerSync } = useSync();
+  const { addToast } = useToast();
   const showSyncIndicator = isElectron();
+
+  const handleSyncClick = async () => {
+    if (!online || syncing) return;
+    addToast('Syncing data...', 'info');
+    const result = await triggerSync();
+    if (!result) return;
+    if (result.success) {
+      const pushed = result.push?.pushed || 0;
+      const errors = result.push?.errors || 0;
+      if (errors > 0) {
+        addToast(`Sync completed with ${errors} error(s). ${pushed} item(s) pushed.`, 'warning');
+      } else if (pushed > 0) {
+        addToast(`Sync successful! ${pushed} item(s) pushed.`, 'success');
+      } else {
+        addToast('Fully synced — all data up to date.', 'success');
+      }
+    } else {
+      addToast(`Sync failed: ${result.error || 'Unknown error'}`, 'error');
+    }
+  };
 
   return (
     <header className={`fixed top-0 right-0 h-16 bg-white border-b border-gray-200 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm transition-all duration-300 dark:bg-gray-800 dark:border-gray-700 ${sidebarCollapsed ? 'lg:left-16' : 'lg:left-64'} left-0 lg:left-16`}>
@@ -38,18 +60,24 @@ export default function Header({ onMenuToggle, sidebarCollapsed }) {
                 {pendingChanges} pending
               </span>
             )}
-            {syncing && <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />}
             <button
-              onClick={() => { if (online) triggerSync(); }}
-              className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors ${
-                online
-                  ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50'
-                  : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700'
+              onClick={handleSyncClick}
+              disabled={!online || syncing}
+              className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-all ${
+                !online
+                  ? 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 cursor-not-allowed'
+                  : syncing
+                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 cursor-wait'
+                  : pendingChanges > 0
+                  ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 font-semibold'
+                  : 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50'
               }`}
-              title={online ? (syncing ? 'Syncing...' : 'Online — click to sync') : 'Offline — changes will sync when online'}
+              title={!online ? 'Offline — changes will sync when online' : syncing ? 'Syncing...' : pendingChanges > 0 ? `Click to sync ${pendingChanges} pending change(s)` : 'All data synced — click to re-sync'}
             >
-              {online ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-              <span className="hidden sm:inline">{online ? (syncing ? 'Syncing' : 'Online') : 'Offline'}</span>
+              {syncing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : !online ? <WifiOff className="w-3.5 h-3.5" /> : pendingChanges > 0 ? <Cloud className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">
+                {!online ? 'Offline' : syncing ? 'Syncing...' : pendingChanges > 0 ? 'Sync Now' : 'Synced'}
+              </span>
             </button>
           </div>
         )}

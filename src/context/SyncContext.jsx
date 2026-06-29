@@ -50,13 +50,20 @@ export function SyncProvider({ children }) {
     };
   }, []);
 
-  const triggerSync = useCallback(() => {
+  const triggerSync = useCallback(async () => {
     if (isElectron() && window.electronAPI.sync) {
       const token = localStorage.getItem('token');
       if (token) {
-        window.electronAPI.sync.now(token).catch(() => {});
+        try {
+          const result = await window.electronAPI.sync.now(token);
+          setLastSyncResult(result);
+          return result;
+        } catch (err) {
+          return { success: false, error: err.message };
+        }
       }
     }
+    return null;
   }, []);
 
   return (
