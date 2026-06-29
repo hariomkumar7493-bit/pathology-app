@@ -164,6 +164,16 @@ async function pushPendingToRemote(token) {
   let pushed = 0;
   let errors = 0;
 
+  // Log pending counts for debugging
+  const delPat = db.prepare("SELECT COUNT(*) as c FROM patients WHERE sync_status = 'deleted'").get();
+  const delRep = db.prepare("SELECT COUNT(*) as c FROM reports WHERE sync_status = 'deleted'").get();
+  const pendPat = db.prepare("SELECT COUNT(*) as c FROM patients WHERE sync_status = 'pending'").get();
+  const pendRep = db.prepare("SELECT COUNT(*) as c FROM reports WHERE sync_status = 'pending'").get();
+  const pendCat = db.prepare("SELECT COUNT(*) as c FROM test_categories WHERE sync_status = 'pending'").get();
+  const pendTest = db.prepare("SELECT COUNT(*) as c FROM tests WHERE sync_status = 'pending'").get();
+  const pendUser = db.prepare("SELECT COUNT(*) as c FROM users WHERE sync_status = 'pending'").get();
+  console.log('[sync] Push counts — del patients:', delPat.c, 'del reports:', delRep.c, 'pending patients:', pendPat.c, 'reports:', pendRep.c, 'categories:', pendCat.c, 'tests:', pendTest.c, 'users:', pendUser.c);
+
   // Push deleted patients (tombstones)
   const deletedPatients = db.prepare("SELECT _id FROM patients WHERE sync_status = 'deleted'").all();
   for (const p of deletedPatients) {
@@ -172,8 +182,8 @@ async function pushPendingToRemote(token) {
       if (res.status === 200 || res.status === 204 || res.status === 404) {
         db.prepare('DELETE FROM patients WHERE _id = ?').run(p._id);
         pushed++;
-      }
-    } catch { errors++; }
+      } else { console.error('[sync] Patient DELETE failed:', res.status, JSON.stringify(res.data)); errors++; }
+    } catch (err) { console.error('[sync] Patient delete error:', err.message); errors++; }
   }
 
   // Push deleted reports (tombstones)
@@ -184,8 +194,8 @@ async function pushPendingToRemote(token) {
       if (res.status === 200 || res.status === 204 || res.status === 404) {
         db.prepare('DELETE FROM reports WHERE _id = ?').run(r._id);
         pushed++;
-      }
-    } catch { errors++; }
+      } else { console.error('[sync] Report DELETE failed:', res.status, JSON.stringify(res.data)); errors++; }
+    } catch (err) { console.error('[sync] Report delete error:', err.message); errors++; }
   }
 
   // Push pending patients — PUT upsert, local _id is the MongoDB _id
