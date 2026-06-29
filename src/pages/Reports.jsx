@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Printer, X, Save, Trash2, Edit3, Plus, TestTubes, Share2, Mail, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Printer, X, Save, Trash2, Edit3, Plus, TestTubes, Share2, Mail, ArrowUp, ArrowDown, ArrowUpDown, CalendarDays } from 'lucide-react';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
@@ -31,6 +31,8 @@ export default function Reports() {
   const pdfRef = useRef();
   const [sortField, setSortField] = useState('date_of_collection');
   const [sortDir, setSortDir] = useState('desc');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const { addToast } = useToast();
 
   const handleSort = (field) => {
@@ -99,7 +101,10 @@ export default function Reports() {
                            report.investigation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            report.ref_no?.includes(searchTerm);
       const matchesStatus = statusFilter === 'All' || report.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      const rowDate = report.date_of_collection ? report.date_of_collection.slice(0, 10) : '';
+      const matchesFrom = !dateFrom || rowDate >= dateFrom;
+      const matchesTo = !dateTo || rowDate <= dateTo;
+      return matchesSearch && matchesStatus && matchesFrom && matchesTo;
     });
     return [...filtered].sort((a, b) => {
       let aVal = a[sortField] ?? '';
@@ -110,7 +115,7 @@ export default function Reports() {
       if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [reports, searchTerm, statusFilter, sortField, sortDir]);
+  }, [reports, searchTerm, statusFilter, sortField, sortDir, dateFrom, dateTo]);
 
   const handleViewReport = async (reportId) => {
     setViewLoading(true);
@@ -672,8 +677,8 @@ export default function Reports() {
 
       {/* Filters */}
       <div className="card">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="relative flex-1">
+        <div className="flex flex-col md:flex-row gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-48">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
@@ -692,6 +697,29 @@ export default function Reports() {
             <option value="Completed">Completed</option>
             <option value="Pending">Pending</option>
           </select>
+          <div className="flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-gray-400 shrink-0" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="input-field w-auto text-sm"
+              title="Collection date from"
+            />
+            <span className="text-gray-400 text-sm">–</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="input-field w-auto text-sm"
+              title="Collection date to"
+            />
+            {(dateFrom || dateTo) && (
+              <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors" title="Clear dates">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

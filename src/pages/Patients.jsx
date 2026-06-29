@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Phone, Mail, Calendar, X, TestTubes, Check, Minus, Trash2, Edit3, ChevronDown, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Search, Plus, Phone, Mail, Calendar, X, TestTubes, Check, Minus, Trash2, Edit3, ChevronDown, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, CalendarDays } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
 
@@ -22,6 +22,8 @@ export default function Patients() {
   const [saving, setSaving] = useState(false);
   const [sortField, setSortField] = useState('created_at');
   const [sortDir, setSortDir] = useState('desc');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const { addToast } = useToast();
 
   const handleSort = (field) => {
@@ -54,11 +56,13 @@ export default function Patients() {
   }
 
   const filteredPatients = useMemo(() => {
-    const filtered = patients.filter(
-      (p) =>
-        p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.phone?.includes(searchTerm)
-    );
+    const filtered = patients.filter((p) => {
+      const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || p.phone?.includes(searchTerm);
+      const rowDate = p.created_at ? p.created_at.slice(0, 10) : '';
+      const matchesFrom = !dateFrom || rowDate >= dateFrom;
+      const matchesTo = !dateTo || rowDate <= dateTo;
+      return matchesSearch && matchesFrom && matchesTo;
+    });
     return [...filtered].sort((a, b) => {
       let aVal = a[sortField] ?? '';
       let bVal = b[sortField] ?? '';
@@ -68,7 +72,7 @@ export default function Patients() {
       if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [patients, searchTerm, sortField, sortDir]);
+  }, [patients, searchTerm, sortField, sortDir, dateFrom, dateTo]);
 
   // Get unique sub-groups for a test
   const getTestGroups = (test) => {
@@ -206,17 +210,42 @@ export default function Patients() {
         </button>
       </div>
 
-      {/* Search */}
+      {/* Search & Date Filter */}
       <div className="card">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by name or phone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input-field pl-10"
-          />
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by name or phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="input-field pl-10"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-gray-400 shrink-0" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="input-field w-auto text-sm"
+              title="Registered from"
+            />
+            <span className="text-gray-400 text-sm">–</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="input-field w-auto text-sm"
+              title="Registered to"
+            />
+            {(dateFrom || dateTo) && (
+              <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors" title="Clear dates">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
