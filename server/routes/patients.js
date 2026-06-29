@@ -4,13 +4,32 @@ const { getDB } = require('../db');
 const { ObjectId } = require('mongodb');
 const { sendPushNotification } = require('./notifications');
 
-// GET all patients
+// GET all patients (unions web patients + electron patients)
 router.get('/', async (req, res) => {
   try {
     const db = getDB();
     const patientsCollection = db.collection('patients');
-    const patients = await patientsCollection.find({}).sort({ created_at: -1 }).toArray();
-    res.json(patients);
+    const electronCollection = db.collection('electron_patients');
+    
+    const [webPatients, electronPatients] = await Promise.all([
+      patientsCollection.find({}).sort({ created_at: -1 }).toArray(),
+      electronCollection.find({}).sort({ created_at: -1 }).toArray()
+    ]);
+    
+    // Merge: electron patients already have all fields, web patients use ObjectId
+    const allPatients = [
+      ...webPatients.map(p => ({ ...p, _id: String(p._id), source: 'web' })),
+      ...electronPatients.map(p => ({ ...p, _id: String(p._id), source: 'electron' }))
+    ];
+    
+    // Sort by created_at descending
+    allPatients.sort((a, b) => {
+      const aDate = new Date(a.created_at).getTime() || 0;
+      const bDate = new Date(b.created_at).getTime() || 0;
+      return bDate - aDate;
+    });
+    
+    res.json(allPatients);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

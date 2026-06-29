@@ -4,12 +4,14 @@ const { getDB } = require('../db');
 const { ObjectId } = require('mongodb');
 const { sendPushNotification } = require('./notifications');
 
-// GET all reports (uses $lookup to avoid N+1 queries)
+// GET all reports (unions web reports + electron reports)
 router.get('/', async (req, res) => {
   try {
     const db = getDB();
     const reportsCollection = db.collection('reports');
+    const electronReportsCollection = db.collection('electron_reports');
 
+    // Web reports with patient lookup
     const pipeline = [
       { $sort: { created_at: -1 } },
       {
@@ -33,8 +35,25 @@ router.get('/', async (req, res) => {
       { $project: { patient_info: 0 } }
     ];
 
-    const reportsWithPatient = await reportsCollection.aggregate(pipeline).toArray();
-    res.json(reportsWithPatient);
+    const [webReports, electronReports] = await Promise.all([
+      reportsCollection.aggregate(pipeline).toArray(),
+      electronReportsCollection.find({}).sort({ created_at: -1 }).toArray()
+    ]);
+
+    // Merge: electron reports already have patient data embedded
+    const allReports = [
+      ...webReports.map(r => ({ ...r, _id: String(r._id), source: 'web' })),
+      ...electronReports.map(r => ({ ...r, _id: String(r._id), source: 'electron' }))
+    ];
+
+    // Sort by created_at descending
+    allReports.sort((a, b) => {
+      const aDate = new Date(a.created_at).getTime() || 0;
+      const bDate = new Date(b.created_at).getTime() || 0;
+      return bDate - aDate;
+    });
+
+    res.json(allReports);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
