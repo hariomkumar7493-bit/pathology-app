@@ -129,8 +129,13 @@ export default function Patients() {
       if (selectedTests.length > 0) {
         await api.createReport({
           patient_id: patient._id,
+          patient_name: form.name,
+          age: parseInt(form.age) || 0,
+          gender: form.gender,
+          referred_by: form.referred_by,
           test_ids: selectedTests,
           specimen: form.specimen,
+          date_of_collection: new Date().toISOString().slice(0, 10),
         });
       }
 

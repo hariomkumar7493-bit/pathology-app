@@ -69,12 +69,19 @@ async function pullAllFromRemote(token) {
       }
     }
 
-    // Pull categories (safe to replace — no user-created tombstones needed)
+    // Pull categories — smart merge (preserve pending offline-created categories)
     const catRes = await fetchJson(`${REMOTE_API}/tests/categories`, { headers });
     if (catRes.status === 200 && Array.isArray(catRes.data)) {
-      db.prepare('DELETE FROM test_categories').run();
+      const remoteCatIds = new Set(catRes.data.map(c => String(c._id)));
+      // Delete locally-synced categories that were removed on remote
+      const localSyncedCats = db.prepare("SELECT _id FROM test_categories WHERE sync_status = 'synced'").all();
+      for (const local of localSyncedCats) {
+        if (!remoteCatIds.has(local._id)) db.prepare('DELETE FROM test_categories WHERE _id = ?').run(local._id);
+      }
       const upsert = db.prepare(`INSERT OR REPLACE INTO test_categories (_id, name, description, created_at, sync_status) VALUES (?, ?, ?, ?, 'synced')`);
       for (const c of catRes.data) {
+        const localRow = db.prepare('SELECT sync_status FROM test_categories WHERE _id = ?').get(String(c._id));
+        if (localRow && localRow.sync_status === 'pending') continue; // preserve offline changes
         upsert.run(String(c._id), c.name || '', c.description || '', c.created_at || new Date().toISOString());
       }
     }
@@ -180,42 +187,57 @@ async function pushPendingToRemote(token) {
   const pendingPatients = db.prepare("SELECT * FROM patients WHERE sync_status = 'pending'").all();
   for (const p of pendingPatients) {
     try {
-      const body = JSON.stringify({ name: p.name, age: p.age, gender: p.gender, phone: p.phone, email: p.email, address: p.address, referred_by: p.referred_by });
-      const updateRes = await fetchJson(`${REMOTE_API}/patients/${p._id}`, { method: 'PUT', headers, body });
+      const payload = { _id: p._id, name: p.name, age: p.age, gender: p.gender, phone: p.phone, email: p.email, address: p.address, referred_by: p.referred_by };
+      const updateRes = await fetchJson(`${REMOTE_API}/patients/${p._id}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
       if (updateRes.status === 404) {
-        await fetchJson(`${REMOTE_API}/patients`, { method: 'POST', headers, body });
+        await fetchJson(`${REMOTE_API}/patients`, { method: 'POST', headers, body: JSON.stringify(payload) });
       }
       db.prepare("UPDATE patients SET sync_status = 'synced' WHERE _id = ?").run(p._id);
       pushed++;
     } catch { errors++; }
   }
 
-  // Push pending reports
+  // Push pending reports — POST new ones, PUT results for existing
   const pendingReports = db.prepare("SELECT * FROM reports WHERE sync_status = 'pending'").all();
   for (const r of pendingReports) {
     try {
       const reportData = {
-        patient_id: r.patient_id, patient_name: r.patient_name, age: r.age, gender: r.gender,
+        _id: r._id, patient_id: r.patient_id, patient_name: r.patient_name, age: r.age, gender: r.gender,
         referred_by: r.referred_by, specimen: r.specimen, investigation: r.investigation,
         doctor_name: r.doctor_name, doctor_designation: r.doctor_designation,
-        date_of_collection: r.date_of_collection,
+        status: r.status, date_of_collection: r.date_of_collection,
         tests: parseJson(r.tests) || [], results: parseJson(r.results) || [],
       };
-      const body = JSON.stringify(reportData);
-      const updateRes = await fetchJson(`${REMOTE_API}/reports/${r._id}/results`, { method: 'PUT', headers, body: JSON.stringify({ results: parseJson(r.results) || [] }) });
+      // Try to update existing first, then create new
+      const updateRes = await fetchJson(`${REMOTE_API}/reports/${r._id}`, { method: 'PUT', headers, body: JSON.stringify(reportData) });
       if (updateRes.status === 404) {
-        await fetchJson(`${REMOTE_API}/reports`, { method: 'POST', headers, body });
+        await fetchJson(`${REMOTE_API}/reports`, { method: 'POST', headers, body: JSON.stringify(reportData) });
       }
       db.prepare("UPDATE reports SET sync_status = 'synced' WHERE _id = ?").run(r._id);
       pushed++;
     } catch { errors++; }
   }
 
-  // Push pending tests
+  // Push pending test categories
+  const pendingCats = db.prepare("SELECT * FROM test_categories WHERE sync_status = 'pending'").all();
+  for (const c of pendingCats) {
+    try {
+      const payload = { _id: c._id, name: c.name, description: c.description || '' };
+      const updateRes = await fetchJson(`${REMOTE_API}/tests/categories/${c._id}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
+      if (updateRes.status === 404) {
+        await fetchJson(`${REMOTE_API}/tests/categories`, { method: 'POST', headers, body: JSON.stringify(payload) });
+      }
+      db.prepare("UPDATE test_categories SET sync_status = 'synced' WHERE _id = ?").run(c._id);
+      pushed++;
+    } catch { errors++; }
+  }
+
+  // Push pending tests — include _id so server uses it
   const pendingTests = db.prepare("SELECT * FROM tests WHERE sync_status = 'pending'").all();
   for (const t of pendingTests) {
     try {
-      const body = JSON.stringify({ name: t.name, category_id: t.category_id, specimen: t.specimen, price: t.price, parameters: parseJson(t.parameters) || [] });
+      const payload = { _id: t._id, name: t.name, category_id: t.category_id, category_name: t.category_name, specimen: t.specimen, price: t.price, parameters: parseJson(t.parameters) || [] };
+      const body = JSON.stringify(payload);
       const updateRes = await fetchJson(`${REMOTE_API}/tests/${t._id}`, { method: 'PUT', headers, body });
       if (updateRes.status === 404) {
         await fetchJson(`${REMOTE_API}/tests`, { method: 'POST', headers, body });
@@ -225,11 +247,12 @@ async function pushPendingToRemote(token) {
     } catch { errors++; }
   }
 
-  // Push pending users
+  // Push pending users — include _id so server uses it
   const pendingUsers = db.prepare("SELECT * FROM users WHERE sync_status = 'pending'").all();
   for (const u of pendingUsers) {
     try {
-      const body = JSON.stringify({ name: u.name, phone: u.phone, role: u.role, password: u.password });
+      const payload = { _id: u._id, name: u.name, phone: u.phone, role: u.role, password: u.password };
+      const body = JSON.stringify(payload);
       const updateRes = await fetchJson(`${REMOTE_API}/auth/users/${u._id}`, { method: 'PUT', headers, body });
       if (updateRes.status === 404) {
         await fetchJson(`${REMOTE_API}/auth/users`, { method: 'POST', headers, body });

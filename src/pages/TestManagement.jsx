@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit3, Trash2, Save, X, ChevronDown, ChevronRight, FlaskConical, FolderOpen, Search } from 'lucide-react';
+import { Plus, Edit3, Trash2, Save, X, ChevronDown, ChevronRight, FlaskConical, FolderOpen, Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -27,6 +27,23 @@ export default function TestManagement() {
 
   // Expanded test (to show parameters inline)
   const [expandedTest, setExpandedTest] = useState(null);
+
+  // Sorting
+  const [catSort, setCatSort] = useState({ field: 'name', dir: 'asc' });
+  const [testSort, setTestSort] = useState({ field: 'name', dir: 'asc' });
+
+  const handleCatSort = (field) => setCatSort(prev => ({ field, dir: prev.field === field ? (prev.dir === 'asc' ? 'desc' : 'asc') : 'asc' }));
+  const handleTestSort = (field) => setTestSort(prev => ({ field, dir: prev.field === field ? (prev.dir === 'asc' ? 'desc' : 'asc') : 'asc' }));
+
+  const SortBtn = ({ label, field, sort, onSort }) => {
+    const active = sort.field === field;
+    const Icon = active ? (sort.dir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+    return (
+      <button onClick={() => onSort(field)} className={`flex items-center gap-1 text-xs font-medium transition-colors ${ active ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600' }`}>
+        {label}<Icon className="w-3 h-3" />
+      </button>
+    );
+  };
 
   if (user?.role !== 'admin') {
     return (
@@ -181,7 +198,7 @@ export default function TestManagement() {
   };
 
   // Group tests by category (memoized)
-  const { groupedTests, filteredCategories, uncategorized } = useMemo(() => {
+  const { groupedTests, filteredCategories, uncategorized } = useMemo(() => { // eslint-disable-next-line
     const catMap = {};
     categories.forEach(c => { catMap[c._id] = c.name; });
 
@@ -205,12 +222,28 @@ export default function TestManagement() {
       return catTests.some(t => t.name.toLowerCase().includes(s));
     });
 
-    const filteredUncategorized = search
-      ? uncategorizedTests.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
-      : uncategorizedTests;
+    // Sort categories
+    const sortedFiltered = [...filtered].sort((a, b) => {
+      let aVal = catSort.field === 'count' ? (grouped[a._id]?.length || 0) : a.name.toLowerCase();
+      let bVal = catSort.field === 'count' ? (grouped[b._id]?.length || 0) : b.name.toLowerCase();
+      if (aVal < bVal) return catSort.dir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return catSort.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
 
-    return { groupedTests: grouped, filteredCategories: filtered, uncategorized: filteredUncategorized };
-  }, [tests, categories, search]);
+    const filteredUncategorized = (search
+      ? uncategorizedTests.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+      : uncategorizedTests
+    ).sort((a, b) => {
+      const aVal = testSort.field === 'params' ? (a.parameters?.length || 0) : a.name.toLowerCase();
+      const bVal = testSort.field === 'params' ? (b.parameters?.length || 0) : b.name.toLowerCase();
+      if (aVal < bVal) return testSort.dir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return testSort.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return { groupedTests: grouped, filteredCategories: sortedFiltered, uncategorized: filteredUncategorized };
+  }, [tests, categories, search, catSort, testSort]);
 
   if (loading) {
     return (
@@ -238,8 +271,9 @@ export default function TestManagement() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
+      {/* Search + Sort */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+      <div className="relative max-w-md flex-1">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input
           type="text"
@@ -248,6 +282,16 @@ export default function TestManagement() {
           onChange={e => setSearch(e.target.value)}
           className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
         />
+      </div>
+      <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-3 py-2">
+        <span className="text-xs text-gray-400 font-medium">Categories:</span>
+        <SortBtn label="Name" field="name" sort={catSort} onSort={handleCatSort} />
+        <SortBtn label="Count" field="count" sort={catSort} onSort={handleCatSort} />
+        <span className="text-gray-200">|</span>
+        <span className="text-xs text-gray-400 font-medium">Tests:</span>
+        <SortBtn label="Name" field="name" sort={testSort} onSort={handleTestSort} />
+        <SortBtn label="Params" field="params" sort={testSort} onSort={handleTestSort} />
+      </div>
       </div>
 
       {/* Stats */}
@@ -271,7 +315,13 @@ export default function TestManagement() {
         {filteredCategories.map(cat => {
           const catTests = (groupedTests[cat._id] || []).filter(t =>
             !search || t.name.toLowerCase().includes(search.toLowerCase()) || cat.name.toLowerCase().includes(search.toLowerCase())
-          );
+          ).sort((a, b) => {
+            const aVal = testSort.field === 'params' ? (a.parameters?.length || 0) : a.name.toLowerCase();
+            const bVal = testSort.field === 'params' ? (b.parameters?.length || 0) : b.name.toLowerCase();
+            if (aVal < bVal) return testSort.dir === 'asc' ? -1 : 1;
+            if (aVal > bVal) return testSort.dir === 'asc' ? 1 : -1;
+            return 0;
+          });
           const isExpanded = expandedCats[cat._id] !== false; // default expanded
 
           return (

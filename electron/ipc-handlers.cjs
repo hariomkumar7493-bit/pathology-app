@@ -320,12 +320,29 @@ function registerIpcHandlers(log) {
     const now = new Date().toISOString();
     const count = db.prepare('SELECT COUNT(*) as c FROM reports').get().c;
     const refNo = String(count + 1);
+
+    // Resolve test_ids → investigation text + tests array
+    let investigationText = data.investigation || '';
+    let testsArray = data.tests || [];
+    if (data.test_ids && data.test_ids.length > 0) {
+      const placeholders = data.test_ids.map(() => '?').join(',');
+      const testRows = db.prepare(`SELECT * FROM tests WHERE _id IN (${placeholders})`).all(...data.test_ids);
+      investigationText = testRows.map(t => t.name).join(', ');
+      testsArray = testRows.map(t => ({ test_id: t._id, test_name: t.name, specimen: t.specimen, category_name: t.category_name || null }));
+    }
+
+    // Get lab settings for doctor info
+    const settingsRow = db.prepare("SELECT value FROM settings WHERE key = 'report_layout'").get();
+    const layout = settingsRow ? (typeof settingsRow.value === 'string' ? JSON.parse(settingsRow.value) : settingsRow.value) : {};
+
     db.prepare(`INSERT INTO reports (_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       id, data.patient_id || null, data.patient_name || '', String(data.age || ''), data.gender || '', data.referred_by || 'SELF',
-      refNo, data.specimen || 'BLOOD', data.investigation || '', data.doctor_name || 'Dr. C. Ashok', data.doctor_designation || 'MBBS MD (PATH)',
-      'Completed', data.date_of_collection || now, now, now, stringifyJson(data.tests || []), stringifyJson(data.results || []), 'pending'
+      refNo, data.specimen || 'BLOOD', investigationText,
+      data.doctor_name || layout.doctorName || '', data.doctor_designation || layout.doctorDesignation || '',
+      'Pending', data.date_of_collection || now.slice(0, 10), now, now,
+      stringifyJson(testsArray), stringifyJson(data.results || []), 'pending'
     );
-    return { _id: id, refNo, ...data };
+    return { _id: id, refNo, ...data, investigation: investigationText, tests: testsArray };
   });
 
   ipcMain.handle('db:updateReportResults', async (event, { id, results }) => {
