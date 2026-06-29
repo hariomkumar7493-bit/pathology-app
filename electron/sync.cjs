@@ -238,14 +238,20 @@ async function pushPendingToRemote(token) {
       const payload = { _id: c._id, name: c.name, description: c.description || '' };
       const updateRes = await fetchJson(`${REMOTE_API}/tests/categories/${c._id}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
       if (updateRes.status === 404) {
-        await fetchJson(`${REMOTE_API}/tests/categories`, { method: 'POST', headers, body: JSON.stringify(payload) });
+        const createRes = await fetchJson(`${REMOTE_API}/tests/categories`, { method: 'POST', headers, body: JSON.stringify(payload) });
+        const serverId = createRes.data?._id ? String(createRes.data._id) : null;
+        if (serverId && serverId !== c._id) {
+          db.prepare('UPDATE test_categories SET _id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', c._id);
+          db.prepare('UPDATE tests SET category_id = ? WHERE category_id = ?').run(serverId, c._id);
+          pushed++; continue;
+        }
       }
       db.prepare("UPDATE test_categories SET sync_status = 'synced' WHERE _id = ?").run(c._id);
       pushed++;
     } catch { errors++; }
   }
 
-  // Push pending tests — include _id so server uses it
+  // Push pending tests
   const pendingTests = db.prepare("SELECT * FROM tests WHERE sync_status = 'pending'").all();
   for (const t of pendingTests) {
     try {
@@ -253,14 +259,19 @@ async function pushPendingToRemote(token) {
       const body = JSON.stringify(payload);
       const updateRes = await fetchJson(`${REMOTE_API}/tests/${t._id}`, { method: 'PUT', headers, body });
       if (updateRes.status === 404) {
-        await fetchJson(`${REMOTE_API}/tests`, { method: 'POST', headers, body });
+        const createRes = await fetchJson(`${REMOTE_API}/tests`, { method: 'POST', headers, body });
+        const serverId = createRes.data?._id ? String(createRes.data._id) : null;
+        if (serverId && serverId !== t._id) {
+          db.prepare('UPDATE tests SET _id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', t._id);
+          pushed++; continue;
+        }
       }
       db.prepare("UPDATE tests SET sync_status = 'synced' WHERE _id = ?").run(t._id);
       pushed++;
     } catch { errors++; }
   }
 
-  // Push pending users — include _id so server uses it
+  // Push pending users
   const pendingUsers = db.prepare("SELECT * FROM users WHERE sync_status = 'pending'").all();
   for (const u of pendingUsers) {
     try {
@@ -268,7 +279,12 @@ async function pushPendingToRemote(token) {
       const body = JSON.stringify(payload);
       const updateRes = await fetchJson(`${REMOTE_API}/auth/users/${u._id}`, { method: 'PUT', headers, body });
       if (updateRes.status === 404) {
-        await fetchJson(`${REMOTE_API}/auth/users`, { method: 'POST', headers, body });
+        const createRes = await fetchJson(`${REMOTE_API}/auth/users`, { method: 'POST', headers, body });
+        const serverId = createRes.data?._id ? String(createRes.data._id) : null;
+        if (serverId && serverId !== u._id) {
+          db.prepare('UPDATE users SET _id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', u._id);
+          pushed++; continue;
+        }
       }
       db.prepare("UPDATE users SET sync_status = 'synced' WHERE _id = ?").run(u._id);
       pushed++;
