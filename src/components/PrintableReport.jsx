@@ -69,7 +69,9 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
   const specimens = [...new Set((report.results || []).map(r => r.specimen).filter(Boolean))];
 
   const getCatInvestigation = (groups) =>
-    Object.values(groups).flat().map(p => p.param_name).filter(Boolean).join(', ');
+    Object.values(groups).flat()
+      .filter(p => p.result_value && p.result_value.toString().trim() !== '')
+      .map(p => p.param_name).filter(Boolean).join(', ');
 
   const getRefDisplay = (param) => {
     const m = param.ref_range_male;

@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { SyncProvider } from './context/SyncContext';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
 import UpdateNotification from './components/UpdateNotification';
@@ -71,10 +72,12 @@ export default function App() {
     <HashRouter>
       <ThemeProvider>
         <AuthProvider>
-          <ToastProvider>
-            <AppRoutes />
-            <UpdateNotification />
-          </ToastProvider>
+          <SyncProvider>
+            <ToastProvider>
+              <AppRoutes />
+              <UpdateNotification />
+            </ToastProvider>
+          </SyncProvider>
         </AuthProvider>
       </ThemeProvider>
     </HashRouter>

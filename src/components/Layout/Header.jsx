@@ -1,11 +1,14 @@
-import { Menu, User, Sun, Moon } from 'lucide-react';
+import { Menu, User, Sun, Moon, Wifi, WifiOff, RefreshCw, Upload } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { getAssetUrl } from '../../utils/electron';
+import { useSync } from '../../context/SyncContext';
+import { getAssetUrl, isElectron } from '../../utils/electron';
 
 export default function Header({ onMenuToggle, sidebarCollapsed }) {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { online, syncing, pendingChanges, triggerSync } = useSync();
+  const showSyncIndicator = isElectron();
 
   return (
     <header className={`fixed top-0 right-0 h-16 bg-white border-b border-gray-200 z-30 flex items-center justify-between px-4 sm:px-6 lg:px-8 shadow-sm transition-all duration-300 dark:bg-gray-800 dark:border-gray-700 ${sidebarCollapsed ? 'lg:left-16' : 'lg:left-64'} left-0 lg:left-16`}>
@@ -26,6 +29,30 @@ export default function Header({ onMenuToggle, sidebarCollapsed }) {
 
       {/* Right section */}
       <div className="flex items-center gap-2 sm:gap-4">
+        {/* Online/Offline indicator + Sync status (Electron only) */}
+        {showSyncIndicator && (
+          <div className="flex items-center gap-2">
+            {pendingChanges > 0 && (
+              <span className="hidden sm:flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded-full" title={`${pendingChanges} pending changes to sync`}>
+                <Upload className="w-3.5 h-3.5" />
+                {pendingChanges} pending
+              </span>
+            )}
+            {syncing && <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />}
+            <button
+              onClick={() => { if (online) triggerSync(); }}
+              className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-full transition-colors ${
+                online
+                  ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50'
+                  : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700'
+              }`}
+              title={online ? (syncing ? 'Syncing...' : 'Online — click to sync') : 'Offline — changes will sync when online'}
+            >
+              {online ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{online ? (syncing ? 'Syncing' : 'Online') : 'Offline'}</span>
+            </button>
+          </div>
+        )}
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}

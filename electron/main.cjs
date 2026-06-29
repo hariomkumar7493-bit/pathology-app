@@ -201,16 +201,20 @@ function sendToRenderer(channel, data) {
   // ===== SYNC ENGINE =====
   let syncTimer = null;
   let lastSyncResult = null;
+  let currentOnlineStatus = null;
+  let isSyncing = false;
 
   async function doSync() {
     const token = getStoredToken();
-    if (!token) { sendToRenderer('sync:status-change', { syncing: false, error: 'No token' }); return; }
-    sendToRenderer('sync:status-change', { syncing: true });
+    if (!token) { sendToRenderer('sync:status-change', { syncing: false, error: 'No token', online: currentOnlineStatus }); return; }
+    isSyncing = true;
+    sendToRenderer('sync:status-change', { syncing: true, online: currentOnlineStatus });
     log('INFO', 'Sync started');
     const result = await sync(token);
     lastSyncResult = result;
+    isSyncing = false;
     log('INFO', 'Sync result', result);
-    sendToRenderer('sync:status-change', { syncing: false, result });
+    sendToRenderer('sync:status-change', { syncing: false, result, online: currentOnlineStatus });
   }
 
   function getStoredToken() {
@@ -245,19 +249,40 @@ function sendToRenderer(channel, data) {
     return { lastSync: lastSyncResult, online: await isOnline() };
   });
 
-  // Auto-sync every 5 minutes when online
+  // Track online status and notify renderer
+  async function checkAndNotifyOnline() {
+    const online = await isOnline();
+    if (currentOnlineStatus !== online) {
+      currentOnlineStatus = online;
+      sendToRenderer('sync:status-change', { syncing: isSyncing, online });
+      // If we just came online, trigger sync immediately
+      if (online) {
+        log('INFO', 'Network came online, triggering immediate sync');
+        doSync();
+      }
+    }
+    return online;
+  }
+
+  // Check online status every 30 seconds (faster detection)
+  setInterval(async () => {
+    await checkAndNotifyOnline();
+  }, 30 * 1000);
+
+  // Auto-sync every 2 minutes when online
   syncTimer = setInterval(async () => {
     if (await isOnline()) {
       doSync();
     }
-  }, 5 * 60 * 1000);
+  }, 2 * 60 * 1000);
 
-  // Initial sync attempt after 15 seconds
+  // Initial online check + sync after 10 seconds
   setTimeout(async () => {
-    if (await isOnline()) {
+    const online = await checkAndNotifyOnline();
+    if (online) {
       doSync();
     }
-  }, 15000);
+  }, 10000);
 
   // ===== WINDOW CREATION =====
   function createWindow() {

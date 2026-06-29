@@ -139,4 +139,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('sync:status-change', h);
     },
   },
+
+  // ===== ONLINE STATUS =====
+  isOnline: () => ipcRenderer.invoke('sync:status'),
 });
