@@ -190,14 +190,22 @@ async function pushPendingToRemote(token) {
       const payload = { _id: p._id, name: p.name, age: p.age, gender: p.gender, phone: p.phone, email: p.email, address: p.address, referred_by: p.referred_by };
       const updateRes = await fetchJson(`${REMOTE_API}/patients/${p._id}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
       if (updateRes.status === 404) {
-        await fetchJson(`${REMOTE_API}/patients`, { method: 'POST', headers, body: JSON.stringify(payload) });
+        // New patient — create on remote, then reconcile IDs
+        const createRes = await fetchJson(`${REMOTE_API}/patients`, { method: 'POST', headers, body: JSON.stringify(payload) });
+        const serverId = createRes.data?._id ? String(createRes.data._id) : null;
+        if (serverId && serverId !== p._id) {
+          // Server assigned a different ID — update local to match so pull won't delete it
+          db.prepare('UPDATE patients SET _id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', p._id);
+          db.prepare('UPDATE reports SET patient_id = ? WHERE patient_id = ?').run(serverId, p._id);
+          pushed++; continue;
+        }
       }
       db.prepare("UPDATE patients SET sync_status = 'synced' WHERE _id = ?").run(p._id);
       pushed++;
     } catch { errors++; }
   }
 
-  // Push pending reports — POST new ones, PUT results for existing
+  // Push pending reports — POST new ones, PUT full data for existing
   const pendingReports = db.prepare("SELECT * FROM reports WHERE sync_status = 'pending'").all();
   for (const r of pendingReports) {
     try {
@@ -208,10 +216,15 @@ async function pushPendingToRemote(token) {
         status: r.status, date_of_collection: r.date_of_collection,
         tests: parseJson(r.tests) || [], results: parseJson(r.results) || [],
       };
-      // Try to update existing first, then create new
       const updateRes = await fetchJson(`${REMOTE_API}/reports/${r._id}`, { method: 'PUT', headers, body: JSON.stringify(reportData) });
       if (updateRes.status === 404) {
-        await fetchJson(`${REMOTE_API}/reports`, { method: 'POST', headers, body: JSON.stringify(reportData) });
+        // New report — create on remote, then reconcile IDs
+        const createRes = await fetchJson(`${REMOTE_API}/reports`, { method: 'POST', headers, body: JSON.stringify(reportData) });
+        const serverId = createRes.data?._id ? String(createRes.data._id) : null;
+        if (serverId && serverId !== r._id) {
+          db.prepare('UPDATE reports SET _id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', r._id);
+          pushed++; continue;
+        }
       }
       db.prepare("UPDATE reports SET sync_status = 'synced' WHERE _id = ?").run(r._id);
       pushed++;
