@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Phone, Mail, Calendar, X, TestTubes, Check, Minus, Trash2, Edit3, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Plus, Phone, Mail, Calendar, X, TestTubes, Check, Minus, Trash2, Edit3, ChevronDown, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
 
@@ -20,7 +20,21 @@ export default function Patients() {
   const [selectedGroups, setSelectedGroups] = useState({}); // { testId: ['group1', ...] }
   const [expandedTests, setExpandedTests] = useState({}); // { testId: true/false }
   const [saving, setSaving] = useState(false);
+  const [sortField, setSortField] = useState('created_at');
+  const [sortDir, setSortDir] = useState('desc');
   const { addToast } = useToast();
+
+  const handleSort = (field) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('asc'); }
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortField !== field) return <ArrowUpDown className="w-3.5 h-3.5 ml-1 opacity-30" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="w-3.5 h-3.5 ml-1 text-primary-600" />
+      : <ArrowDown className="w-3.5 h-3.5 ml-1 text-primary-600" />;
+  };
 
   useEffect(() => {
     loadData();
@@ -39,14 +53,22 @@ export default function Patients() {
     setLoading(false);
   }
 
-  const filteredPatients = useMemo(
-    () => patients.filter(
+  const filteredPatients = useMemo(() => {
+    const filtered = patients.filter(
       (p) =>
         p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.phone?.includes(searchTerm)
-    ),
-    [patients, searchTerm]
-  );
+    );
+    return [...filtered].sort((a, b) => {
+      let aVal = a[sortField] ?? '';
+      let bVal = b[sortField] ?? '';
+      if (sortField === 'age') { aVal = parseInt(aVal) || 0; bVal = parseInt(bVal) || 0; }
+      else { aVal = String(aVal).toLowerCase(); bVal = String(bVal).toLowerCase(); }
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [patients, searchTerm, sortField, sortDir]);
 
   // Get unique sub-groups for a test
   const getTestGroups = (test) => {
@@ -204,11 +226,19 @@ export default function Patients() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Patient</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <button onClick={() => handleSort('name')} className="flex items-center hover:text-gray-700 transition-colors">Patient <SortIcon field="name" /></button>
+                </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Contact</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Age/Gender</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Referred By</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Registered</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                  <button onClick={() => handleSort('age')} className="flex items-center hover:text-gray-700 transition-colors">Age/Gender <SortIcon field="age" /></button>
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                  <button onClick={() => handleSort('referred_by')} className="flex items-center hover:text-gray-700 transition-colors">Referred By <SortIcon field="referred_by" /></button>
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                  <button onClick={() => handleSort('created_at')} className="flex items-center hover:text-gray-700 transition-colors">Registered <SortIcon field="created_at" /></button>
+                </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>

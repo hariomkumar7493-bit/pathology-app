@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Printer, X, Save, Trash2, Edit3, Plus, TestTubes, Share2, Mail } from 'lucide-react';
+import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Printer, X, Save, Trash2, Edit3, Plus, TestTubes, Share2, Mail, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
@@ -29,7 +29,21 @@ export default function Reports() {
   const bulkPrintRef = useRef();
   const printRef = useRef();
   const pdfRef = useRef();
+  const [sortField, setSortField] = useState('date_of_collection');
+  const [sortDir, setSortDir] = useState('desc');
   const { addToast } = useToast();
+
+  const handleSort = (field) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('asc'); }
+  };
+
+  const SortIcon = ({ field }) => {
+    if (sortField !== field) return <ArrowUpDown className="w-3.5 h-3.5 ml-1 opacity-30" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="w-3.5 h-3.5 ml-1 text-primary-600" />
+      : <ArrowDown className="w-3.5 h-3.5 ml-1 text-primary-600" />;
+  };
 
   useEffect(() => {
     loadReports();
@@ -79,16 +93,24 @@ export default function Reports() {
     setLoading(false);
   }
 
-  const filteredReports = useMemo(
-    () => reports.filter((report) => {
+  const filteredReports = useMemo(() => {
+    const filtered = reports.filter((report) => {
       const matchesSearch = report.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            report.investigation?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            report.ref_no?.includes(searchTerm);
       const matchesStatus = statusFilter === 'All' || report.status === statusFilter;
       return matchesSearch && matchesStatus;
-    }),
-    [reports, searchTerm, statusFilter]
-  );
+    });
+    return [...filtered].sort((a, b) => {
+      let aVal = a[sortField] ?? '';
+      let bVal = b[sortField] ?? '';
+      if (sortField === 'ref_no') { aVal = parseInt(aVal) || 0; bVal = parseInt(bVal) || 0; }
+      else { aVal = String(aVal).toLowerCase(); bVal = String(bVal).toLowerCase(); }
+      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [reports, searchTerm, statusFilter, sortField, sortDir]);
 
   const handleViewReport = async (reportId) => {
     setViewLoading(true);
@@ -682,11 +704,19 @@ export default function Reports() {
                 <th className="px-4 py-4">
                   <input type="checkbox" className="w-4 h-4 rounded border-gray-300" checked={selectedIds.length === filteredReports.length && filteredReports.length > 0} onChange={toggleSelectAll} />
                 </th>
-                <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Ref No</th>
-                <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Patient</th>
+                <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <button onClick={() => handleSort('ref_no')} className="flex items-center hover:text-gray-700 transition-colors">Ref No <SortIcon field="ref_no" /></button>
+                </th>
+                <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                  <button onClick={() => handleSort('patient_name')} className="flex items-center hover:text-gray-700 transition-colors">Patient <SortIcon field="patient_name" /></button>
+                </th>
                 <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Investigation</th>
-                <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Date</th>
-                <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                  <button onClick={() => handleSort('date_of_collection')} className="flex items-center hover:text-gray-700 transition-colors">Date <SortIcon field="date_of_collection" /></button>
+                </th>
+                <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <button onClick={() => handleSort('status')} className="flex items-center hover:text-gray-700 transition-colors">Status <SortIcon field="status" /></button>
+                </th>
                 <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
