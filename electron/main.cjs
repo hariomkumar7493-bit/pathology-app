@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, shell, dialog, globalShortcut, crashReporte
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
+const { pathToFileURL } = require('url');
 const { registerIpcHandlers } = require('./ipc-handlers.cjs');
 const { sync, isOnline, pullAllFromRemote } = require('./sync.cjs');
 
@@ -289,7 +290,7 @@ function sendToRenderer(channel, data) {
   } else {
     // Check if local dist exists
     if (fs.existsSync(LOCAL_APP_PATH)) {
-      loadURL = `file://${LOCAL_APP_PATH.replace(/\\/g, '/')}`;
+      loadURL = pathToFileURL(LOCAL_APP_PATH).href;
       log('INFO', 'Loading local bundled app (offline mode)', { path: loadURL });
     } else {
       loadURL = PRODUCTION_URL;
@@ -303,7 +304,7 @@ function sendToRenderer(channel, data) {
     log('ERROR', 'Page failed to load', { errorCode, errorDescription, url: validatedURL });
     // If remote URL fails, try local file as fallback
     if (validatedURL.startsWith('http') && fs.existsSync(LOCAL_APP_PATH)) {
-      const localUrl = `file://${LOCAL_APP_PATH.replace(/\\/g, '/')}`;
+      const localUrl = pathToFileURL(LOCAL_APP_PATH).href;
       log('INFO', 'Falling back to local app', { path: localUrl });
       mainWindow.loadURL(localUrl);
       return;

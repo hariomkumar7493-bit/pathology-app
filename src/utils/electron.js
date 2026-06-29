@@ -14,8 +14,10 @@ export const isElectron = () => !!(window.electronAPI && window.electronAPI.isEl
 // Get the correct base URL for public assets (works with http://, https://, and file://)
 export const getAssetUrl = (fileName) => {
   if (isElectron()) {
-    // In Electron, the app is loaded from file:// and assets are in the same folder
-    return `./${fileName}`;
+    // Resolve relative to the document's directory (works for file:// and http://)
+    const href = window.location.href.split('#')[0];
+    const basePath = href.replace(/[^/]*$/, '');
+    return `${basePath}${fileName}`;
   }
   return `${window.location.origin}/${fileName}`;
 };
