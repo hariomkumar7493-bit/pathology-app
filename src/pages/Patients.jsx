@@ -20,6 +20,8 @@ export default function Patients() {
   const [selectedGroups, setSelectedGroups] = useState({}); // { testId: ['group1', ...] }
   const [expandedTests, setExpandedTests] = useState({}); // { testId: true/false }
   const [saving, setSaving] = useState(false);
+  const [expandedCategory, setExpandedCategory] = useState(null);
+  const [testSearch, setTestSearch] = useState('');
   const [sortField, setSortField] = useState('created_at');
   const [sortDir, setSortDir] = useState('desc');
   const [dateFrom, setDateFrom] = useState('');
@@ -196,6 +198,12 @@ export default function Patients() {
     const cat = test.category_name || 'Other';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(test);
+    return acc;
+  }, {});
+
+  const filteredTestsByCategory = Object.entries(testsByCategory).reduce((acc, [cat, catTests]) => {
+    const filtered = catTests.filter(t => t.name.toLowerCase().includes(testSearch.toLowerCase()));
+    if (filtered.length > 0) acc[cat] = filtered;
     return acc;
   }, {});
 
@@ -396,15 +404,35 @@ export default function Patients() {
 
               {/* Test Selection - Hierarchical Tree */}
               <div className="border-t border-gray-200 pt-4">
-                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-2">
                   <TestTubes className="w-4 h-4 text-primary-600" />
                   Select Tests to Perform ({selectedTests.length} selected)
                 </h3>
+                <div className="relative mb-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search tests..."
+                    className="input-field text-xs pl-8 py-1.5"
+                    value={testSearch}
+                    onChange={e => setTestSearch(e.target.value)}
+                  />
+                </div>
                 <div className="space-y-1 max-h-60 overflow-y-auto pr-2">
-                  {Object.entries(testsByCategory).map(([category, catTests]) => (
+                  {Object.entries(filteredTestsByCategory).map(([category, catTests]) => {
+                    const isCatOpen = testSearch ? true : expandedCategory === category;
+                    return (
                     <div key={category} className="mb-1">
-                      <p className="text-xs font-bold text-gray-700 uppercase py-1">{category}</p>
-                      {catTests.map(test => {
+                      <div
+                        className="flex items-center gap-1 cursor-pointer select-none py-1.5 hover:bg-gray-50 rounded px-1"
+                        onClick={() => setExpandedCategory(isCatOpen ? null : category)}
+                      >
+                        {isCatOpen
+                          ? <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                          : <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
+                        <p className="text-xs font-bold text-gray-700 uppercase">{category}</p>
+                      </div>
+                      {isCatOpen && catTests.map(test => {
                         const groups = getTestGroups(test);
                         const hasSubGroups = groups.length > 1;
                         const checkState = getTestCheckState(test._id);
@@ -455,7 +483,8 @@ export default function Patients() {
                         );
                       })}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
