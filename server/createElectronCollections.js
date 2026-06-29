@@ -1,10 +1,13 @@
-require('dotenv').config();
-const { connectDB, getDB } = require('./db');
+const { MongoClient } = require('mongodb');
+
+const MONGODB_URI = 'mongodb+srv://admin:admin8118@pathlabpro.sij25zs.mongodb.net/PathoLabDB?appName=PathLabPro';
 
 async function createElectronCollections() {
+  const client = new MongoClient(MONGODB_URI);
   try {
-    await connectDB();
-    const db = getDB().db;
+    await client.connect();
+    console.log('Connected to MongoDB Atlas');
+    const db = client.db('PathoLabDB');
 
     const collections = [
       'electron_patients',
@@ -27,7 +30,7 @@ async function createElectronCollections() {
       }
     }
 
-    // Create indexes for better query performance
+    // Create indexes
     await db.collection('electron_patients').createIndex({ created_at: -1 });
     await db.collection('electron_patients').createIndex({ name: 1 });
     await db.collection('electron_patients').createIndex({ phone: 1 });
@@ -40,10 +43,18 @@ async function createElectronCollections() {
     await db.collection('electron_users').createIndex({ phone: 1 });
 
     console.log('\nAll electron_* collections created with indexes.');
-    process.exit(0);
+
+    // List all collections to verify
+    const allCollections = await db.listCollections().toArray();
+    const electronCols = allCollections.filter(c => c.name.startsWith('electron_'));
+    console.log('\nElectron collections in database:');
+    electronCols.forEach(c => console.log(`  - ${c.name}`));
+
   } catch (err) {
     console.error('Error:', err.message);
-    process.exit(1);
+  } finally {
+    await client.close();
+    process.exit(0);
   }
 }
 

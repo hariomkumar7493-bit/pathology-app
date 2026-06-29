@@ -239,8 +239,8 @@ async function pushPendingToRemote(token) {
       if (res.status === 200) {
         db.prepare('UPDATE test_categories SET remote_id = ?, sync_status = ? WHERE _id = ?').run(c._id, 'synced', c._id);
         pushed++;
-      } else { errors++; }
-    } catch { errors++; }
+      } else { console.error('[sync] Category PUT failed:', res.status, JSON.stringify(res.data)); errors++; }
+    } catch (err) { console.error('[sync] Category push error:', err.message); errors++; }
   }
 
   // Push pending tests — PUT upsert
@@ -256,8 +256,8 @@ async function pushPendingToRemote(token) {
       if (res.status === 200) {
         db.prepare('UPDATE tests SET remote_id = ?, sync_status = ? WHERE _id = ?').run(t._id, 'synced', t._id);
         pushed++;
-      } else { errors++; }
-    } catch { errors++; }
+      } else { console.error('[sync] Test PUT failed:', res.status, JSON.stringify(res.data)); errors++; }
+    } catch (err) { console.error('[sync] Test push error:', err.message); errors++; }
   }
 
   // Push pending users — PUT upsert
@@ -269,8 +269,8 @@ async function pushPendingToRemote(token) {
       if (res.status === 200) {
         db.prepare('UPDATE users SET remote_id = ?, sync_status = ? WHERE _id = ?').run(u._id, 'synced', u._id);
         pushed++;
-      } else { errors++; }
-    } catch { errors++; }
+      } else { console.error('[sync] User PUT failed:', res.status, JSON.stringify(res.data)); errors++; }
+    } catch (err) { console.error('[sync] User push error:', err.message); errors++; }
   }
 
   return { pushed, errors };
