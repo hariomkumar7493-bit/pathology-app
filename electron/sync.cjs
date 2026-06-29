@@ -41,85 +41,121 @@ async function isOnline() {
   }
 }
 
-// Pull remote data and smart-merge with local (non-destructive — respects pending/deleted local rows)
+// Pull remote data and merge using remote_id matching (local _id never changes)
 async function pullAllFromRemote(token) {
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
   const db = getDb();
 
   try {
-    // Pull patients — safe merge (never delete local — re-mark unmatched as pending to retry push)
+    // Pull patients — match by remote_id, never delete local
     const patientsRes = await fetchJson(`${REMOTE_API}/patients`, { headers });
     if (patientsRes.status === 200 && Array.isArray(patientsRes.data)) {
-      const remoteIds = new Set(patientsRes.data.map(p => String(p._id)));
-      // If a locally-synced patient is missing from remote, it may be an ID mismatch (not a real deletion)
-      // Re-mark as pending so it gets re-pushed with ID reconciliation on next sync
-      const localSynced = db.prepare("SELECT _id FROM patients WHERE sync_status = 'synced'").all();
+      const remoteIdSet = new Set();
+      for (const p of patientsRes.data) {
+        const rid = String(p._id);
+        remoteIdSet.add(rid);
+        const local = db.prepare('SELECT _id, sync_status FROM patients WHERE remote_id = ?').get(rid);
+        if (local && (local.sync_status === 'pending' || local.sync_status === 'deleted')) continue;
+        if (local) {
+          // Update existing row — keep local _id, update data
+          db.prepare('UPDATE patients SET name = ?, age = ?, gender = ?, phone = ?, email = ?, address = ?, referred_by = ?, created_at = ?, sync_status = ? WHERE _id = ?')
+            .run(p.name || '', String(p.age || ''), p.gender || '', p.phone || '', p.email || '', p.address || '', p.referred_by || 'SELF', p.created_at || new Date().toISOString(), 'synced', local._id);
+        } else {
+          // New from server — insert with local _id = server _id (they match for server-originated data)
+          db.prepare('INSERT OR REPLACE INTO patients (_id, remote_id, name, age, gender, phone, email, address, referred_by, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(rid, rid, p.name || '', String(p.age || ''), p.gender || '', p.phone || '', p.email || '', p.address || '', p.referred_by || 'SELF', p.created_at || new Date().toISOString(), 'synced');
+        }
+      }
+      // Re-mark synced locals not found on remote as pending (will re-push, not delete)
+      const localSynced = db.prepare("SELECT _id, remote_id FROM patients WHERE sync_status = 'synced'").all();
       for (const local of localSynced) {
-        if (!remoteIds.has(local._id)) {
+        const matchId = local.remote_id || local._id;
+        if (!remoteIdSet.has(matchId)) {
           db.prepare("UPDATE patients SET sync_status = 'pending' WHERE _id = ?").run(local._id);
         }
       }
-      // Upsert remote rows — skip rows that are locally pending or deleted
-      const upsert = db.prepare(`INSERT OR REPLACE INTO patients (_id, name, age, gender, phone, email, address, referred_by, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`);
-      for (const p of patientsRes.data) {
-        const localRow = db.prepare('SELECT sync_status FROM patients WHERE _id = ?').get(String(p._id));
-        if (localRow && (localRow.sync_status === 'pending' || localRow.sync_status === 'deleted')) continue;
-        upsert.run(String(p._id), p.name || '', String(p.age || ''), p.gender || '', p.phone || '', p.email || '', p.address || '', p.referred_by || 'SELF', p.created_at || new Date().toISOString());
-      }
     }
 
-    // Pull categories — smart merge (preserve pending offline-created categories)
+    // Pull categories — match by remote_id
     const catRes = await fetchJson(`${REMOTE_API}/tests/categories`, { headers });
     if (catRes.status === 200 && Array.isArray(catRes.data)) {
-      const remoteCatIds = new Set(catRes.data.map(c => String(c._id)));
-      // Delete locally-synced categories that were removed on remote
-      const localSyncedCats = db.prepare("SELECT _id FROM test_categories WHERE sync_status = 'synced'").all();
-      for (const local of localSyncedCats) {
-        if (!remoteCatIds.has(local._id)) db.prepare('DELETE FROM test_categories WHERE _id = ?').run(local._id);
-      }
-      const upsert = db.prepare(`INSERT OR REPLACE INTO test_categories (_id, name, description, created_at, sync_status) VALUES (?, ?, ?, ?, 'synced')`);
+      const remoteCatIds = new Set();
       for (const c of catRes.data) {
-        const localRow = db.prepare('SELECT sync_status FROM test_categories WHERE _id = ?').get(String(c._id));
-        if (localRow && localRow.sync_status === 'pending') continue; // preserve offline changes
-        upsert.run(String(c._id), c.name || '', c.description || '', c.created_at || new Date().toISOString());
+        const rid = String(c._id);
+        remoteCatIds.add(rid);
+        const local = db.prepare('SELECT _id, sync_status FROM test_categories WHERE remote_id = ?').get(rid);
+        if (local && local.sync_status === 'pending') continue;
+        if (local) {
+          db.prepare('UPDATE test_categories SET name = ?, description = ?, created_at = ?, sync_status = ? WHERE _id = ?')
+            .run(c.name || '', c.description || '', c.created_at || new Date().toISOString(), 'synced', local._id);
+        } else {
+          db.prepare('INSERT OR REPLACE INTO test_categories (_id, remote_id, name, description, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?)')
+            .run(rid, rid, c.name || '', c.description || '', c.created_at || new Date().toISOString(), 'synced');
+        }
+      }
+      const localSyncedCats = db.prepare("SELECT _id, remote_id FROM test_categories WHERE sync_status = 'synced'").all();
+      for (const local of localSyncedCats) {
+        const matchId = local.remote_id || local._id;
+        if (!remoteCatIds.has(matchId)) {
+          db.prepare("UPDATE test_categories SET sync_status = 'pending' WHERE _id = ?").run(local._id);
+        }
       }
     }
 
-    // Pull tests — smart merge
+    // Pull tests — match by remote_id
     const testsRes = await fetchJson(`${REMOTE_API}/tests`, { headers });
     if (testsRes.status === 200 && Array.isArray(testsRes.data)) {
-      const remoteIds = new Set(testsRes.data.map(t => String(t._id)));
-      const localSynced = db.prepare("SELECT _id FROM tests WHERE sync_status = 'synced'").all();
-      for (const local of localSynced) {
-        if (!remoteIds.has(local._id)) db.prepare('DELETE FROM tests WHERE _id = ?').run(local._id);
-      }
-      const upsert = db.prepare(`INSERT OR REPLACE INTO tests (_id, name, category_id, category_name, specimen, price, parameters, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'synced')`);
+      const remoteTestIds = new Set();
       for (const t of testsRes.data) {
-        const localRow = db.prepare('SELECT sync_status FROM tests WHERE _id = ?').get(String(t._id));
-        if (localRow && localRow.sync_status === 'pending') continue;
-        upsert.run(String(t._id), t.name || '', t.category_id ? String(t.category_id) : null, t.category_name || null, t.specimen || '', String(t.price || ''), stringifyJson(t.parameters || []), t.created_at || new Date().toISOString());
+        const rid = String(t._id);
+        remoteTestIds.add(rid);
+        const local = db.prepare('SELECT _id, sync_status FROM tests WHERE remote_id = ?').get(rid);
+        if (local && local.sync_status === 'pending') continue;
+        if (local) {
+          db.prepare('UPDATE tests SET name = ?, category_id = ?, category_name = ?, specimen = ?, price = ?, parameters = ?, created_at = ?, sync_status = ? WHERE _id = ?')
+            .run(t.name || '', t.category_id ? String(t.category_id) : null, t.category_name || null, t.specimen || '', String(t.price || ''), stringifyJson(t.parameters || []), t.created_at || new Date().toISOString(), 'synced', local._id);
+        } else {
+          db.prepare('INSERT OR REPLACE INTO tests (_id, remote_id, name, category_id, category_name, specimen, price, parameters, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(rid, rid, t.name || '', t.category_id ? String(t.category_id) : null, t.category_name || null, t.specimen || '', String(t.price || ''), stringifyJson(t.parameters || []), t.created_at || new Date().toISOString(), 'synced');
+        }
+      }
+      const localSyncedTests = db.prepare("SELECT _id, remote_id FROM tests WHERE sync_status = 'synced'").all();
+      for (const local of localSyncedTests) {
+        const matchId = local.remote_id || local._id;
+        if (!remoteTestIds.has(matchId)) {
+          db.prepare("UPDATE tests SET sync_status = 'pending' WHERE _id = ?").run(local._id);
+        }
       }
     }
 
-    // Pull reports — safe merge (re-mark unmatched as pending, never delete)
+    // Pull reports — match by remote_id, preserve local patient data
     const reportsRes = await fetchJson(`${REMOTE_API}/reports`, { headers });
     if (reportsRes.status === 200 && Array.isArray(reportsRes.data)) {
-      const remoteIds = new Set(reportsRes.data.map(r => String(r._id)));
-      const localSynced = db.prepare("SELECT _id FROM reports WHERE sync_status = 'synced'").all();
-      for (const local of localSynced) {
-        if (!remoteIds.has(local._id)) db.prepare("UPDATE reports SET sync_status = 'pending' WHERE _id = ?").run(local._id);
-      }
-      // Upsert remote rows — skip pending/deleted local rows
-      const upsert = db.prepare(`INSERT OR REPLACE INTO reports (_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`);
+      const remoteReportIds = new Set();
       for (const r of reportsRes.data) {
-        const localRow = db.prepare('SELECT sync_status FROM reports WHERE _id = ?').get(String(r._id));
-        if (localRow && (localRow.sync_status === 'pending' || localRow.sync_status === 'deleted')) continue;
-        upsert.run(
-          String(r._id), r.patient_id ? String(r.patient_id) : null, r.patient_name || '', String(r.age || ''), r.gender || '', r.referred_by || 'SELF',
-          r.ref_no || '', r.specimen || 'BLOOD', r.investigation || '', r.doctor_name || '', r.doctor_designation || '',
-          r.status || 'Completed', r.date_of_collection || new Date().toISOString(), r.date_of_reporting || new Date().toISOString(), r.created_at || new Date().toISOString(),
-          stringifyJson(r.tests || []), stringifyJson(r.results || [])
-        );
+        const rid = String(r._id);
+        remoteReportIds.add(rid);
+        const local = db.prepare('SELECT _id, sync_status, patient_name, age, gender, patient_id FROM reports WHERE remote_id = ?').get(rid);
+        if (local && (local.sync_status === 'pending' || local.sync_status === 'deleted')) continue;
+        // Preserve local patient data if server doesn't return it
+        const patientName = r.patient_name || (local && local.patient_name) || '';
+        const patientAge = r.age != null ? String(r.age) : (local && local.age) || '';
+        const patientGender = r.gender || (local && local.gender) || '';
+        const patientId = r.patient_id ? String(r.patient_id) : (local && local.patient_id) || null;
+        if (local) {
+          db.prepare('UPDATE reports SET patient_id = ?, patient_name = ?, age = ?, gender = ?, referred_by = ?, ref_no = ?, specimen = ?, investigation = ?, doctor_name = ?, doctor_designation = ?, status = ?, date_of_collection = ?, date_of_reporting = ?, created_at = ?, tests = ?, results = ?, sync_status = ? WHERE _id = ?')
+            .run(patientId, patientName, patientAge, patientGender, r.referred_by || 'SELF', r.ref_no || '', r.specimen || 'BLOOD', r.investigation || '', r.doctor_name || '', r.doctor_designation || '', r.status || 'Completed', r.date_of_collection || new Date().toISOString(), r.date_of_reporting || new Date().toISOString(), r.created_at || new Date().toISOString(), stringifyJson(r.tests || []), stringifyJson(r.results || []), 'synced', local._id);
+        } else {
+          db.prepare('INSERT OR REPLACE INTO reports (_id, remote_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(rid, rid, patientId, patientName, patientAge, patientGender, r.referred_by || 'SELF', r.ref_no || '', r.specimen || 'BLOOD', r.investigation || '', r.doctor_name || '', r.doctor_designation || '', r.status || 'Completed', r.date_of_collection || new Date().toISOString(), r.date_of_reporting || new Date().toISOString(), r.created_at || new Date().toISOString(), stringifyJson(r.tests || []), stringifyJson(r.results || []), 'synced');
+        }
+      }
+      const localSyncedReports = db.prepare("SELECT _id, remote_id FROM reports WHERE sync_status = 'synced'").all();
+      for (const local of localSyncedReports) {
+        const matchId = local.remote_id || local._id;
+        if (!remoteReportIds.has(matchId)) {
+          db.prepare("UPDATE reports SET sync_status = 'pending' WHERE _id = ?").run(local._id);
+        }
       }
     }
 
@@ -133,14 +169,19 @@ async function pullAllFromRemote(token) {
       db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run('referring_doctors', stringifyJson(docsRes.data.doctors || ['SELF']), new Date().toISOString());
     }
 
-    // Pull users (for offline login)
+    // Pull users — match by remote_id
     const usersRes = await fetchJson(`${REMOTE_API}/auth/users`, { headers });
     if (usersRes.status === 200 && Array.isArray(usersRes.data)) {
-      const upsert = db.prepare(`INSERT OR REPLACE INTO users (_id, name, phone, role, password, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, 'synced')`);
       for (const u of usersRes.data) {
-        // Note: remote users don't return password, so preserve existing password if present
-        const existing = db.prepare('SELECT password FROM users WHERE _id = ?').get(String(u._id));
-        upsert.run(String(u._id), u.name || '', u.phone || '', u.role || 'staff', existing?.password || '', u.created_at || new Date().toISOString());
+        const rid = String(u._id);
+        const local = db.prepare('SELECT _id, password FROM users WHERE remote_id = ?').get(rid);
+        if (local) {
+          db.prepare('UPDATE users SET name = ?, phone = ?, role = ?, created_at = ?, sync_status = ? WHERE _id = ?')
+            .run(u.name || '', u.phone || '', u.role || 'staff', u.created_at || new Date().toISOString(), 'synced', local._id);
+        } else {
+          db.prepare('INSERT OR REPLACE INTO users (_id, remote_id, name, phone, role, password, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(rid, rid, u.name || '', u.phone || '', u.role || 'staff', '', u.created_at || new Date().toISOString(), 'synced');
+        }
       }
     }
 
@@ -157,11 +198,12 @@ async function pushPendingToRemote(token) {
   let pushed = 0;
   let errors = 0;
 
-  // Push deleted patients (tombstones) first
-  const deletedPatients = db.prepare("SELECT _id FROM patients WHERE sync_status = 'deleted'").all();
+  // Push deleted patients (tombstones) — use remote_id for URL
+  const deletedPatients = db.prepare("SELECT _id, remote_id FROM patients WHERE sync_status = 'deleted'").all();
   for (const p of deletedPatients) {
     try {
-      const res = await fetchJson(`${REMOTE_API}/patients/${p._id}`, { method: 'DELETE', headers });
+      const urlId = p.remote_id || p._id;
+      const res = await fetchJson(`${REMOTE_API}/patients/${urlId}`, { method: 'DELETE', headers });
       if (res.status === 200 || res.status === 204 || res.status === 404) {
         db.prepare('DELETE FROM patients WHERE _id = ?').run(p._id);
         pushed++;
@@ -169,11 +211,12 @@ async function pushPendingToRemote(token) {
     } catch { errors++; }
   }
 
-  // Push deleted reports (tombstones)
-  const deletedReports = db.prepare("SELECT _id FROM reports WHERE sync_status = 'deleted'").all();
+  // Push deleted reports (tombstones) — use remote_id for URL
+  const deletedReports = db.prepare("SELECT _id, remote_id FROM reports WHERE sync_status = 'deleted'").all();
   for (const r of deletedReports) {
     try {
-      const res = await fetchJson(`${REMOTE_API}/reports/${r._id}`, { method: 'DELETE', headers });
+      const urlId = r.remote_id || r._id;
+      const res = await fetchJson(`${REMOTE_API}/reports/${urlId}`, { method: 'DELETE', headers });
       if (res.status === 200 || res.status === 204 || res.status === 404) {
         db.prepare('DELETE FROM reports WHERE _id = ?').run(r._id);
         pushed++;
@@ -181,20 +224,19 @@ async function pushPendingToRemote(token) {
     } catch { errors++; }
   }
 
-  // Push pending patients
+  // Push pending patients — use remote_id for PUT URL, store server _id in remote_id after POST
   const pendingPatients = db.prepare("SELECT * FROM patients WHERE sync_status = 'pending'").all();
   for (const p of pendingPatients) {
     try {
       const payload = { _id: p._id, name: p.name, age: p.age, gender: p.gender, phone: p.phone, email: p.email, address: p.address, referred_by: p.referred_by };
-      const updateRes = await fetchJson(`${REMOTE_API}/patients/${p._id}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
+      const urlId = p.remote_id || p._id;
+      const updateRes = await fetchJson(`${REMOTE_API}/patients/${urlId}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
       if (updateRes.status === 404) {
-        // New patient — create on remote, then reconcile IDs
+        // New patient — POST to server, store server _id in remote_id (keep local _id unchanged)
         const createRes = await fetchJson(`${REMOTE_API}/patients`, { method: 'POST', headers, body: JSON.stringify(payload) });
         const serverId = createRes.data?._id ? String(createRes.data._id) : null;
-        if (serverId && serverId !== p._id) {
-          // Server assigned a different ID — update local to match so pull won't delete it
-          db.prepare('UPDATE patients SET _id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', p._id);
-          db.prepare('UPDATE reports SET patient_id = ? WHERE patient_id = ?').run(serverId, p._id);
+        if (serverId) {
+          db.prepare('UPDATE patients SET remote_id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', p._id);
           pushed++; continue;
         }
       }
@@ -203,7 +245,7 @@ async function pushPendingToRemote(token) {
     } catch { errors++; }
   }
 
-  // Push pending reports — POST new ones, PUT full data for existing
+  // Push pending reports — use remote_id for PUT URL, store server _id in remote_id after POST
   const pendingReports = db.prepare("SELECT * FROM reports WHERE sync_status = 'pending'").all();
   for (const r of pendingReports) {
     try {
@@ -214,13 +256,13 @@ async function pushPendingToRemote(token) {
         status: r.status, date_of_collection: r.date_of_collection,
         tests: parseJson(r.tests) || [], results: parseJson(r.results) || [],
       };
-      const updateRes = await fetchJson(`${REMOTE_API}/reports/${r._id}`, { method: 'PUT', headers, body: JSON.stringify(reportData) });
+      const urlId = r.remote_id || r._id;
+      const updateRes = await fetchJson(`${REMOTE_API}/reports/${urlId}`, { method: 'PUT', headers, body: JSON.stringify(reportData) });
       if (updateRes.status === 404) {
-        // New report — create on remote, then reconcile IDs
         const createRes = await fetchJson(`${REMOTE_API}/reports`, { method: 'POST', headers, body: JSON.stringify(reportData) });
         const serverId = createRes.data?._id ? String(createRes.data._id) : null;
-        if (serverId && serverId !== r._id) {
-          db.prepare('UPDATE reports SET _id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', r._id);
+        if (serverId) {
+          db.prepare('UPDATE reports SET remote_id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', r._id);
           pushed++; continue;
         }
       }
@@ -229,18 +271,18 @@ async function pushPendingToRemote(token) {
     } catch { errors++; }
   }
 
-  // Push pending test categories
+  // Push pending test categories — use remote_id for PUT URL
   const pendingCats = db.prepare("SELECT * FROM test_categories WHERE sync_status = 'pending'").all();
   for (const c of pendingCats) {
     try {
       const payload = { _id: c._id, name: c.name, description: c.description || '' };
-      const updateRes = await fetchJson(`${REMOTE_API}/tests/categories/${c._id}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
+      const urlId = c.remote_id || c._id;
+      const updateRes = await fetchJson(`${REMOTE_API}/tests/categories/${urlId}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
       if (updateRes.status === 404) {
         const createRes = await fetchJson(`${REMOTE_API}/tests/categories`, { method: 'POST', headers, body: JSON.stringify(payload) });
         const serverId = createRes.data?._id ? String(createRes.data._id) : null;
-        if (serverId && serverId !== c._id) {
-          db.prepare('UPDATE test_categories SET _id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', c._id);
-          db.prepare('UPDATE tests SET category_id = ? WHERE category_id = ?').run(serverId, c._id);
+        if (serverId) {
+          db.prepare('UPDATE test_categories SET remote_id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', c._id);
           pushed++; continue;
         }
       }
@@ -249,18 +291,19 @@ async function pushPendingToRemote(token) {
     } catch { errors++; }
   }
 
-  // Push pending tests
+  // Push pending tests — use remote_id for PUT URL
   const pendingTests = db.prepare("SELECT * FROM tests WHERE sync_status = 'pending'").all();
   for (const t of pendingTests) {
     try {
       const payload = { _id: t._id, name: t.name, category_id: t.category_id, category_name: t.category_name, specimen: t.specimen, price: t.price, parameters: parseJson(t.parameters) || [] };
       const body = JSON.stringify(payload);
-      const updateRes = await fetchJson(`${REMOTE_API}/tests/${t._id}`, { method: 'PUT', headers, body });
+      const urlId = t.remote_id || t._id;
+      const updateRes = await fetchJson(`${REMOTE_API}/tests/${urlId}`, { method: 'PUT', headers, body });
       if (updateRes.status === 404) {
         const createRes = await fetchJson(`${REMOTE_API}/tests`, { method: 'POST', headers, body });
         const serverId = createRes.data?._id ? String(createRes.data._id) : null;
-        if (serverId && serverId !== t._id) {
-          db.prepare('UPDATE tests SET _id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', t._id);
+        if (serverId) {
+          db.prepare('UPDATE tests SET remote_id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', t._id);
           pushed++; continue;
         }
       }
@@ -269,18 +312,19 @@ async function pushPendingToRemote(token) {
     } catch { errors++; }
   }
 
-  // Push pending users
+  // Push pending users — use remote_id for PUT URL
   const pendingUsers = db.prepare("SELECT * FROM users WHERE sync_status = 'pending'").all();
   for (const u of pendingUsers) {
     try {
       const payload = { _id: u._id, name: u.name, phone: u.phone, role: u.role, password: u.password };
       const body = JSON.stringify(payload);
-      const updateRes = await fetchJson(`${REMOTE_API}/auth/users/${u._id}`, { method: 'PUT', headers, body });
+      const urlId = u.remote_id || u._id;
+      const updateRes = await fetchJson(`${REMOTE_API}/auth/users/${urlId}`, { method: 'PUT', headers, body });
       if (updateRes.status === 404) {
         const createRes = await fetchJson(`${REMOTE_API}/auth/users`, { method: 'POST', headers, body });
         const serverId = createRes.data?._id ? String(createRes.data._id) : null;
-        if (serverId && serverId !== u._id) {
-          db.prepare('UPDATE users SET _id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', u._id);
+        if (serverId) {
+          db.prepare('UPDATE users SET remote_id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', u._id);
           pushed++; continue;
         }
       }

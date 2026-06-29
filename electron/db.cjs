@@ -106,6 +106,30 @@ function initSchema(d) {
     CREATE INDEX IF NOT EXISTS idx_reports_patient_id ON reports(patient_id);
     CREATE INDEX IF NOT EXISTS idx_sync_queue_collection ON sync_queue(collection);
   `);
+
+  // Migration: add remote_id column to all tables (stores MongoDB _id from server)
+  // local _id stays as primary key and never changes; remote_id is used for sync matching
+  const tables = ['patients', 'reports', 'tests', 'test_categories', 'users'];
+  for (const table of tables) {
+    try {
+      d.exec(`ALTER TABLE ${table} ADD COLUMN remote_id TEXT`);
+    } catch (e) {
+      // Column already exists — ignore
+    }
+  }
+  // Index remote_id for fast lookups during pull
+  for (const table of tables) {
+    try {
+      d.exec(`CREATE INDEX IF NOT EXISTS idx_${table}_remote_id ON ${table}(remote_id)`);
+    } catch (e) { /* ignore */ }
+  }
+
+  // Backfill: for existing synced rows, set remote_id = _id (they were synced with server IDs)
+  for (const table of tables) {
+    try {
+      d.exec(`UPDATE ${table} SET remote_id = _id WHERE remote_id IS NULL AND sync_status = 'synced'`);
+    } catch (e) { /* ignore */ }
+  }
 }
 
 // Generate a unique ID (compatible with MongoDB ObjectId format)

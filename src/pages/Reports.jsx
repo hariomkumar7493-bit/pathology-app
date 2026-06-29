@@ -564,12 +564,12 @@ export default function Reports() {
   const handleSaveResults = async () => {
     setSaving(true);
     try {
-      const resultsArr = Object.entries(editResults).map(([id, val]) => ({
-        id: parseInt(id),
-        result_value: val.result_value,
-        is_abnormal: val.is_abnormal,
+      const fullResults = (viewReport.results || []).map((r, idx) => ({
+        ...r,
+        result_value: editResults[idx]?.result_value ?? r.result_value ?? '',
+        is_abnormal: editResults[idx]?.is_abnormal ?? r.is_abnormal ?? false,
       }));
-      await api.updateReportResults(viewReport._id, { results: resultsArr, status: 'Completed' });
+      await api.updateReportResults(viewReport._id, { results: fullResults, status: 'Completed' });
       // Refresh report
       const updated = await api.getReport(viewReport._id);
       setViewReport(updated);
