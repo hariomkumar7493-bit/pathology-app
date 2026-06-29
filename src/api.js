@@ -74,12 +74,7 @@ async function request(url, options = {}) {
   return res.json();
 }
 
-// In Electron mode, trigger sync after mutations
-function maybeSync() {
-  if (isElectron && window.electronAPI.sync && getToken()) {
-    window.electronAPI.sync.now(getToken()).catch(() => {});
-  }
-}
+// Sync runs automatically every 2 min and immediately on reconnect — no per-mutation sync needed
 
 export const api = {
   // Auth
@@ -88,9 +83,6 @@ export const api = {
       const response = await window.electronAPI.db.login({ phone, password });
       if (response.token) {
         setToken(response.token);
-        if (window.electronAPI.sync) {
-          window.electronAPI.sync.now(response.token).catch(() => {});
-        }
       }
       return response;
     }
@@ -107,9 +99,9 @@ export const api = {
 
   // Staff Management (admin-only)
   getUsers: () => isElectron ? window.electronAPI.db.getUsers() : request('/auth/users'),
-  createUser: (data) => isElectron ? window.electronAPI.db.createUser(data).then(r => { maybeSync(); return r; }) : request('/auth/users', { method: 'POST', body: JSON.stringify(data) }),
-  updateUser: (id, data) => isElectron ? window.electronAPI.db.updateUser({ id, ...data }).then(r => { maybeSync(); return r; }) : request(`/auth/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteUser: (id) => isElectron ? window.electronAPI.db.deleteUser({ id }).then(r => { maybeSync(); return r; }) : request(`/auth/users/${id}`, { method: 'DELETE' }),
+  createUser: (data) => isElectron ? window.electronAPI.db.createUser(data) : request('/auth/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (id, data) => isElectron ? window.electronAPI.db.updateUser({ id, ...data }) : request(`/auth/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteUser: (id) => isElectron ? window.electronAPI.db.deleteUser({ id }) : request(`/auth/users/${id}`, { method: 'DELETE' }),
 
   // Dashboard
   getDashboard: () => isElectron ? window.electronAPI.db.getDashboard() : request('/dashboard'),
@@ -117,9 +109,9 @@ export const api = {
   // Patients
   getPatients: () => isElectron ? window.electronAPI.db.getPatients() : request('/patients'),
   getPatient: (id) => isElectron ? window.electronAPI.db.getPatient(id) : request(`/patients/${id}`),
-  createPatient: (data) => isElectron ? window.electronAPI.db.createPatient(data).then(r => { maybeSync(); return r; }) : request('/patients', { method: 'POST', body: JSON.stringify(data) }),
-  updatePatient: (id, data) => isElectron ? window.electronAPI.db.updatePatient(id, data).then(r => { maybeSync(); return r; }) : request(`/patients/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deletePatient: (id) => isElectron ? window.electronAPI.db.deletePatient(id).then(r => { maybeSync(); return r; }) : request(`/patients/${id}`, { method: 'DELETE' }),
+  createPatient: (data) => isElectron ? window.electronAPI.db.createPatient(data) : request('/patients', { method: 'POST', body: JSON.stringify(data) }),
+  updatePatient: (id, data) => isElectron ? window.electronAPI.db.updatePatient(id, data) : request(`/patients/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePatient: (id) => isElectron ? window.electronAPI.db.deletePatient(id) : request(`/patients/${id}`, { method: 'DELETE' }),
   searchPatients: (term) => isElectron ? window.electronAPI.db.searchPatients(term) : request(`/patients/search/${encodeURIComponent(term)}`),
 
   // Tests
@@ -127,29 +119,29 @@ export const api = {
   getCategories: () => isElectron ? window.electronAPI.db.getCategories() : request('/tests/categories'),
   getTestParameters: (id) => isElectron ? window.electronAPI.db.getTestParameters(id) : request(`/tests/${id}/parameters`),
   getBulkParameters: (testIds) => isElectron ? window.electronAPI.db.getBulkParameters(testIds) : request('/tests/parameters/bulk', { method: 'POST', body: JSON.stringify({ testIds }) }),
-  createTest: (data) => isElectron ? window.electronAPI.db.createTest(data).then(r => { maybeSync(); return r; }) : request('/tests', { method: 'POST', body: JSON.stringify(data) }),
-  updateTest: (id, data) => isElectron ? window.electronAPI.db.updateTest(id, data).then(r => { maybeSync(); return r; }) : request(`/tests/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteTest: (id) => isElectron ? window.electronAPI.db.deleteTest(id).then(r => { maybeSync(); return r; }) : request(`/tests/${id}`, { method: 'DELETE' }),
-  createCategory: (data) => isElectron ? window.electronAPI.db.createCategory(data).then(r => { maybeSync(); return r; }) : request('/tests/categories', { method: 'POST', body: JSON.stringify(data) }),
-  updateCategory: (id, data) => isElectron ? window.electronAPI.db.updateCategory(id, data).then(r => { maybeSync(); return r; }) : request(`/tests/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteCategory: (id) => isElectron ? window.electronAPI.db.deleteCategory(id).then(r => { maybeSync(); return r; }) : request(`/tests/categories/${id}`, { method: 'DELETE' }),
+  createTest: (data) => isElectron ? window.electronAPI.db.createTest(data) : request('/tests', { method: 'POST', body: JSON.stringify(data) }),
+  updateTest: (id, data) => isElectron ? window.electronAPI.db.updateTest(id, data) : request(`/tests/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteTest: (id) => isElectron ? window.electronAPI.db.deleteTest(id) : request(`/tests/${id}`, { method: 'DELETE' }),
+  createCategory: (data) => isElectron ? window.electronAPI.db.createCategory(data) : request('/tests/categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateCategory: (id, data) => isElectron ? window.electronAPI.db.updateCategory(id, data) : request(`/tests/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCategory: (id) => isElectron ? window.electronAPI.db.deleteCategory(id) : request(`/tests/categories/${id}`, { method: 'DELETE' }),
 
   // Reports
   getReports: () => isElectron ? window.electronAPI.db.getReports() : request('/reports'),
   getReport: (id) => isElectron ? window.electronAPI.db.getReport(id) : request(`/reports/${id}`),
-  createReport: (data) => isElectron ? window.electronAPI.db.createReport(data).then(r => { maybeSync(); return r; }) : request('/reports', { method: 'POST', body: JSON.stringify(data) }),
-  updateReportResults: (id, data) => isElectron ? window.electronAPI.db.updateReportResults(id, data).then(r => { maybeSync(); return r; }) : request(`/reports/${id}/results`, { method: 'PUT', body: JSON.stringify(data) }),
-  createQuickReport: (data) => isElectron ? window.electronAPI.db.createQuickReport(data).then(r => { maybeSync(); return r; }) : request('/reports/quick', { method: 'POST', body: JSON.stringify(data) }),
-  deleteReport: (id) => isElectron ? window.electronAPI.db.deleteReport(id).then(r => { maybeSync(); return r; }) : request(`/reports/${id}`, { method: 'DELETE' }),
-  addTestToReport: (reportId, testId) => isElectron ? window.electronAPI.db.addTestToReport(reportId, testId).then(r => { maybeSync(); return r; }) : request(`/reports/${reportId}/tests`, { method: 'POST', body: JSON.stringify({ test_id: testId }) }),
-  removeTestFromReport: (reportId, testId) => isElectron ? window.electronAPI.db.removeTestFromReport(reportId, testId).then(r => { maybeSync(); return r; }) : request(`/reports/${reportId}/tests/${testId}`, { method: 'DELETE' }),
+  createReport: (data) => isElectron ? window.electronAPI.db.createReport(data) : request('/reports', { method: 'POST', body: JSON.stringify(data) }),
+  updateReportResults: (id, data) => isElectron ? window.electronAPI.db.updateReportResults(id, data) : request(`/reports/${id}/results`, { method: 'PUT', body: JSON.stringify(data) }),
+  createQuickReport: (data) => isElectron ? window.electronAPI.db.createQuickReport(data) : request('/reports/quick', { method: 'POST', body: JSON.stringify(data) }),
+  deleteReport: (id) => isElectron ? window.electronAPI.db.deleteReport(id) : request(`/reports/${id}`, { method: 'DELETE' }),
+  addTestToReport: (reportId, testId) => isElectron ? window.electronAPI.db.addTestToReport(reportId, testId) : request(`/reports/${reportId}/tests`, { method: 'POST', body: JSON.stringify({ test_id: testId }) }),
+  removeTestFromReport: (reportId, testId) => isElectron ? window.electronAPI.db.removeTestFromReport(reportId, testId) : request(`/reports/${reportId}/tests/${testId}`, { method: 'DELETE' }),
 
   // Report Layout Settings
   getReportLayout: () => isElectron ? window.electronAPI.db.getReportLayout() : request('/settings/report-layout'),
-  updateReportLayout: (data) => isElectron ? window.electronAPI.db.updateReportLayout(data).then(r => { maybeSync(); return r; }) : request('/settings/report-layout', { method: 'PUT', body: JSON.stringify(data) }),
-  resetReportLayout: () => isElectron ? window.electronAPI.db.resetReportLayout().then(r => { maybeSync(); return r; }) : request('/settings/report-layout/reset', { method: 'POST' }),
+  updateReportLayout: (data) => isElectron ? window.electronAPI.db.updateReportLayout(data) : request('/settings/report-layout', { method: 'PUT', body: JSON.stringify(data) }),
+  resetReportLayout: () => isElectron ? window.electronAPI.db.resetReportLayout() : request('/settings/report-layout/reset', { method: 'POST' }),
 
   // Referring Doctors
   getReferringDoctors: () => isElectron ? window.electronAPI.db.getReferringDoctors() : request('/settings/referring-doctors'),
-  updateReferringDoctors: (doctors) => isElectron ? window.electronAPI.db.updateReferringDoctors(doctors).then(r => { maybeSync(); return r; }) : request('/settings/referring-doctors', { method: 'PUT', body: JSON.stringify({ doctors }) }),
+  updateReferringDoctors: (doctors) => isElectron ? window.electronAPI.db.updateReferringDoctors(doctors) : request('/settings/referring-doctors', { method: 'PUT', body: JSON.stringify({ doctors }) }),
 };

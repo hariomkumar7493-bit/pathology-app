@@ -113,29 +113,29 @@ function registerIpcHandlers(log) {
   // ===== DASHBOARD =====
   ipcMain.handle('db:getDashboard', async () => {
     const db = getDb();
-    const totalPatients = db.prepare('SELECT COUNT(*) as c FROM patients').get().c;
-    const totalReports = db.prepare('SELECT COUNT(*) as c FROM reports').get().c;
+    const totalPatients = db.prepare("SELECT COUNT(*) as c FROM patients WHERE sync_status != 'deleted'").get().c;
+    const totalReports = db.prepare("SELECT COUNT(*) as c FROM reports WHERE sync_status != 'deleted'").get().c;
     const totalTests = db.prepare('SELECT COUNT(*) as c FROM tests').get().c;
     const today = new Date().toISOString().split('T')[0];
-    const todayReports = db.prepare("SELECT COUNT(*) as c FROM reports WHERE date_of_reporting LIKE ?").get(today + '%').c;
+    const todayReports = db.prepare("SELECT COUNT(*) as c FROM reports WHERE date_of_reporting LIKE ? AND sync_status != 'deleted'").get(today + '%').c;
     return {
       totalPatients,
       totalReports,
       totalTests,
       todayReports,
-      recentReports: db.prepare('SELECT * FROM reports ORDER BY created_at DESC LIMIT 5').all().map(r => ({ ...r, tests: parseJson(r.tests), results: parseJson(r.results) })),
+      recentReports: db.prepare("SELECT * FROM reports WHERE sync_status != 'deleted' ORDER BY created_at DESC LIMIT 5").all().map(r => ({ ...r, tests: parseJson(r.tests), results: parseJson(r.results) })),
     };
   });
 
   // ===== PATIENTS =====
   ipcMain.handle('db:getPatients', async () => {
     const db = getDb();
-    return db.prepare('SELECT * FROM patients ORDER BY created_at DESC').all();
+    return db.prepare("SELECT * FROM patients WHERE sync_status != 'deleted' ORDER BY created_at DESC").all();
   });
 
   ipcMain.handle('db:getPatient', async (event, { id }) => {
     const db = getDb();
-    return db.prepare('SELECT * FROM patients WHERE _id = ?').get(id);
+    return db.prepare("SELECT * FROM patients WHERE _id = ? AND sync_status != 'deleted'").get(id);
   });
 
   ipcMain.handle('db:createPatient', async (event, data) => {
@@ -158,14 +158,16 @@ function registerIpcHandlers(log) {
 
   ipcMain.handle('db:deletePatient', async (event, { id }) => {
     const db = getDb();
-    db.prepare('DELETE FROM patients WHERE _id = ?').run(id);
+    db.prepare("UPDATE patients SET sync_status = 'deleted' WHERE _id = ?").run(id);
+    db.prepare("UPDATE reports SET sync_status = 'deleted' WHERE patient_id = ? AND sync_status != 'pending'").run(id);
+    db.prepare("DELETE FROM reports WHERE patient_id = ? AND sync_status = 'pending'").run(id);
     return { success: true };
   });
 
   ipcMain.handle('db:searchPatients', async (event, { term }) => {
     const db = getDb();
     const like = `%${term}%`;
-    return db.prepare('SELECT * FROM patients WHERE name LIKE ? OR phone LIKE ? ORDER BY created_at DESC LIMIT 20').all(like, like);
+    return db.prepare("SELECT * FROM patients WHERE (name LIKE ? OR phone LIKE ?) AND sync_status != 'deleted' ORDER BY created_at DESC LIMIT 20").all(like, like);
   });
 
   // ===== TESTS =====
@@ -277,13 +279,13 @@ function registerIpcHandlers(log) {
   // ===== REPORTS =====
   ipcMain.handle('db:getReports', async () => {
     const db = getDb();
-    const reports = db.prepare('SELECT * FROM reports ORDER BY created_at DESC').all();
+    const reports = db.prepare("SELECT * FROM reports WHERE sync_status != 'deleted' ORDER BY created_at DESC").all();
     return reports.map(r => ({ ...r, tests: parseJson(r.tests), results: parseJson(r.results) }));
   });
 
   ipcMain.handle('db:getReport', async (event, { id }) => {
     const db = getDb();
-    const r = db.prepare('SELECT * FROM reports WHERE _id = ?').get(id);
+    const r = db.prepare("SELECT * FROM reports WHERE _id = ? AND sync_status != 'deleted'").get(id);
     if (!r) return null;
     return { ...r, tests: parseJson(r.tests), results: parseJson(r.results) };
   });
@@ -417,7 +419,7 @@ function registerIpcHandlers(log) {
 
   ipcMain.handle('db:deleteReport', async (event, { id }) => {
     const db = getDb();
-    db.prepare('DELETE FROM reports WHERE _id = ?').run(id);
+    db.prepare("UPDATE reports SET sync_status = 'deleted' WHERE _id = ?").run(id);
     return { success: true };
   });
 
@@ -490,8 +492,8 @@ function registerIpcHandlers(log) {
   // ===== SYNC STATUS =====
   ipcMain.handle('db:getSyncStatus', async () => {
     const db = getDb();
-    const pending = db.prepare("SELECT COUNT(*) as c FROM patients WHERE sync_status = 'pending'").get().c;
-    const pendingReports = db.prepare("SELECT COUNT(*) as c FROM reports WHERE sync_status = 'pending'").get().c;
+    const pending = db.prepare("SELECT COUNT(*) as c FROM patients WHERE sync_status IN ('pending', 'deleted')").get().c;
+    const pendingReports = db.prepare("SELECT COUNT(*) as c FROM reports WHERE sync_status IN ('pending', 'deleted')").get().c;
     const pendingTests = db.prepare("SELECT COUNT(*) as c FROM tests WHERE sync_status = 'pending'").get().c;
     return { pendingChanges: pending + pendingReports + pendingTests };
   });
