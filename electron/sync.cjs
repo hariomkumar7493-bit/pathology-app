@@ -41,55 +41,103 @@ async function isOnline() {
   }
 }
 
-// Pull remote data and merge using remote_id matching (local _id never changes)
+// Helper: find a local row by matching local_id, remote_id, or _id (in that order)
+// Returns the local _id if found, null otherwise
+function findLocalRow(db, table, remoteDoc) {
+  const rid = String(remoteDoc._id);
+  const lid = remoteDoc.local_id ? String(remoteDoc.local_id) : null;
+  // 1. Match by local_id field (sent in push payload, stored by MongoDB)
+  if (lid) {
+    const row = db.prepare(`SELECT _id FROM ${table} WHERE _id = ?`).get(lid);
+    if (row) return row;
+  }
+  // 2. Match by remote_id column (set after previous successful push)
+  const row = db.prepare(`SELECT _id FROM ${table} WHERE remote_id = ?`).get(rid);
+  if (row) return row;
+  // 3. Match by _id = server _id (backwards compat for server-originated data)
+  const row3 = db.prepare(`SELECT _id FROM ${table} WHERE _id = ?`).get(rid);
+  if (row3) return row3;
+  return null;
+}
+
+// Helper: resolve a foreign key (patient_id) from server data to local _id
+// Server may store either local_id or MongoDB _id as patient_id
+function resolvePatientId(db, serverPatientId) {
+  if (!serverPatientId) return null;
+  const pid = String(serverPatientId);
+  // 1. Direct match on local _id
+  const p1 = db.prepare('SELECT _id FROM patients WHERE _id = ?').get(pid);
+  if (p1) return p1._id;
+  // 2. Match on remote_id
+  const p2 = db.prepare('SELECT _id FROM patients WHERE remote_id = ?').get(pid);
+  if (p2) return p2._id;
+  // 3. Not found — return as-is (patient may not be synced yet)
+  return pid;
+}
+
+// Helper: resolve a foreign key (category_id) from server data to local _id
+function resolveCategoryId(db, serverCatId) {
+  if (!serverCatId) return null;
+  const cid = String(serverCatId);
+  // 1. Direct match on local _id
+  const c1 = db.prepare('SELECT _id FROM test_categories WHERE _id = ?').get(cid);
+  if (c1) return c1._id;
+  // 2. Match on remote_id
+  const c2 = db.prepare('SELECT _id FROM test_categories WHERE remote_id = ?').get(cid);
+  if (c2) return c2._id;
+  // 3. Not found — return as-is
+  return cid;
+}
+
+// Pull remote data and merge using local_id matching (full-proof, no duplicates)
 async function pullAllFromRemote(token) {
   const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
   const db = getDb();
 
   try {
-    // Pull patients — match by remote_id, never delete local
+    // Pull patients — match by local_id first, then remote_id, then _id
     const patientsRes = await fetchJson(`${REMOTE_API}/patients`, { headers });
     if (patientsRes.status === 200 && Array.isArray(patientsRes.data)) {
       const remoteIdSet = new Set();
       for (const p of patientsRes.data) {
         const rid = String(p._id);
         remoteIdSet.add(rid);
-        const local = db.prepare('SELECT _id, sync_status FROM patients WHERE remote_id = ?').get(rid);
-        if (local && (local.sync_status === 'pending' || local.sync_status === 'deleted')) continue;
+        const local = findLocalRow(db, 'patients', p);
         if (local) {
-          // Update existing row — keep local _id, update data
-          db.prepare('UPDATE patients SET name = ?, age = ?, gender = ?, phone = ?, email = ?, address = ?, referred_by = ?, created_at = ?, sync_status = ? WHERE _id = ?')
-            .run(p.name || '', String(p.age || ''), p.gender || '', p.phone || '', p.email || '', p.address || '', p.referred_by || 'SELF', p.created_at || new Date().toISOString(), 'synced', local._id);
+          // Check sync_status — skip if pending or deleted (local changes take priority)
+          const row = db.prepare('SELECT sync_status FROM patients WHERE _id = ?').get(local._id);
+          if (row && (row.sync_status === 'pending' || row.sync_status === 'deleted')) continue;
+          // Update existing row — keep local _id, set remote_id, update data
+          db.prepare('UPDATE patients SET remote_id = ?, name = ?, age = ?, gender = ?, phone = ?, email = ?, address = ?, referred_by = ?, created_at = ?, sync_status = ? WHERE _id = ?')
+            .run(rid, p.name || '', String(p.age || ''), p.gender || '', p.phone || '', p.email || '', p.address || '', p.referred_by || 'SELF', p.created_at || new Date().toISOString(), 'synced', local._id);
         } else {
-          // New from server — insert with local _id = server _id (they match for server-originated data)
+          // New from server (created from other source like web) — insert with _id = server _id
           db.prepare('INSERT OR REPLACE INTO patients (_id, remote_id, name, age, gender, phone, email, address, referred_by, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
             .run(rid, rid, p.name || '', String(p.age || ''), p.gender || '', p.phone || '', p.email || '', p.address || '', p.referred_by || 'SELF', p.created_at || new Date().toISOString(), 'synced');
         }
       }
-      // Re-mark synced locals not found on remote as pending — but only if they have no remote_id (never pushed)
-      // If they have a remote_id but server doesn't return them, keep as synced (data is safe locally)
+      // Re-mark synced locals not found on remote as pending — only if no remote_id (never pushed)
       const localSynced = db.prepare("SELECT _id, remote_id FROM patients WHERE sync_status = 'synced'").all();
       for (const local of localSynced) {
         if (!local.remote_id) {
-          // Never pushed — mark pending so it gets pushed
           db.prepare("UPDATE patients SET sync_status = 'pending' WHERE _id = ?").run(local._id);
         }
-        // If remote_id exists but not in remoteIdSet, server just didn't return it — keep local data as synced
       }
     }
 
-    // Pull categories — match by remote_id
+    // Pull categories — match by local_id first, then remote_id, then _id
     const catRes = await fetchJson(`${REMOTE_API}/tests/categories`, { headers });
     if (catRes.status === 200 && Array.isArray(catRes.data)) {
       const remoteCatIds = new Set();
       for (const c of catRes.data) {
         const rid = String(c._id);
         remoteCatIds.add(rid);
-        const local = db.prepare('SELECT _id, sync_status FROM test_categories WHERE remote_id = ?').get(rid);
-        if (local && local.sync_status === 'pending') continue;
+        const local = findLocalRow(db, 'test_categories', c);
         if (local) {
-          db.prepare('UPDATE test_categories SET name = ?, description = ?, created_at = ?, sync_status = ? WHERE _id = ?')
-            .run(c.name || '', c.description || '', c.created_at || new Date().toISOString(), 'synced', local._id);
+          const row = db.prepare('SELECT sync_status FROM test_categories WHERE _id = ?').get(local._id);
+          if (row && row.sync_status === 'pending') continue;
+          db.prepare('UPDATE test_categories SET remote_id = ?, name = ?, description = ?, created_at = ?, sync_status = ? WHERE _id = ?')
+            .run(rid, c.name || '', c.description || '', c.created_at || new Date().toISOString(), 'synced', local._id);
         } else {
           db.prepare('INSERT OR REPLACE INTO test_categories (_id, remote_id, name, description, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?)')
             .run(rid, rid, c.name || '', c.description || '', c.created_at || new Date().toISOString(), 'synced');
@@ -97,66 +145,68 @@ async function pullAllFromRemote(token) {
       }
       const localSyncedCats = db.prepare("SELECT _id, remote_id FROM test_categories WHERE sync_status = 'synced'").all();
       for (const local of localSyncedCats) {
-        const matchId = local.remote_id || local._id;
-        if (!remoteCatIds.has(matchId)) {
-          db.prepare("UPDATE test_categories SET sync_status = 'pending' WHERE _id = ?").run(local._id);
-        }
+        if (!local.remote_id) db.prepare("UPDATE test_categories SET sync_status = 'pending' WHERE _id = ?").run(local._id);
       }
     }
 
-    // Pull tests — match by remote_id
+    // Pull tests — match by local_id first, then remote_id, then _id
     const testsRes = await fetchJson(`${REMOTE_API}/tests`, { headers });
     if (testsRes.status === 200 && Array.isArray(testsRes.data)) {
       const remoteTestIds = new Set();
       for (const t of testsRes.data) {
         const rid = String(t._id);
         remoteTestIds.add(rid);
-        const local = db.prepare('SELECT _id, sync_status FROM tests WHERE remote_id = ?').get(rid);
-        if (local && local.sync_status === 'pending') continue;
+        const local = findLocalRow(db, 'tests', t);
         if (local) {
-          db.prepare('UPDATE tests SET name = ?, category_id = ?, category_name = ?, specimen = ?, price = ?, parameters = ?, created_at = ?, sync_status = ? WHERE _id = ?')
-            .run(t.name || '', t.category_id ? String(t.category_id) : null, t.category_name || null, t.specimen || '', String(t.price || ''), stringifyJson(t.parameters || []), t.created_at || new Date().toISOString(), 'synced', local._id);
+          const row = db.prepare('SELECT sync_status FROM tests WHERE _id = ?').get(local._id);
+          if (row && row.sync_status === 'pending') continue;
+          // Resolve category_id from server (could be local_id or MongoDB _id)
+          const catId = t.category_id ? resolveCategoryId(db, t.category_id) : null;
+          db.prepare('UPDATE tests SET remote_id = ?, name = ?, category_id = ?, category_name = ?, specimen = ?, price = ?, parameters = ?, created_at = ?, sync_status = ? WHERE _id = ?')
+            .run(rid, t.name || '', catId, t.category_name || null, t.specimen || '', String(t.price || ''), stringifyJson(t.parameters || []), t.created_at || new Date().toISOString(), 'synced', local._id);
         } else {
+          const catId = t.category_id ? resolveCategoryId(db, t.category_id) : null;
           db.prepare('INSERT OR REPLACE INTO tests (_id, remote_id, name, category_id, category_name, specimen, price, parameters, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-            .run(rid, rid, t.name || '', t.category_id ? String(t.category_id) : null, t.category_name || null, t.specimen || '', String(t.price || ''), stringifyJson(t.parameters || []), t.created_at || new Date().toISOString(), 'synced');
+            .run(rid, rid, t.name || '', catId, t.category_name || null, t.specimen || '', String(t.price || ''), stringifyJson(t.parameters || []), t.created_at || new Date().toISOString(), 'synced');
         }
       }
       const localSyncedTests = db.prepare("SELECT _id, remote_id FROM tests WHERE sync_status = 'synced'").all();
       for (const local of localSyncedTests) {
-        const matchId = local.remote_id || local._id;
-        if (!remoteTestIds.has(matchId)) {
-          db.prepare("UPDATE tests SET sync_status = 'pending' WHERE _id = ?").run(local._id);
-        }
+        if (!local.remote_id) db.prepare("UPDATE tests SET sync_status = 'pending' WHERE _id = ?").run(local._id);
       }
     }
 
-    // Pull reports — match by remote_id, preserve local patient data
+    // Pull reports — match by local_id first, then remote_id, then _id
+    // Resolve patient_id from server (could be local_id or MongoDB _id)
     const reportsRes = await fetchJson(`${REMOTE_API}/reports`, { headers });
     if (reportsRes.status === 200 && Array.isArray(reportsRes.data)) {
       const remoteReportIds = new Set();
       for (const r of reportsRes.data) {
         const rid = String(r._id);
         remoteReportIds.add(rid);
-        const local = db.prepare('SELECT _id, sync_status, patient_name, age, gender, patient_id FROM reports WHERE remote_id = ?').get(rid);
-        if (local && (local.sync_status === 'pending' || local.sync_status === 'deleted')) continue;
-        // Preserve local patient data if server doesn't return it
-        const patientName = r.patient_name || (local && local.patient_name) || '';
-        const patientAge = r.age != null ? String(r.age) : (local && local.age) || '';
-        const patientGender = r.gender || (local && local.gender) || '';
-        const patientId = r.patient_id ? String(r.patient_id) : (local && local.patient_id) || null;
+        const local = findLocalRow(db, 'reports', r);
         if (local) {
-          db.prepare('UPDATE reports SET patient_id = ?, patient_name = ?, age = ?, gender = ?, referred_by = ?, ref_no = ?, specimen = ?, investigation = ?, doctor_name = ?, doctor_designation = ?, status = ?, date_of_collection = ?, date_of_reporting = ?, created_at = ?, tests = ?, results = ?, sync_status = ? WHERE _id = ?')
-            .run(patientId, patientName, patientAge, patientGender, r.referred_by || 'SELF', r.ref_no || '', r.specimen || 'BLOOD', r.investigation || '', r.doctor_name || '', r.doctor_designation || '', r.status || 'Completed', r.date_of_collection || new Date().toISOString(), r.date_of_reporting || new Date().toISOString(), r.created_at || new Date().toISOString(), stringifyJson(r.tests || []), stringifyJson(r.results || []), 'synced', local._id);
+          const row = db.prepare('SELECT sync_status, patient_name, age, gender, patient_id FROM reports WHERE _id = ?').get(local._id);
+          if (row && (row.sync_status === 'pending' || row.sync_status === 'deleted')) continue;
+          // Resolve patient_id: server may store local_id or MongoDB _id
+          const resolvedPid = resolvePatientId(db, r.patient_id);
+          // Preserve local patient data if server doesn't return it
+          const patientName = r.patient_name || row.patient_name || '';
+          const patientAge = r.age != null ? String(r.age) : row.age || '';
+          const patientGender = r.gender || row.gender || '';
+          const patientId = resolvedPid || row.patient_id || null;
+          db.prepare('UPDATE reports SET remote_id = ?, patient_id = ?, patient_name = ?, age = ?, gender = ?, referred_by = ?, ref_no = ?, specimen = ?, investigation = ?, doctor_name = ?, doctor_designation = ?, status = ?, date_of_collection = ?, date_of_reporting = ?, created_at = ?, tests = ?, results = ?, sync_status = ? WHERE _id = ?')
+            .run(rid, patientId, patientName, patientAge, patientGender, r.referred_by || 'SELF', r.ref_no || '', r.specimen || 'BLOOD', r.investigation || '', r.doctor_name || '', r.doctor_designation || '', r.status || 'Completed', r.date_of_collection || new Date().toISOString(), r.date_of_reporting || new Date().toISOString(), r.created_at || new Date().toISOString(), stringifyJson(r.tests || []), stringifyJson(r.results || []), 'synced', local._id);
         } else {
+          // New from server — resolve patient_id
+          const resolvedPid = resolvePatientId(db, r.patient_id);
           db.prepare('INSERT OR REPLACE INTO reports (_id, remote_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-            .run(rid, rid, patientId, patientName, patientAge, patientGender, r.referred_by || 'SELF', r.ref_no || '', r.specimen || 'BLOOD', r.investigation || '', r.doctor_name || '', r.doctor_designation || '', r.status || 'Completed', r.date_of_collection || new Date().toISOString(), r.date_of_reporting || new Date().toISOString(), r.created_at || new Date().toISOString(), stringifyJson(r.tests || []), stringifyJson(r.results || []), 'synced');
+            .run(rid, rid, resolvedPid, r.patient_name || '', r.age != null ? String(r.age) : '', r.gender || '', r.referred_by || 'SELF', r.ref_no || '', r.specimen || 'BLOOD', r.investigation || '', r.doctor_name || '', r.doctor_designation || '', r.status || 'Completed', r.date_of_collection || new Date().toISOString(), r.date_of_reporting || new Date().toISOString(), r.created_at || new Date().toISOString(), stringifyJson(r.tests || []), stringifyJson(r.results || []), 'synced');
         }
       }
       const localSyncedReports = db.prepare("SELECT _id, remote_id FROM reports WHERE sync_status = 'synced'").all();
       for (const local of localSyncedReports) {
-        if (!local.remote_id) {
-          db.prepare("UPDATE reports SET sync_status = 'pending' WHERE _id = ?").run(local._id);
-        }
+        if (!local.remote_id) db.prepare("UPDATE reports SET sync_status = 'pending' WHERE _id = ?").run(local._id);
       }
     }
 
@@ -170,15 +220,16 @@ async function pullAllFromRemote(token) {
       db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run('referring_doctors', stringifyJson(docsRes.data.doctors || ['SELF']), new Date().toISOString());
     }
 
-    // Pull users — match by remote_id
+    // Pull users — match by local_id first, then remote_id, then _id
     const usersRes = await fetchJson(`${REMOTE_API}/auth/users`, { headers });
     if (usersRes.status === 200 && Array.isArray(usersRes.data)) {
       for (const u of usersRes.data) {
         const rid = String(u._id);
-        const local = db.prepare('SELECT _id, password FROM users WHERE remote_id = ?').get(rid);
+        const local = findLocalRow(db, 'users', u);
         if (local) {
-          db.prepare('UPDATE users SET name = ?, phone = ?, role = ?, created_at = ?, sync_status = ? WHERE _id = ?')
-            .run(u.name || '', u.phone || '', u.role || 'staff', u.created_at || new Date().toISOString(), 'synced', local._id);
+          const existing = db.prepare('SELECT password FROM users WHERE _id = ?').get(local._id);
+          db.prepare('UPDATE users SET remote_id = ?, name = ?, phone = ?, role = ?, created_at = ?, sync_status = ? WHERE _id = ?')
+            .run(rid, u.name || '', u.phone || '', u.role || 'staff', u.created_at || new Date().toISOString(), 'synced', local._id);
         } else {
           db.prepare('INSERT OR REPLACE INTO users (_id, remote_id, name, phone, role, password, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
             .run(rid, rid, u.name || '', u.phone || '', u.role || 'staff', '', u.created_at || new Date().toISOString(), 'synced');
@@ -229,7 +280,7 @@ async function pushPendingToRemote(token) {
   const pendingPatients = db.prepare("SELECT * FROM patients WHERE sync_status = 'pending'").all();
   for (const p of pendingPatients) {
     try {
-      const payload = { _id: p._id, name: p.name, age: p.age, gender: p.gender, phone: p.phone, email: p.email, address: p.address, referred_by: p.referred_by };
+      const payload = { _id: p._id, local_id: p._id, name: p.name, age: p.age, gender: p.gender, phone: p.phone, email: p.email, address: p.address, referred_by: p.referred_by };
       const urlId = p.remote_id || p._id;
       const updateRes = await fetchJson(`${REMOTE_API}/patients/${urlId}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
       if (updateRes.status === 404) {
@@ -259,7 +310,7 @@ async function pushPendingToRemote(token) {
   for (const r of pendingReports) {
     try {
       const reportData = {
-        _id: r._id, patient_id: r.patient_id, patient_name: r.patient_name, age: r.age, gender: r.gender,
+        _id: r._id, local_id: r._id, patient_id: r.patient_id, patient_name: r.patient_name, age: r.age, gender: r.gender,
         referred_by: r.referred_by, specimen: r.specimen, investigation: r.investigation,
         doctor_name: r.doctor_name, doctor_designation: r.doctor_designation,
         status: r.status, date_of_collection: r.date_of_collection,
@@ -289,7 +340,7 @@ async function pushPendingToRemote(token) {
   const pendingCats = db.prepare("SELECT * FROM test_categories WHERE sync_status = 'pending'").all();
   for (const c of pendingCats) {
     try {
-      const payload = { _id: c._id, name: c.name, description: c.description || '' };
+      const payload = { _id: c._id, local_id: c._id, name: c.name, description: c.description || '' };
       const urlId = c.remote_id || c._id;
       const updateRes = await fetchJson(`${REMOTE_API}/tests/categories/${urlId}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
       if (updateRes.status === 404) {
@@ -309,7 +360,7 @@ async function pushPendingToRemote(token) {
   const pendingTests = db.prepare("SELECT * FROM tests WHERE sync_status = 'pending'").all();
   for (const t of pendingTests) {
     try {
-      const payload = { _id: t._id, name: t.name, category_id: t.category_id, category_name: t.category_name, specimen: t.specimen, price: t.price, parameters: parseJson(t.parameters) || [] };
+      const payload = { _id: t._id, local_id: t._id, name: t.name, category_id: t.category_id, category_name: t.category_name, specimen: t.specimen, price: t.price, parameters: parseJson(t.parameters) || [] };
       const body = JSON.stringify(payload);
       const urlId = t.remote_id || t._id;
       const updateRes = await fetchJson(`${REMOTE_API}/tests/${urlId}`, { method: 'PUT', headers, body });
@@ -330,7 +381,7 @@ async function pushPendingToRemote(token) {
   const pendingUsers = db.prepare("SELECT * FROM users WHERE sync_status = 'pending'").all();
   for (const u of pendingUsers) {
     try {
-      const payload = { _id: u._id, name: u.name, phone: u.phone, role: u.role, password: u.password };
+      const payload = { _id: u._id, local_id: u._id, name: u.name, phone: u.phone, role: u.role, password: u.password };
       const body = JSON.stringify(payload);
       const urlId = u.remote_id || u._id;
       const updateRes = await fetchJson(`${REMOTE_API}/auth/users/${urlId}`, { method: 'PUT', headers, body });
