@@ -135,7 +135,7 @@ function registerIpcHandlers(log) {
 
   ipcMain.handle('db:getPatient', async (event, { id }) => {
     const db = getDb();
-    return db.prepare("SELECT * FROM patients WHERE _id = ? AND sync_status != 'deleted'").get(id);
+    return db.prepare("SELECT * FROM patients WHERE _id = ? AND sync_status != 'deleted'").get(id) || null;
   });
 
   ipcMain.handle('db:createPatient', async (event, data) => {
