@@ -7,14 +7,19 @@ router.get('/', async (req, res) => {
     const db = getDB();
     const patientsCollection = db.collection('patients');
     const reportsCollection = db.collection('reports');
+    const electronPatientsCollection = db.collection('electron_patients');
+    const electronReportsCollection = db.collection('electron_reports');
     const testsCollection = db.collection('tests');
     const categoriesCollection = db.collection('test_categories');
 
-    // Run independent counts in parallel
-    const [totalPatients, pendingReports, completedReports, todayTests, allTests, allCategories] = await Promise.all([
+    // Run independent counts in parallel (union web + electron)
+    const [webPatients, electronPatients, webPending, electronPending, webCompleted, electronCompleted, todayTests, allTests, allCategories] = await Promise.all([
       patientsCollection.countDocuments(),
+      electronPatientsCollection.countDocuments(),
       reportsCollection.countDocuments({ status: 'Pending' }),
+      electronReportsCollection.countDocuments({ status: 'Pending' }),
       reportsCollection.countDocuments({ status: 'Completed' }),
+      electronReportsCollection.countDocuments({ status: 'Completed' }),
       // Today's tests - check both Date and string formats
       (async () => {
         const today = new Date();
@@ -34,6 +39,9 @@ router.get('/', async (req, res) => {
       categoriesCollection.find({}).toArray(),
     ]);
 
+    const totalPatients = webPatients + electronPatients;
+    const pendingReports = webPending + electronPending;
+    const completedReports = webCompleted + electronCompleted;
     const totalReports = pendingReports + completedReports;
 
     // Build category lookup maps (in-memory, no extra queries)
@@ -77,13 +85,36 @@ router.get('/', async (req, res) => {
       { $unwind: { path: '$patient_info', preserveNullAndEmptyArrays: true } },
     ]).toArray();
 
-    const recentReportsFormatted = recentReportsAgg.map(r => ({
-      id: r._id,
-      patient_name: r.patient_info?.name || r.patient_name || 'Unknown',
-      investigation: r.investigation || '',
-      status: r.status,
-      ref_no: r.ref_no,
-    }));
+    // Also get recent electron reports
+    const recentElectronReports = await electronReportsCollection
+      .find({}, { sort: { created_at: -1 }, limit: 10 })
+      .toArray();
+
+    // Merge and sort by created_at, take top 10
+    const allRecent = [
+      ...recentReportsAgg.map(r => ({
+        id: r._id,
+        patient_name: r.patient_info?.name || r.patient_name || 'Unknown',
+        investigation: r.investigation || '',
+        status: r.status,
+        ref_no: r.ref_no,
+        created_at: r.created_at,
+      })),
+      ...recentElectronReports.map(r => ({
+        id: r._id,
+        patient_name: r.patient_name || 'Unknown',
+        investigation: r.investigation || '',
+        status: r.status,
+        ref_no: r.ref_no,
+        created_at: r.created_at,
+      })),
+    ].sort((a, b) => {
+      const aDate = new Date(a.created_at).getTime() || 0;
+      const bDate = new Date(b.created_at).getTime() || 0;
+      return bDate - aDate;
+    }).slice(0, 10);
+
+    const recentReportsFormatted = allRecent.map(({ created_at, ...rest }) => rest);
 
     res.json({
       totalPatients,
