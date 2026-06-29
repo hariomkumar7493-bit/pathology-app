@@ -113,17 +113,41 @@ function registerIpcHandlers(log) {
   // ===== DASHBOARD =====
   ipcMain.handle('db:getDashboard', async () => {
     const db = getDb();
-    const totalPatients = db.prepare("SELECT COUNT(*) as c FROM patients WHERE sync_status != 'deleted'").get().c;
-    const totalReports = db.prepare("SELECT COUNT(*) as c FROM reports WHERE sync_status != 'deleted'").get().c;
-    const totalTests = db.prepare('SELECT COUNT(*) as c FROM tests').get().c;
     const today = new Date().toISOString().split('T')[0];
-    const todayReports = db.prepare("SELECT COUNT(*) as c FROM reports WHERE date_of_reporting LIKE ? AND sync_status != 'deleted'").get(today + '%').c;
+
+    const totalPatients    = db.prepare("SELECT COUNT(*) as c FROM patients WHERE sync_status != 'deleted'").get().c;
+    const totalReports     = db.prepare("SELECT COUNT(*) as c FROM reports WHERE sync_status != 'deleted'").get().c;
+    const pendingReports   = db.prepare("SELECT COUNT(*) as c FROM reports WHERE status = 'Pending'   AND sync_status != 'deleted'").get().c;
+    const completedReports = db.prepare("SELECT COUNT(*) as c FROM reports WHERE status = 'Completed' AND sync_status != 'deleted'").get().c;
+    const todayTests       = db.prepare("SELECT COUNT(*) as c FROM reports WHERE date_of_collection LIKE ? AND sync_status != 'deleted'").get(today + '%').c;
+
+    // Category stats for pie chart — parse tests JSON in JS for reliability
+    const allReports = db.prepare("SELECT tests FROM reports WHERE sync_status != 'deleted'").all();
+    const catCounts = {};
+    for (const r of allReports) {
+      const tests = parseJson(r.tests) || [];
+      for (const t of tests) {
+        const cat = t.category_name || t.test_name || 'Other';
+        catCounts[cat] = (catCounts[cat] || 0) + 1;
+      }
+    }
+    const categoryStats = Object.entries(catCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    const recentReports = db.prepare("SELECT * FROM reports WHERE sync_status != 'deleted' ORDER BY created_at DESC LIMIT 5")
+      .all().map(r => ({ ...r, tests: parseJson(r.tests), results: parseJson(r.results) }));
+
     return {
       totalPatients,
       totalReports,
-      totalTests,
-      todayReports,
-      recentReports: db.prepare("SELECT * FROM reports WHERE sync_status != 'deleted' ORDER BY created_at DESC LIMIT 5").all().map(r => ({ ...r, tests: parseJson(r.tests), results: parseJson(r.results) })),
+      totalTests: totalReports,
+      todayTests,
+      pendingReports,
+      completedReports,
+      categoryStats,
+      recentReports,
     };
   });
 
