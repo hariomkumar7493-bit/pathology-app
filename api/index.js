@@ -59,6 +59,7 @@ app.use('/api/reports', require('../server/routes/reports'));
 app.use('/api/dashboard', require('../server/routes/dashboard'));
 app.use('/api/settings', require('../server/routes/settings'));
 app.use('/api/notifications', require('../server/routes/notifications'));
+app.use('/api/electron', require('../server/routes/electron-sync'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
