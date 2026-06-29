@@ -153,19 +153,26 @@ function setupAutoUpdater() {
   // ----- Event: Error -----
   autoUpdater.on('error', (err) => {
     updateRetryCount++;
-    log('ERROR', 'Auto-update error', {
-      message: err.message,
-      stack: err.stack,
+    const msg = err.message || '';
+    // Silently ignore transient network/404 errors (missing latest.yml, no internet, etc.)
+    const isSilent = msg.includes('404') || msg.includes('latest.yml') || msg.includes('net::') || msg.includes('ENOTFOUND') || msg.includes('ETIMEDOUT');
+    log(isSilent ? 'WARN' : 'ERROR', 'Auto-update error', {
+      message: msg,
       retryCount: updateRetryCount,
+      silent: isSilent,
     });
-    sendToRenderer('update:error', {
-      message: err.message,
-      retryCount: updateRetryCount,
-      willRetry: updateRetryCount < MAX_UPDATE_RETRIES,
-    });
-    sendToRenderer('update:status', `Update error: ${err.message}`);
 
-    // Retry with backoff if we haven't exceeded max retries
+    // Only notify renderer for real errors, not transient network issues
+    if (!isSilent) {
+      sendToRenderer('update:error', {
+        message: msg,
+        retryCount: updateRetryCount,
+        willRetry: updateRetryCount < MAX_UPDATE_RETRIES,
+      });
+      sendToRenderer('update:status', `Update check failed`);
+    }
+
+    // Retry with backoff regardless
     if (updateRetryCount < MAX_UPDATE_RETRIES) {
       const delay = RETRY_DELAY * updateRetryCount;
       log('INFO', `Will retry update check in ${delay / 1000}s`);
