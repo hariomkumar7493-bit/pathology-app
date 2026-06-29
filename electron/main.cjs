@@ -308,47 +308,57 @@ function sendToRenderer(channel, data) {
   });
 
   // Load the appropriate URL
-  // In production (packaged): try local file first, fall back to remote URL
+  // PRIORITY: local bundled dist > dev server > remote URL
   let loadURL;
   if (isDev) {
     loadURL = DEV_URL;
+    log('INFO', 'Dev mode: loading from Vite dev server', { url: loadURL });
+  } else if (fs.existsSync(LOCAL_APP_PATH)) {
+    loadURL = pathToFileURL(LOCAL_APP_PATH).href;
+    log('INFO', 'Loading local bundled app', { path: loadURL });
   } else {
-    // Check if local dist exists
-    if (fs.existsSync(LOCAL_APP_PATH)) {
-      loadURL = pathToFileURL(LOCAL_APP_PATH).href;
-      log('INFO', 'Loading local bundled app (offline mode)', { path: loadURL });
-    } else {
-      loadURL = PRODUCTION_URL;
-      log('INFO', 'Loading remote URL (local dist not found)', { url: loadURL });
-    }
+    loadURL = PRODUCTION_URL;
+    log('WARN', 'Local dist not found, loading remote URL', { url: loadURL });
   }
   mainWindow.loadURL(loadURL);
 
-  // Log page load errors (network issues on client machines)
+  // Log page load errors and attempt recovery
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
     log('ERROR', 'Page failed to load', { errorCode, errorDescription, url: validatedURL });
-    // If remote URL fails, try local file as fallback
-    if (validatedURL.startsWith('http') && fs.existsSync(LOCAL_APP_PATH)) {
+
+    // Always try local dist as fallback (works offline)
+    if (fs.existsSync(LOCAL_APP_PATH)) {
       const localUrl = pathToFileURL(LOCAL_APP_PATH).href;
-      log('INFO', 'Falling back to local app', { path: localUrl });
-      mainWindow.loadURL(localUrl);
+      if (validatedURL !== localUrl) {
+        log('INFO', 'Falling back to local bundled app', { path: localUrl });
+        mainWindow.loadURL(localUrl);
+        return;
+      }
+    }
+
+    // Last resort: try remote
+    if (validatedURL !== PRODUCTION_URL) {
+      log('INFO', 'Falling back to remote URL', { url: PRODUCTION_URL });
+      mainWindow.loadURL(PRODUCTION_URL);
       return;
     }
-    // Show a user-friendly error page
+
+    // Both failed — show helpful error page
+    const isDevMode = isDev;
     mainWindow.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
-      <html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;">
-        <div style="text-align:center;max-width:400px;">
-          <h2 style="color:#ef4444;">Connection Error</h2>
-          <p style="color:#64748b;">Could not connect to PathLab Pro server.</p>
-          <p style="color:#64748b;font-size:14px;">Error: ${errorDescription} (${errorCode})</p>
-          <p style="color:#94a3b8;font-size:13px;">Check your internet connection and try again.</p>
-          <button onclick="location.href='${loadURL}'" style="margin-top:16px;padding:10px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;">
-            Retry
-          </button>
-          <br/><br/>
-          <button onclick="location.href='mailto:support@pathlabpro.com?subject=Connection Error&body=Error: ${errorDescription} (${errorCode})'" style="padding:6px 16px;background:none;color:#3b82f6;border:1px solid #3b82f6;border-radius:6px;cursor:pointer;font-size:13px;">
-            Contact Support
-          </button>
+      <html><head><meta charset="utf-8"></head>
+      <body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;">
+        <div style="text-align:center;max-width:440px;padding:32px;background:white;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+          <div style="font-size:48px;margin-bottom:16px;">🔬</div>
+          <h2 style="color:#1e293b;margin:0 0 8px;">PathLab Pro</h2>
+          <p style="color:#64748b;margin:0 0 20px;">Could not load the application.</p>
+          ${isDevMode
+            ? '<p style="color:#f59e0b;font-size:13px;background:#fef3c7;padding:10px 14px;border-radius:8px;margin:0 0 20px;">Dev mode: run <b>npm run dev</b> first, then restart Electron.</p>'
+            : '<p style="color:#64748b;font-size:13px;margin:0 0 20px;">The app bundle may be missing. Please reinstall PathLab Pro.</p>'
+          }
+          <button onclick="location.reload()" style="padding:10px 24px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;margin-right:8px;">Retry</button>
+          <button onclick="location.href='${PRODUCTION_URL}'" style="padding:10px 24px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-size:15px;">Go Online</button>
+          <p style="color:#94a3b8;font-size:12px;margin-top:16px;">Error ${errorCode}: ${errorDescription}</p>
         </div>
       </body></html>
     `)}`);
