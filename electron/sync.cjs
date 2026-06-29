@@ -66,13 +66,15 @@ async function pullAllFromRemote(token) {
             .run(rid, rid, p.name || '', String(p.age || ''), p.gender || '', p.phone || '', p.email || '', p.address || '', p.referred_by || 'SELF', p.created_at || new Date().toISOString(), 'synced');
         }
       }
-      // Re-mark synced locals not found on remote as pending (will re-push, not delete)
+      // Re-mark synced locals not found on remote as pending — but only if they have no remote_id (never pushed)
+      // If they have a remote_id but server doesn't return them, keep as synced (data is safe locally)
       const localSynced = db.prepare("SELECT _id, remote_id FROM patients WHERE sync_status = 'synced'").all();
       for (const local of localSynced) {
-        const matchId = local.remote_id || local._id;
-        if (!remoteIdSet.has(matchId)) {
+        if (!local.remote_id) {
+          // Never pushed — mark pending so it gets pushed
           db.prepare("UPDATE patients SET sync_status = 'pending' WHERE _id = ?").run(local._id);
         }
+        // If remote_id exists but not in remoteIdSet, server just didn't return it — keep local data as synced
       }
     }
 
@@ -152,8 +154,7 @@ async function pullAllFromRemote(token) {
       }
       const localSyncedReports = db.prepare("SELECT _id, remote_id FROM reports WHERE sync_status = 'synced'").all();
       for (const local of localSyncedReports) {
-        const matchId = local.remote_id || local._id;
-        if (!remoteReportIds.has(matchId)) {
+        if (!local.remote_id) {
           db.prepare("UPDATE reports SET sync_status = 'pending' WHERE _id = ?").run(local._id);
         }
       }
@@ -234,15 +235,23 @@ async function pushPendingToRemote(token) {
       if (updateRes.status === 404) {
         // New patient — POST to server, store server _id in remote_id (keep local _id unchanged)
         const createRes = await fetchJson(`${REMOTE_API}/patients`, { method: 'POST', headers, body: JSON.stringify(payload) });
-        const serverId = createRes.data?._id ? String(createRes.data._id) : null;
+        // Handle different response formats: { data: { _id } }, { _id }, { data: "..." }
+        const serverId = createRes.data?._id ? String(createRes.data._id)
+          : createRes._id ? String(createRes._id)
+          : (typeof createRes.data === 'string' ? createRes.data : null);
         if (serverId) {
           db.prepare('UPDATE patients SET remote_id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', p._id);
           pushed++; continue;
+        } else {
+          console.error('[sync] Patient POST succeeded but no _id in response:', JSON.stringify(createRes));
+          // Don't mark as synced — keep pending so it retries and stays visible locally
+          continue;
         }
       }
+      // PUT succeeded (200) — mark as synced
       db.prepare("UPDATE patients SET sync_status = 'synced' WHERE _id = ?").run(p._id);
       pushed++;
-    } catch { errors++; }
+    } catch (err) { console.error('[sync] Patient push error:', err.message); errors++; }
   }
 
   // Push pending reports — use remote_id for PUT URL, store server _id in remote_id after POST
@@ -260,15 +269,20 @@ async function pushPendingToRemote(token) {
       const updateRes = await fetchJson(`${REMOTE_API}/reports/${urlId}`, { method: 'PUT', headers, body: JSON.stringify(reportData) });
       if (updateRes.status === 404) {
         const createRes = await fetchJson(`${REMOTE_API}/reports`, { method: 'POST', headers, body: JSON.stringify(reportData) });
-        const serverId = createRes.data?._id ? String(createRes.data._id) : null;
+        const serverId = createRes.data?._id ? String(createRes.data._id)
+          : createRes._id ? String(createRes._id)
+          : (typeof createRes.data === 'string' ? createRes.data : null);
         if (serverId) {
           db.prepare('UPDATE reports SET remote_id = ?, sync_status = ? WHERE _id = ?').run(serverId, 'synced', r._id);
           pushed++; continue;
+        } else {
+          console.error('[sync] Report POST succeeded but no _id in response:', JSON.stringify(createRes));
+          continue;
         }
       }
       db.prepare("UPDATE reports SET sync_status = 'synced' WHERE _id = ?").run(r._id);
       pushed++;
-    } catch { errors++; }
+    } catch (err) { console.error('[sync] Report push error:', err.message); errors++; }
   }
 
   // Push pending test categories — use remote_id for PUT URL
