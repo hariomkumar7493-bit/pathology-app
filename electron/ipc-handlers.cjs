@@ -1,4 +1,4 @@
-const { ipcMain, BrowserWindow } = require('electron');
+const { ipcMain } = require('electron');
 const { getDb, generateId, parseJson, stringifyJson } = require('./db.cjs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -320,7 +320,6 @@ function registerIpcHandlers(log) {
     const now = new Date().toISOString();
     const count = db.prepare('SELECT COUNT(*) as c FROM reports').get().c;
     const refNo = String(count + 1);
-    const sampleId = data.sample_id || String(count + 1).padStart(4, '0');
 
     // Resolve test_ids → investigation text + tests array + results with parameters
     let investigationText = data.investigation || '';
@@ -357,14 +356,14 @@ function registerIpcHandlers(log) {
     const settingsRow = db.prepare("SELECT value FROM settings WHERE key = 'report_layout'").get();
     const layout = settingsRow ? (typeof settingsRow.value === 'string' ? JSON.parse(settingsRow.value) : settingsRow.value) : {};
 
-    db.prepare(`INSERT INTO reports (_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status, sample_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    db.prepare(`INSERT INTO reports (_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       id, data.patient_id || null, data.patient_name || '', String(data.age || ''), data.gender || '', data.referred_by || 'SELF',
       refNo, data.specimen || 'BLOOD', investigationText,
       data.doctor_name || layout.doctorName || '', data.doctor_designation || layout.doctorDesignation || '',
       'Pending', data.date_of_collection || now.slice(0, 10), now, now,
-      stringifyJson(testsArray), stringifyJson(resultsArray), 'pending', sampleId
+      stringifyJson(testsArray), stringifyJson(resultsArray), 'pending'
     );
-    return { _id: id, refNo, sampleId, ...data, investigation: investigationText, tests: testsArray, results: resultsArray };
+    return { _id: id, refNo, ...data, investigation: investigationText, tests: testsArray, results: resultsArray };
   });
 
   ipcMain.handle('db:updateReportResults', async (event, { id, results, status }) => {
@@ -442,7 +441,6 @@ function registerIpcHandlers(log) {
     const now = new Date().toISOString();
     const count = db.prepare('SELECT COUNT(*) as c FROM reports').get().c;
     const refNo = String(count + 1);
-    const sampleId = data.sample_id || String(count + 1).padStart(4, '0');
 
     const report = {
       patient_id: patientId,
@@ -459,11 +457,11 @@ function registerIpcHandlers(log) {
       results: resultsArray
     };
 
-    db.prepare(`INSERT INTO reports (_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status, sample_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    db.prepare(`INSERT INTO reports (_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       reportId, patientId, patient_name, String(age || ''), gender, referred_by || 'SELF',
       refNo, report.specimen, report.investigation, report.doctor_name, report.doctor_designation,
       report.status, report.date_of_collection, report.date_of_reporting, report.created_at,
-      stringifyJson(testsArray), stringifyJson(resultsArray), 'pending', sampleId
+      stringifyJson(testsArray), stringifyJson(resultsArray), 'pending'
     );
 
     return {
@@ -562,147 +560,7 @@ function registerIpcHandlers(log) {
     return { pendingChanges: pending + pendingReports + pendingTests };
   });
 
-  // ===== ANALYZER (Erba Chem 7) =====
-  const serialListener = require('./analyzer/serial-listener.cjs');
-  const { ASTMParser } = require('./analyzer/astm-parser.cjs');
-  const resultMatcher = require('./analyzer/result-matcher.cjs');
-
-  let astmParser = null;
-  let currentPort = null;
-  let currentBaud = null;
-  let unassignedResults = []; // results that couldn't be auto-matched
-
-  // List available COM ports
-  ipcMain.handle('analyzer:listPorts', async () => {
-    return await serialListener.listPorts();
-  });
-
-  // Start listening on a COM port
-  ipcMain.handle('analyzer:start', async (event, { port, baudRate }) => {
-    astmParser = new ASTMParser();
-    currentPort = port;
-    currentBaud = baudRate || 9600;
-
-    const win = BrowserWindow.fromWebContents(event.sender);
-
-    serialListener.startListening(
-      port,
-      baudRate || 9600,
-      // onData callback
-      (line) => {
-        const result = astmParser.processLine(line);
-        if (result && result.results) {
-          // Complete ASTM message received — try to match
-          const match = resultMatcher.matchResultToReport(result);
-          if (match.matched) {
-            // Auto-apply results to report
-            const applied = resultMatcher.applyResultsToReport(match.report._id, match.results);
-            // Notify renderer
-            if (win) {
-              win.webContents.send('analyzer:resultReceived', {
-                matched: true,
-                matchType: match.matchType,
-                reportId: match.report._id,
-                patientName: match.report.patient_name,
-                sampleId: result.sampleId,
-                results: match.results,
-                applied: applied,
-              });
-            }
-          } else {
-            // Store as unassigned
-            unassignedResults.push({
-              id: Date.now().toString(),
-              sampleId: result.sampleId,
-              patientName: result.patientName,
-              results: result.results,
-              timestamp: result.timestamp,
-            });
-            if (win) {
-              win.webContents.send('analyzer:resultReceived', {
-                matched: false,
-                sampleId: result.sampleId,
-                patientName: result.patientName,
-                results: result.results,
-                timestamp: result.timestamp,
-              });
-            }
-          }
-        }
-      },
-      // onError callback
-      (err) => {
-        console.error('[analyzer IPC] Error:', err);
-        if (win) win.webContents.send('analyzer:error', err);
-      },
-      // onStatus callback
-      (status) => {
-        console.log('[analyzer IPC] Status:', status);
-        if (win) win.webContents.send('analyzer:status', status);
-      }
-    );
-
-    return { success: true, port, baudRate: currentBaud };
-  });
-
-  // Stop listening
-  ipcMain.handle('analyzer:stop', async () => {
-    if (currentPort) {
-      serialListener.closePort(currentPort);
-      currentPort = null;
-    }
-    return { success: true };
-  });
-
-  // Get analyzer status
-  ipcMain.handle('analyzer:status', async () => {
-    return {
-      listening: currentPort ? serialListener.isListening(currentPort) : false,
-      port: currentPort,
-      baudRate: currentBaud,
-      unassignedCount: unassignedResults.length,
-    };
-  });
-
-  // Get unassigned results
-  ipcMain.handle('analyzer:getUnassigned', async () => {
-    return unassignedResults;
-  });
-
-  // Manually assign unassigned results to a report
-  ipcMain.handle('analyzer:assign', async (event, { unassignedId, reportId }) => {
-    const idx = unassignedResults.findIndex(u => u.id === unassignedId);
-    if (idx === -1) return { success: false, error: 'Unassigned result not found' };
-
-    const unassigned = unassignedResults[idx];
-    const applied = resultMatcher.applyResultsToReport(reportId, unassigned.results);
-    if (applied.success) {
-      unassignedResults.splice(idx, 1);
-    }
-    return applied;
-  });
-
-  // Get pending reports for manual matching
-  ipcMain.handle('analyzer:getPendingReports', async () => {
-    return resultMatcher.getPendingReportsForMatching();
-  });
-
-  // Save analyzer settings
-  ipcMain.handle('analyzer:saveSettings', async (event, { port, baudRate }) => {
-    const db = getDb();
-    db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)')
-      .run('analyzer_config', stringifyJson({ port, baudRate }), new Date().toISOString());
-    return { success: true };
-  });
-
-  // Load analyzer settings
-  ipcMain.handle('analyzer:loadSettings', async () => {
-    const db = getDb();
-    const s = db.prepare('SELECT value FROM settings WHERE key = ?').get('analyzer_config');
-    return parseJson(s?.value) || { port: null, baudRate: 9600 };
-  });
-
-  log('INFO', 'IPC analyzer handlers registered');
+  log('INFO', 'IPC database handlers registered');
 }
 
 module.exports = { registerIpcHandlers };

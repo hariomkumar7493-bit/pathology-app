@@ -142,32 +142,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ===== ONLINE STATUS =====
   isOnline: () => ipcRenderer.invoke('sync:status'),
-
-  // ===== ANALYZER (Erba Chem 7) =====
-  analyzer: {
-    listPorts: () => ipcRenderer.invoke('analyzer:listPorts'),
-    start: (port, baudRate) => ipcRenderer.invoke('analyzer:start', { port, baudRate }),
-    stop: () => ipcRenderer.invoke('analyzer:stop'),
-    status: () => ipcRenderer.invoke('analyzer:status'),
-    getUnassigned: () => ipcRenderer.invoke('analyzer:getUnassigned'),
-    assign: (unassignedId, reportId) => ipcRenderer.invoke('analyzer:assign', { unassignedId, reportId }),
-    getPendingReports: () => ipcRenderer.invoke('analyzer:getPendingReports'),
-    saveSettings: (port, baudRate) => ipcRenderer.invoke('analyzer:saveSettings', { port, baudRate }),
-    loadSettings: () => ipcRenderer.invoke('analyzer:loadSettings'),
-    onResultReceived: (cb) => {
-      const h = (e, d) => cb(d);
-      ipcRenderer.on('analyzer:resultReceived', h);
-      return () => ipcRenderer.removeListener('analyzer:resultReceived', h);
-    },
-    onStatus: (cb) => {
-      const h = (e, d) => cb(d);
-      ipcRenderer.on('analyzer:status', h);
-      return () => ipcRenderer.removeListener('analyzer:status', h);
-    },
-    onError: (cb) => {
-      const h = (e, d) => cb(d);
-      ipcRenderer.on('analyzer:error', h);
-      return () => ipcRenderer.removeListener('analyzer:error', h);
-    },
-  },
 });
