@@ -735,6 +735,7 @@ export default function Reports() {
                 <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   <button onClick={() => handleSort('ref_no')} className="flex items-center hover:text-gray-700 transition-colors">Ref No <SortIcon field="ref_no" /></button>
                 </th>
+                <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Sample ID</th>
                 <th className="text-left px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                   <button onClick={() => handleSort('patient_name')} className="flex items-center hover:text-gray-700 transition-colors">Patient <SortIcon field="patient_name" /></button>
                 </th>
@@ -757,6 +758,9 @@ export default function Reports() {
                   <td className="px-4 py-4">
                     <span className="text-sm font-mono font-medium text-gray-700">{report.ref_no}</span>
                     <p className="text-xs text-gray-500 sm:hidden">{report.patient_name}</p>
+                  </td>
+                  <td className="px-4 py-4 hidden md:table-cell">
+                    <span className="text-sm font-mono text-blue-600 font-medium">{report.sample_id || '-'}</span>
                   </td>
                   <td className="px-4 py-4 hidden sm:table-cell">
                     <div className="flex items-center gap-2">
@@ -850,9 +854,14 @@ export default function Reports() {
             ) : (
               <>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900 truncate">
-                    Report #{viewReport.ref_no} - {viewReport.patient_name}
-                  </h2>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h2 className="text-lg font-semibold text-gray-900 truncate">
+                      Report #{viewReport.ref_no} - {viewReport.patient_name}
+                    </h2>
+                    {viewReport.sample_id && (
+                      <span className="text-xs font-mono font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">Sample ID: {viewReport.sample_id}</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 flex-wrap shrink-0">
                     {!editMode && (
                       <button onClick={() => setEditMode(true)} className="btn-secondary flex items-center gap-1 text-xs">
