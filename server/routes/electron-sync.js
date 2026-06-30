@@ -117,6 +117,7 @@ router.put('/reports/:id', async (req, res) => {
       date_of_collection: body.date_of_collection || new Date().toISOString(),
       date_of_reporting: body.date_of_reporting || new Date().toISOString(),
       created_at: body.created_at || new Date().toISOString(),
+      sample_id: body.sample_id || null,
       tests: body.tests || [],
       results: body.results || [],
       source: 'electron',

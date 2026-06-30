@@ -320,6 +320,7 @@ function registerIpcHandlers(log) {
     const now = new Date().toISOString();
     const count = db.prepare('SELECT COUNT(*) as c FROM reports').get().c;
     const refNo = String(count + 1);
+    const sampleId = data.sample_id || String(count + 1).padStart(4, '0');
 
     // Resolve test_ids → investigation text + tests array + results with parameters
     let investigationText = data.investigation || '';
@@ -356,14 +357,14 @@ function registerIpcHandlers(log) {
     const settingsRow = db.prepare("SELECT value FROM settings WHERE key = 'report_layout'").get();
     const layout = settingsRow ? (typeof settingsRow.value === 'string' ? JSON.parse(settingsRow.value) : settingsRow.value) : {};
 
-    db.prepare(`INSERT INTO reports (_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    db.prepare(`INSERT INTO reports (_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status, sample_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       id, data.patient_id || null, data.patient_name || '', String(data.age || ''), data.gender || '', data.referred_by || 'SELF',
       refNo, data.specimen || 'BLOOD', investigationText,
       data.doctor_name || layout.doctorName || '', data.doctor_designation || layout.doctorDesignation || '',
       'Pending', data.date_of_collection || now.slice(0, 10), now, now,
-      stringifyJson(testsArray), stringifyJson(resultsArray), 'pending'
+      stringifyJson(testsArray), stringifyJson(resultsArray), 'pending', sampleId
     );
-    return { _id: id, refNo, ...data, investigation: investigationText, tests: testsArray, results: resultsArray };
+    return { _id: id, refNo, sampleId, ...data, investigation: investigationText, tests: testsArray, results: resultsArray };
   });
 
   ipcMain.handle('db:updateReportResults', async (event, { id, results, status }) => {
@@ -441,6 +442,7 @@ function registerIpcHandlers(log) {
     const now = new Date().toISOString();
     const count = db.prepare('SELECT COUNT(*) as c FROM reports').get().c;
     const refNo = String(count + 1);
+    const sampleId = data.sample_id || String(count + 1).padStart(4, '0');
 
     const report = {
       patient_id: patientId,
@@ -457,11 +459,11 @@ function registerIpcHandlers(log) {
       results: resultsArray
     };
 
-    db.prepare(`INSERT INTO reports (_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    db.prepare(`INSERT INTO reports (_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status, sample_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       reportId, patientId, patient_name, String(age || ''), gender, referred_by || 'SELF',
       refNo, report.specimen, report.investigation, report.doctor_name, report.doctor_designation,
       report.status, report.date_of_collection, report.date_of_reporting, report.created_at,
-      stringifyJson(testsArray), stringifyJson(resultsArray), 'pending'
+      stringifyJson(testsArray), stringifyJson(resultsArray), 'pending', sampleId
     );
 
     return {

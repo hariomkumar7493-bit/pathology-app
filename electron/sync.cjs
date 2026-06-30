@@ -111,8 +111,8 @@ async function pullAllFromRemote(token) {
         const id = String(r._id);
         const local = db.prepare('SELECT _id, sync_status FROM reports WHERE _id = ?').get(id);
         if (local && (local.sync_status === 'pending' || local.sync_status === 'deleted')) continue;
-        db.prepare('INSERT OR REPLACE INTO reports (_id, remote_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(id, id, r.patient_id ? String(r.patient_id) : null, r.patient_name || '', r.age != null ? String(r.age) : '', r.gender || '', r.referred_by || 'SELF', r.ref_no || '', r.specimen || 'BLOOD', r.investigation || '', r.doctor_name || '', r.doctor_designation || '', r.status || 'Completed', r.date_of_collection || new Date().toISOString(), r.date_of_reporting || new Date().toISOString(), r.created_at || new Date().toISOString(), stringifyJson(r.tests || []), stringifyJson(r.results || []), 'synced');
+        db.prepare('INSERT OR REPLACE INTO reports (_id, remote_id, patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, created_at, tests, results, sync_status, sample_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+          .run(id, id, r.patient_id ? String(r.patient_id) : null, r.patient_name || '', r.age != null ? String(r.age) : '', r.gender || '', r.referred_by || 'SELF', r.ref_no || '', r.specimen || 'BLOOD', r.investigation || '', r.doctor_name || '', r.doctor_designation || '', r.status || 'Completed', r.date_of_collection || new Date().toISOString(), r.date_of_reporting || new Date().toISOString(), r.created_at || new Date().toISOString(), stringifyJson(r.tests || []), stringifyJson(r.results || []), 'synced', r.sample_id || null);
       }
       const remoteIds = new Set(reportsRes.data.map(r => String(r._id)));
       const localSynced = db.prepare("SELECT _id FROM reports WHERE sync_status = 'synced'").all();
@@ -226,7 +226,7 @@ async function pushPendingToRemote(token) {
         referred_by: r.referred_by, ref_no: r.ref_no, specimen: r.specimen, investigation: r.investigation,
         doctor_name: r.doctor_name, doctor_designation: r.doctor_designation,
         status: r.status, date_of_collection: r.date_of_collection, date_of_reporting: r.date_of_reporting,
-        created_at: r.created_at,
+        created_at: r.created_at, sample_id: r.sample_id || null,
         tests: parseJson(r.tests) || [], results: parseJson(r.results) || [],
       };
       const res = await fetchJson(`${ELECTRON_API}/reports/${r._id}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
