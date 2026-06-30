@@ -124,6 +124,14 @@ function initSchema(d) {
     } catch (e) { /* ignore */ }
   }
 
+  // Migration: add sample_id column to reports table (for analyzer integration)
+  try {
+    d.exec(`ALTER TABLE reports ADD COLUMN sample_id TEXT`);
+  } catch (e) { /* Column already exists */ }
+  try {
+    d.exec(`CREATE INDEX IF NOT EXISTS idx_reports_sample_id ON reports(sample_id)`);
+  } catch (e) { /* ignore */ }
+
   // Backfill: for existing synced rows, set remote_id = _id (they were synced with server IDs)
   for (const table of tables) {
     try {
