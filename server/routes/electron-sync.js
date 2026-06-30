@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db');
+const { sendPushNotification } = require('./notifications');
 
 // Helper: get collection by name
 function col(db, name) {
@@ -8,14 +9,17 @@ function col(db, name) {
 }
 
 // Helper: upsert a document by _id (string, not ObjectId)
+// Returns { doc, isNew } — isNew is true if the document was created (not updated)
 async function upsertById(db, collectionName, _id, data) {
   const collection = col(db, collectionName);
+  const existing = await collection.findOne({ _id });
   await collection.updateOne(
     { _id },
     { $set: { ...data, _id } },
     { upsert: true }
   );
-  return await collection.findOne({ _id });
+  const doc = await collection.findOne({ _id });
+  return { doc, isNew: !existing };
 }
 
 // Helper: delete by _id (string)
@@ -58,7 +62,7 @@ router.put('/patients/:id', async (req, res) => {
       updated_at: new Date()
     };
     
-    const result = await upsertById(db, 'electron_patients', id, data);
+    const { doc: result } = await upsertById(db, 'electron_patients', id, data);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -119,7 +123,15 @@ router.put('/reports/:id', async (req, res) => {
       updated_at: new Date()
     };
     
-    const result = await upsertById(db, 'electron_reports', id, data);
+    const { doc: result, isNew } = await upsertById(db, 'electron_reports', id, data);
+
+    // Send push notification only for new reports (not updates)
+    if (isNew) {
+      try {
+        await sendPushNotification('New Report Created', `${data.patient_name || 'Unknown'} - ${data.investigation || 'New report'}`, { type: 'report', reportId: id, source: 'electron' });
+      } catch (e) { console.error('Push error:', e); }
+    }
+
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -165,7 +177,7 @@ router.put('/test-categories/:id', async (req, res) => {
       updated_at: new Date()
     };
     
-    const result = await upsertById(db, 'electron_test_categories', id, data);
+    const { doc: result } = await upsertById(db, 'electron_test_categories', id, data);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -215,7 +227,7 @@ router.put('/tests/:id', async (req, res) => {
       updated_at: new Date()
     };
     
-    const result = await upsertById(db, 'electron_tests', id, data);
+    const { doc: result } = await upsertById(db, 'electron_tests', id, data);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -263,7 +275,7 @@ router.put('/users/:id', async (req, res) => {
       updated_at: new Date()
     };
     
-    const result = await upsertById(db, 'electron_users', id, data);
+    const { doc: result } = await upsertById(db, 'electron_users', id, data);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
