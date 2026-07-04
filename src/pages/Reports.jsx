@@ -1001,7 +1001,7 @@ export default function Reports() {
               </>
             )}
           </div>
-          {isMobileApp() && !viewLoading && (
+          {isMobileApp() && !viewLoading && !editMode && (
             <button
               onClick={() => { setViewReport(null); setEditMode(false); }}
               className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-red-500 hover:bg-red-600 text-white font-medium px-8 py-3 rounded-full shadow-lg text-sm flex items-center gap-2"
