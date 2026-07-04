@@ -484,8 +484,17 @@ const ANALYZERS = [
     serialSettings: { baudRate: 9600, dataBits: 8, parity: 'none', stopBits: 1 },
     tests: ['GLU', 'BUN', 'CREA', 'UA', 'TP', 'ALB', 'TBIL', 'DBIL', 'ALT', 'AST', 'ALP', 'GGT', 'CA', 'PHOS', 'TG', 'CHOL', 'HDL', 'LDL', 'CK', 'LDH', 'AMYL'],
   },
-
-  // ========================== IMMUNOASSAY ==========================
+  {
+    id: 'transasia-chem7',
+    brand: 'Transasia',
+    model: 'Chem 7',
+    category: 'Biochemistry',
+    protocol: 'astm',
+    transport: 'serial',
+    direction: 'bi',
+    serialSettings: { baudRate: 9600, dataBits: 8, parity: 'none', stopBits: 1 },
+    tests: ['GLU', 'BUN', 'CREA', 'UA', 'TP', 'ALB', 'TBIL', 'DBIL', 'ALT', 'AST', 'ALP', 'GGT', 'CA', 'PHOS', 'K', 'NA', 'CL', 'TG', 'CHOL', 'HDL', 'LDL', 'CK', 'LDH', 'AMYL', 'LIPA', 'HbA1c'],
+  },
   {
     id: 'roche-cobas-e411',
     brand: 'Roche',
