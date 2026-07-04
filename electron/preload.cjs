@@ -142,4 +142,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ===== ONLINE STATUS =====
   isOnline: () => ipcRenderer.invoke('sync:status'),
+
+  // ===== ANALYZER INTEGRATION =====
+  analyzer: {
+    listPorts: () => ipcRenderer.invoke('analyzer:listPorts'),
+    list: () => ipcRenderer.invoke('analyzer:list'),
+    byCategory: () => ipcRenderer.invoke('analyzer:byCategory'),
+    byBrand: () => ipcRenderer.invoke('analyzer:byBrand'),
+    brands: () => ipcRenderer.invoke('analyzer:brands'),
+    categories: () => ipcRenderer.invoke('analyzer:categories'),
+    connect: (config) => ipcRenderer.invoke('analyzer:connect', config),
+    disconnect: (connId) => ipcRenderer.invoke('analyzer:disconnect', connId),
+    disconnectAll: () => ipcRenderer.invoke('analyzer:disconnectAll'),
+    status: () => ipcRenderer.invoke('analyzer:status'),
+    importFile: (filePath) => ipcRenderer.invoke('analyzer:importFile', filePath),
+    openFileDialog: () => ipcRenderer.invoke('analyzer:openFileDialog'),
+    onResult: (cb) => {
+      const h = (e, d) => cb(d);
+      ipcRenderer.on('analyzer:result', h);
+      return () => ipcRenderer.removeListener('analyzer:result', h);
+    },
+    onStatus: (cb) => {
+      const h = (e, d) => cb(d);
+      ipcRenderer.on('analyzer:status', h);
+      return () => ipcRenderer.removeListener('analyzer:status', h);
+    },
+  },
 });

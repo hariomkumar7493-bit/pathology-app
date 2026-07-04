@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron');
+const { ipcMain, BrowserWindow } = require('electron');
 const { getDb, generateId, parseJson, stringifyJson } = require('./db.cjs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -561,6 +561,114 @@ function registerIpcHandlers(log) {
   });
 
   log('INFO', 'IPC database handlers registered');
+
+  // ===== ANALYZER INTEGRATION =====
+  const { analyzerManager } = require('./analyzer/manager.cjs');
+
+  // Forward analyzer results to renderer
+  analyzerManager.setResultCallback((result) => {
+    log('INFO', `Analyzer result from ${result.brand} ${result.model}`, { resultCount: result.results?.length || 0 });
+    const win = BrowserWindow.getAllWindows()[0];
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('analyzer:result', result);
+    }
+  });
+
+  analyzerManager.setStatusCallback((status) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('analyzer:status', status);
+    }
+  });
+
+  // List available serial ports
+  ipcMain.handle('analyzer:listPorts', async () => {
+    return await analyzerManager.listPorts();
+  });
+
+  // Get all registered analyzers
+  ipcMain.handle('analyzer:list', async () => {
+    return analyzerManager.getAnalyzers();
+  });
+
+  // Get analyzers grouped by category
+  ipcMain.handle('analyzer:byCategory', async () => {
+    return analyzerManager.getAnalyzersByCategory();
+  });
+
+  // Get analyzers grouped by brand
+  ipcMain.handle('analyzer:byBrand', async () => {
+    return analyzerManager.getAnalyzersByBrand();
+  });
+
+  // Get all brands
+  ipcMain.handle('analyzer:brands', async () => {
+    return analyzerManager.getBrands();
+  });
+
+  // Get all categories
+  ipcMain.handle('analyzer:categories', async () => {
+    return analyzerManager.getCategories();
+  });
+
+  // Connect to an analyzer
+  ipcMain.handle('analyzer:connect', async (event, config) => {
+    try {
+      const connId = analyzerManager.connect(config);
+      return { success: true, connectionId: connId };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Disconnect from an analyzer
+  ipcMain.handle('analyzer:disconnect', async (event, connId) => {
+    return { success: analyzerManager.disconnect(connId) };
+  });
+
+  // Disconnect all
+  ipcMain.handle('analyzer:disconnectAll', async () => {
+    analyzerManager.disconnectAll();
+    return { success: true };
+  });
+
+  // Get all connection statuses
+  ipcMain.handle('analyzer:status', async () => {
+    return analyzerManager.getAllStatus();
+  });
+
+  // Import file-based results
+  ipcMain.handle('analyzer:importFile', async (event, filePath) => {
+    try {
+      const result = await analyzerManager.importFile(filePath);
+      // Also forward to renderer like a live result
+      const win = BrowserWindow.getAllWindows()[0];
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('analyzer:result', { ...result, brand: 'File Import', model: filePath });
+      }
+      return { success: true, result };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Open file dialog for file-based import
+  ipcMain.handle('analyzer:openFileDialog', async () => {
+    const { dialog } = require('electron');
+    const win = BrowserWindow.getAllWindows()[0];
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Select Analyzer Export File',
+      filters: [
+        { name: 'Analyzer Files', extensions: ['csv', 'txt', 'xml'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
+    });
+    if (result.canceled) return { success: false };
+    return { success: true, filePath: result.filePaths[0] };
+  });
+
+  log('INFO', 'IPC analyzer handlers registered');
 }
 
 module.exports = { registerIpcHandlers };
