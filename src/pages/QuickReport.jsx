@@ -18,6 +18,7 @@ export default function QuickReport() {
   const [results, setResults] = useState({});
   const [saving, setSaving] = useState(false);
   const [savedReportId, setSavedReportId] = useState(null);
+  const [sampleId, setSampleId] = useState('');
   const [printData, setPrintData] = useState(null);
   const [expandedCategory, setExpandedCategory] = useState(null); // only one category open at a time
   const [testSearch, setTestSearch] = useState('');
@@ -44,6 +45,7 @@ export default function QuickReport() {
     api.getTests().then(setTests).catch(console.error);
     api.getReportLayout().then(setLayoutSettings).catch(() => {});
     api.getReferringDoctors().then(data => setReferringDoctors(data.doctors || ['SELF'])).catch(() => {});
+    api.getNextSampleId().then(data => setSampleId(data.sampleId || '')).catch(() => {});
   }, []);
 
   // Get unique sub-groups for a test
@@ -483,9 +485,11 @@ export default function QuickReport() {
         const res = await api.createQuickReport({
           patient_name: form.patient_name, age: parseInt(form.age) || 0, gender: form.gender, phone: form.phone,
           email: form.email || undefined, referred_by: form.referred_by, specimen: form.specimen,
+          sample_id: sampleId || undefined,
           test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
         });
         setSavedReportId(res.reportId);
+        if (res.sampleId) setSampleId(res.sampleId);
         addToast('Report saved successfully', 'success');
       }
 
@@ -496,6 +500,8 @@ export default function QuickReport() {
         gender: form.gender,
         referred_by: form.referred_by,
         specimen: form.specimen,
+        sample_id: sampleId,
+        ref_no: sampleId,
         date_of_collection: form.date_of_collection,
         date_of_reporting: new Date().toISOString(),
         results: Object.entries(results).map(([uid, val]) => {
@@ -549,6 +555,7 @@ export default function QuickReport() {
     setResults({});
     setSavedReportId(null);
     setPrintData(null);
+    api.getNextSampleId().then(data => setSampleId(data.sampleId || '')).catch(() => {});
   };
 
   const handleShareWhatsApp = async () => {
@@ -569,6 +576,8 @@ export default function QuickReport() {
           gender: form.gender,
           referred_by: form.referred_by,
           specimen: form.specimen,
+          sample_id: sampleId,
+          ref_no: sampleId,
           date_of_collection: form.date_of_collection,
           date_of_reporting: new Date().toISOString(),
           created_at: new Date().toISOString(),
@@ -617,9 +626,10 @@ export default function QuickReport() {
           });
           const res = await api.createQuickReport({
             patient_name: form.patient_name, age: parseInt(form.age) || 0, gender: form.gender, phone: form.phone,
-            referred_by: form.referred_by, specimen: form.specimen, test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
+            referred_by: form.referred_by, specimen: form.specimen, sample_id: sampleId || undefined, test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
           });
           setSavedReportId(res.reportId);
+          if (res.sampleId) setSampleId(res.sampleId);
           setPrintData(res.report);
           addToast('Report saved', 'success');
         }
@@ -654,9 +664,10 @@ export default function QuickReport() {
             });
             const res = await api.createQuickReport({
               patient_name: form.patient_name, age: parseInt(form.age) || 0, gender: form.gender, phone: form.phone,
-              referred_by: form.referred_by, specimen: form.specimen, test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
+              referred_by: form.referred_by, specimen: form.specimen, sample_id: sampleId || undefined, test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
             });
             setSavedReportId(res.reportId);
+            if (res.sampleId) setSampleId(res.sampleId);
             setPrintData(res.report);
           }
         } catch (err) {
@@ -712,9 +723,10 @@ export default function QuickReport() {
         });
         const res = await api.createQuickReport({
           patient_name: form.patient_name, age: parseInt(form.age) || 0, gender: form.gender, phone: form.phone,
-          referred_by: form.referred_by, specimen: form.specimen, test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
+          referred_by: form.referred_by, specimen: form.specimen, sample_id: sampleId || undefined, test_ids: selectedTests, results: resultArr, date_of_collection: form.date_of_collection,
         });
         setSavedReportId(res.reportId);
+        if (res.sampleId) setSampleId(res.sampleId);
         setPrintData(res.report);
         addToast('Report saved', 'success');
       } catch (err) {
@@ -790,6 +802,10 @@ export default function QuickReport() {
           <div className="w-24">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Specimen</label>
             <input type="text" className="input-field text-xs py-1.5" value={form.specimen} onChange={e => setForm({ ...form, specimen: e.target.value })} />
+          </div>
+          <div className="w-36">
+            <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Sample ID</label>
+            <input type="text" className="input-field text-xs py-1.5 font-mono font-semibold text-primary-700" value={sampleId} onChange={e => setSampleId(e.target.value)} placeholder="Auto-generated" />
           </div>
           <div className="w-36">
             <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Date of Collection</label>

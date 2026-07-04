@@ -104,7 +104,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ width: `${l.colTestWidth}%` }}><strong>Specimen</strong> : {specimens.join(', ') || report.specimen || 'BLOOD'}</span>
             <span style={{ width: `${l.colResultWidth}%` }}></span>
-            <span style={{ width: `${l.colRefWidth}%`, textAlign: 'left' }}><strong>Ref No</strong> : {report.ref_no || ''}</span>
+            <span style={{ width: `${l.colRefWidth}%`, textAlign: 'left' }}><strong>Ref No</strong> : {report.sample_id || report.ref_no || ''}</span>
           </div>
           {investigationText && (
             <div><strong>Investigation</strong> : {investigationText}</div>

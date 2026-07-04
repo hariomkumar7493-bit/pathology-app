@@ -39,6 +39,18 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET next sample ID (for display in UI before report creation)
+router.get('/next-sample-id', async (req, res) => {
+  try {
+    const db = getDB();
+    const reportsCollection = db.collection('reports');
+    const sampleId = await generateSampleId(reportsCollection);
+    res.json({ sampleId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET single report
 router.get('/:id', async (req, res) => {
   try {
@@ -66,6 +78,17 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Generate sample ID: DDMMYY + daily sequence
+async function generateSampleId(reportsCollection) {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const yy = String(now.getFullYear()).slice(-2);
+  const datePrefix = `${dd}${mm}${yy}`;
+  const count = await reportsCollection.countDocuments({ sample_id: { $regex: `^${datePrefix}` } });
+  return `${datePrefix}${count + 1}`;
+}
+
 // POST create report
 router.post('/', async (req, res) => {
   try {
@@ -74,6 +97,7 @@ router.post('/', async (req, res) => {
     const reportsCollection = db.collection('reports');
 
     const _id = require('crypto').randomUUID();
+    const sampleId = await generateSampleId(reportsCollection);
     const report = {
       _id,
       patient_id: patient_id || null,
@@ -82,6 +106,7 @@ router.post('/', async (req, res) => {
       gender: gender || '',
       referred_by: referred_by || 'SELF',
       ref_no: ref_no || '',
+      sample_id: sampleId,
       specimen: specimen || 'BLOOD',
       investigation: investigation || '',
       doctor_name: doctor_name || '',
@@ -158,7 +183,7 @@ router.put('/:id', async (req, res) => {
 // POST quick report (create patient + report + results in one go)
 router.post('/quick', async (req, res) => {
   try {
-    const { patient_name, age, gender, phone, email, referred_by, test_ids, results, specimen, doctor_name, doctor_designation, date_of_collection } = req.body;
+    const { patient_name, age, gender, phone, email, referred_by, test_ids, results, specimen, doctor_name, doctor_designation, date_of_collection, sample_id: clientSampleId } = req.body;
     const db = getDB();
     const patientsCollection = db.collection('patients');
     const reportsCollection = db.collection('reports');
@@ -192,9 +217,10 @@ router.post('/quick', async (req, res) => {
       await patientsCollection.insertOne(patient);
     }
 
-    // Generate ref_no
+    // Generate ref_no and sample_id
     const count = await reportsCollection.countDocuments();
     const refNo = (count + 1).toString();
+    const sampleId = clientSampleId || await generateSampleId(reportsCollection);
 
     // Get test names
     let investigationText = '';
@@ -254,6 +280,7 @@ router.post('/quick', async (req, res) => {
       _id: reportId,
       patient_id: patientId,
       ref_no: refNo,
+      sample_id: sampleId,
       specimen: specimen || 'BLOOD',
       investigation: investigationText,
       doctor_name: doctor_name || 'Dr. C. Ashok',
@@ -274,6 +301,7 @@ router.post('/quick', async (req, res) => {
       reportId,
       patientId,
       refNo,
+      sampleId,
       report: {
         ...report,
         patient_name: patient_name,

@@ -126,6 +126,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getReferringDoctors: () => ipcRenderer.invoke('db:getReferringDoctors'),
     updateReferringDoctors: (doctors) => ipcRenderer.invoke('db:updateReferringDoctors', { doctors }),
 
+    getNextSampleId: () => ipcRenderer.invoke('db:getNextSampleId'),
     getSyncStatus: () => ipcRenderer.invoke('db:getSyncStatus'),
   },
 

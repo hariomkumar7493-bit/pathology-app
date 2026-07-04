@@ -107,6 +107,14 @@ function initSchema(d) {
     CREATE INDEX IF NOT EXISTS idx_sync_queue_collection ON sync_queue(collection);
   `);
 
+  // Migration: add sample_id column to reports
+  try {
+    d.exec(`ALTER TABLE reports ADD COLUMN sample_id TEXT`);
+  } catch (e) { /* column already exists */ }
+  try {
+    d.exec(`CREATE INDEX IF NOT EXISTS idx_reports_sample_id ON reports(sample_id)`);
+  } catch (e) { /* ignore */ }
+
   // Migration: add remote_id column to all tables (stores MongoDB _id from server)
   // local _id stays as primary key and never changes; remote_id is used for sync matching
   const tables = ['patients', 'reports', 'tests', 'test_categories', 'users'];
@@ -139,6 +147,22 @@ function generateId() {
   return (timestamp + random).substring(0, 24);
 }
 
+// Generate sample ID in format DDMMYY + sequence (e.g., 0704261, 0704262)
+// Sequence resets daily — counts reports created today
+function generateSampleId(db) {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const yy = String(now.getFullYear()).slice(-2);
+  const datePrefix = `${dd}${mm}${yy}`;
+
+  // Count existing sample_ids with today's prefix to determine next sequence
+  const row = db.prepare("SELECT COUNT(*) as c FROM reports WHERE sample_id LIKE ?").get(`${datePrefix}%`);
+  const seq = (row.c || 0) + 1;
+
+  return `${datePrefix}${seq}`;
+}
+
 // Helper: parse JSON field safely
 function parseJson(val) {
   if (!val) return null;
@@ -152,4 +176,4 @@ function stringifyJson(val) {
   return JSON.stringify(val);
 }
 
-module.exports = { getDb, getDbPath, generateId, parseJson, stringifyJson };
+module.exports = { getDb, getDbPath, generateId, generateSampleId, parseJson, stringifyJson };

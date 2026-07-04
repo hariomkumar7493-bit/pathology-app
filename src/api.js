@@ -144,4 +144,7 @@ export const api = {
   // Referring Doctors
   getReferringDoctors: () => isElectron ? window.electronAPI.db.getReferringDoctors() : request('/settings/referring-doctors'),
   updateReferringDoctors: (doctors) => isElectron ? window.electronAPI.db.updateReferringDoctors(doctors) : request('/settings/referring-doctors', { method: 'PUT', body: JSON.stringify({ doctors }) }),
+
+  // Sample ID
+  getNextSampleId: () => isElectron ? window.electronAPI.db.getNextSampleId() : request('/reports/next-sample-id'),
 };
