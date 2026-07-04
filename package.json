@@ -75,16 +75,21 @@
     "directories": {
       "output": "electron-dist"
     },
+    "npmRebuild": false,
     "files": [
       "electron/**/*.cjs",
       "dist/**/*",
       "public/letterhead.png",
       "public/doctor-sign.png",
-      "node_modules/better-sqlite3/**/*"
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/serialport/**/*",
+      "node_modules/@serialport/**/*"
     ],
     "asarUnpack": [
       "**/*.{node,dll}",
-      "node_modules/better-sqlite3/**/*"
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/serialport/**/*",
+      "node_modules/@serialport/**/*"
     ],
     "win": {
       "target": [
