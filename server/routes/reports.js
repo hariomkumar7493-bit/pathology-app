@@ -1,19 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db');
-const { ObjectId } = require('mongodb');
 const { sendPushNotification } = require('./notifications');
 
-// GET all reports (unions web reports + electron reports)
+// GET all reports with patient info via $lookup
 router.get('/', async (req, res) => {
   try {
     const db = getDB();
     const reportsCollection = db.collection('reports');
-    const electronReportsCollection = db.collection('electron_reports');
 
-    // Web reports with patient lookup
     const pipeline = [
-      { $sort: { created_at: -1 } },
       {
         $lookup: {
           from: 'patients',
@@ -23,195 +19,86 @@ router.get('/', async (req, res) => {
         }
       },
       { $unwind: { path: '$patient_info', preserveNullAndEmptyArrays: true } },
-      {
-        $addFields: {
-          patient_name: '$patient_info.name',
-          patient_age: '$patient_info.age',
-          patient_gender: '$patient_info.gender',
-          patient_phone: '$patient_info.phone',
-          patient_referred_by: '$patient_info.referred_by'
-        }
-      },
-      { $project: { patient_info: 0 } }
+      { $sort: { created_at: -1 } }
     ];
 
-    const [webReports, electronReports] = await Promise.all([
-      reportsCollection.aggregate(pipeline).toArray(),
-      electronReportsCollection.find({}).sort({ created_at: -1 }).toArray()
-    ]);
+    const reports = await reportsCollection.aggregate(pipeline).toArray();
 
-    // Merge: electron reports already have patient data embedded
-    const allReports = [
-      ...webReports.map(r => ({ ...r, _id: String(r._id), source: 'web' })),
-      ...electronReports.map(r => ({ ...r, _id: String(r._id), source: 'electron' }))
-    ];
+    const formatted = reports.map(r => ({
+      ...r,
+      patient_name: r.patient_info?.name || r.patient_name || 'Unknown',
+      age: r.patient_info?.age != null ? r.patient_info.age : r.age,
+      gender: r.patient_info?.gender || r.gender || '',
+      referred_by: r.patient_info?.referred_by || r.referred_by || 'SELF',
+    }));
+    delete formatted.patient_info;
 
-    // Sort by created_at descending
-    allReports.sort((a, b) => {
-      const aDate = new Date(a.created_at).getTime() || 0;
-      const bDate = new Date(b.created_at).getTime() || 0;
-      return bDate - aDate;
-    });
-
-    res.json(allReports);
+    res.json(formatted);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET single report with full details
+// GET single report
 router.get('/:id', async (req, res) => {
   try {
     const db = getDB();
     const reportsCollection = db.collection('reports');
-    const patientsCollection = db.collection('patients');
-    const testsCollection = db.collection('tests');
-    const categoriesCollection = db.collection('test_categories');
-    
-    const report = await reportsCollection.findOne({ _id: new ObjectId(req.params.id) });
-    
-    if (!report) {
-      return res.status(404).json({ error: 'Report not found' });
+
+    const report = await reportsCollection.findOne({ _id: req.params.id });
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+
+    // Enrich with patient info
+    let patientInfo = null;
+    if (report.patient_id) {
+      patientInfo = await db.collection('patients').findOne({ _id: report.patient_id });
     }
 
-    const patient = await patientsCollection.findOne({ _id: report.patient_id });
-    
-    const reportData = {
-      ...report,
-      patient_name: patient?.name,
-      patient_age: patient?.age,
-      patient_gender: patient?.gender,
-      patient_phone: patient?.phone,
-      patient_referred_by: patient?.referred_by,
-      patient_address: patient?.address
-    };
-
-    // Get tests with category info
-    const tests = report.tests || [];
-    const testsWithCategory = await Promise.all(tests.map(async (test) => {
-      const testDoc = await testsCollection.findOne({ _id: test.test_id });
-      const category = await categoriesCollection.findOne({ _id: testDoc?.category_id });
-      return {
-        ...test,
-        test_name: testDoc?.name,
-        specimen: testDoc?.specimen,
-        category_name: category?.name
-      };
-    }));
-
-    // Get results with parameter info
-    const results = report.results || [];
-    const resultsWithInfo = await Promise.all(results.map(async (result) => {
-      const testDoc = await testsCollection.findOne({ _id: result.test_id });
-      const category = await categoriesCollection.findOne({ _id: testDoc?.category_id });
-      const parameter = testDoc?.parameters?.find(p => p.param_name === result.param_name);
-      return {
-        ...result,
-        unit: parameter?.unit,
-        ref_range_male: parameter?.ref_range_male,
-        ref_range_female: parameter?.ref_range_female,
-        group_name: parameter?.group_name,
-        sort_order: parameter?.sort_order,
-        calc_formula: parameter?.calc_formula || null,
-        calc_decimals: parameter?.calc_decimals ?? null,
-        test_name: testDoc?.name,
-        category_name: category?.name
-      };
-    }));
-
-    resultsWithInfo.sort((a, b) => {
-      if (a.test_name !== b.test_name) {
-        return a.test_name.localeCompare(b.test_name);
-      }
-      return (a.sort_order || 0) - (b.sort_order || 0);
-    });
-
     res.json({
-      ...reportData,
-      tests: testsWithCategory,
-      results: resultsWithInfo,
+      ...report,
+      patient_name: patientInfo?.name || report.patient_name || 'Unknown',
+      age: patientInfo?.age != null ? patientInfo.age : report.age,
+      gender: patientInfo?.gender || report.gender || '',
+      referred_by: patientInfo?.referred_by || report.referred_by || 'SELF',
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST create report (with test selection)
+// POST create report
 router.post('/', async (req, res) => {
   try {
-    const { patient_id, test_ids, specimen, investigation, doctor_name, doctor_designation, date_of_collection } = req.body;
+    const { patient_id, patient_name, age, gender, referred_by, ref_no, specimen, investigation, doctor_name, doctor_designation, status, date_of_collection, date_of_reporting, tests, results } = req.body;
     const db = getDB();
     const reportsCollection = db.collection('reports');
-    const testsCollection = db.collection('tests');
 
-    // Generate ref_no
-    const count = await reportsCollection.countDocuments();
-    const refNo = (count + 1).toString();
-
-    // Get test names for investigation field
-    let investigationText = investigation;
-    if (!investigationText && test_ids && test_ids.length) {
-      const objectIds = test_ids.map(id => new ObjectId(id));
-      const tests = await testsCollection.find({ _id: { $in: objectIds } }).toArray();
-      investigationText = tests.map(t => t.name).join(', ');
-    }
-
-    // Build tests array with empty results
-    const testsArray = [];
-    const resultsArray = [];
-    
-    if (test_ids && test_ids.length) {
-      for (const testId of test_ids) {
-        const test = await testsCollection.findOne({ _id: new ObjectId(testId) });
-        if (test) {
-          testsArray.push({
-            test_id: test._id,
-            test_name: test.name,
-            specimen: test.specimen
-          });
-          
-          // Create empty result entries for each parameter
-          const parameters = test.parameters || [];
-          parameters.forEach(param => {
-            resultsArray.push({
-              test_id: test._id,
-              param_name: param.param_name,
-              result_value: '',
-              is_abnormal: false,
-              unit: param.unit,
-              ref_range_male: param.ref_range_male,
-              ref_range_female: param.ref_range_female,
-              group_name: param.group_name,
-              sort_order: param.sort_order
-            });
-          });
-        }
-      }
-    }
-
-    // Create report
+    const _id = require('crypto').randomUUID();
     const report = {
-      patient_id: new ObjectId(patient_id),
-      ref_no: refNo,
+      _id,
+      patient_id: patient_id || null,
+      patient_name: patient_name || '',
+      age,
+      gender: gender || '',
+      referred_by: referred_by || 'SELF',
+      ref_no: ref_no || '',
       specimen: specimen || 'BLOOD',
-      investigation: investigationText,
-      doctor_name: doctor_name || 'Dr. C. Ashok',
-      doctor_designation: doctor_designation || 'MBBS MD (PATH)',
-      status: 'Pending',
-      date_of_collection: date_of_collection ? new Date(date_of_collection) : new Date(),
-      date_of_reporting: new Date(),
-      created_at: new Date(),
-      tests: testsArray,
-      results: resultsArray
+      investigation: investigation || '',
+      doctor_name: doctor_name || '',
+      doctor_designation: doctor_designation || '',
+      status: status || 'Pending',
+      date_of_collection: date_of_collection || new Date().toISOString(),
+      date_of_reporting: date_of_reporting || new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      tests: tests || [],
+      results: results || [],
     };
-    
-    const result = await reportsCollection.insertOne(report);
-    const newReport = await reportsCollection.findOne({ _id: result.insertedId });
 
-    // Send push notification to mobile devices
-    try { await sendPushNotification('New Report Created', `Report #${refNo} - ${investigationText || 'New report'}`, { type: 'report', reportId: String(result.insertedId) }); } catch(e) { console.error('Push error:', e); }
+    await reportsCollection.insertOne(report);
 
-    res.status(201).json(newReport);
+    try { await sendPushNotification('New Report', `${patient_name || 'Unknown'} - ${investigation || ''}`, { type: 'report', reportId: _id }); } catch(e) { console.error('Push error:', e); }
+
+    res.status(201).json(report);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -223,24 +110,46 @@ router.put('/:id/results', async (req, res) => {
     const { results, status } = req.body;
     const db = getDB();
     const reportsCollection = db.collection('reports');
-    
+
     const updateData = {};
-    
+
     if (results && results.length) {
       updateData.results = results;
     }
-    
+
     if (status) {
       updateData.status = status;
-      updateData.date_of_reporting = new Date();
+      updateData.date_of_reporting = new Date().toISOString();
     }
-    
+
     await reportsCollection.updateOne(
-      { _id: new ObjectId(req.params.id) },
+      { _id: req.params.id },
       { $set: updateData }
     );
 
     res.json({ message: 'Results updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT update report
+router.put('/:id', async (req, res) => {
+  try {
+    const db = getDB();
+    const reportsCollection = db.collection('reports');
+
+    const updateData = { ...req.body };
+    delete updateData._id;
+    updateData.updated_at = new Date().toISOString();
+
+    await reportsCollection.updateOne(
+      { _id: req.params.id },
+      { $set: updateData }
+    );
+
+    const updated = await reportsCollection.findOne({ _id: req.params.id });
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -261,7 +170,6 @@ router.post('/quick', async (req, res) => {
       const existing = await patientsCollection.findOne({ phone });
       if (existing) {
         patientId = existing._id;
-        // Update patient info
         await patientsCollection.updateOne(
           { _id: patientId },
           { $set: { name: patient_name, age, gender, email: email || existing.email || null, referred_by: referred_by || 'SELF' } }
@@ -270,17 +178,18 @@ router.post('/quick', async (req, res) => {
     }
 
     if (!patientId) {
+      patientId = require('crypto').randomUUID();
       const patient = {
+        _id: patientId,
         name: patient_name,
         age,
         gender,
         phone: phone || null,
         email: email || null,
         referred_by: referred_by || 'SELF',
-        created_at: new Date()
+        created_at: new Date().toISOString(),
       };
-      const result = await patientsCollection.insertOne(patient);
-      patientId = result.insertedId;
+      await patientsCollection.insertOne(patient);
     }
 
     // Generate ref_no
@@ -290,8 +199,7 @@ router.post('/quick', async (req, res) => {
     // Get test names
     let investigationText = '';
     if (test_ids && test_ids.length) {
-      const objectIds = test_ids.map(id => new ObjectId(id));
-      const tests = await testsCollection.find({ _id: { $in: objectIds } }).toArray();
+      const tests = await testsCollection.find({ _id: { $in: test_ids } }).toArray();
       investigationText = tests.map(t => t.name).join(', ');
     }
 
@@ -299,20 +207,20 @@ router.post('/quick', async (req, res) => {
     const testsArray = [];
     const resultsArray = [];
     const categoriesCollection = db.collection('test_categories');
-    
+
     if (test_ids && test_ids.length) {
       for (const testId of test_ids) {
-        const test = await testsCollection.findOne({ _id: new ObjectId(testId) });
+        const test = await testsCollection.findOne({ _id: testId });
         if (test) {
-          const category = await categoriesCollection.findOne({ _id: test.category_id });
-          const categoryName = category?.name || null;
+          const category = test.category_id ? await categoriesCollection.findOne({ _id: test.category_id }) : null;
+          const categoryName = category?.name || test.category_name || null;
           testsArray.push({
             test_id: test._id,
             test_name: test.name,
             specimen: test.specimen,
             category_name: categoryName
           });
-          
+
           const parameters = test.parameters || [];
           parameters.forEach(param => {
             const resultEntry = results ? results.find(r => r.param_name === param.param_name) : null;
@@ -341,7 +249,9 @@ router.post('/quick', async (req, res) => {
     });
 
     // Create report
+    const reportId = require('crypto').randomUUID();
     const report = {
+      _id: reportId,
       patient_id: patientId,
       ref_no: refNo,
       specimen: specimen || 'BLOOD',
@@ -349,26 +259,23 @@ router.post('/quick', async (req, res) => {
       doctor_name: doctor_name || 'Dr. C. Ashok',
       doctor_designation: doctor_designation || 'MBBS MD (PATH)',
       status: 'Completed',
-      date_of_collection: date_of_collection ? new Date(date_of_collection) : new Date(),
-      date_of_reporting: new Date(),
-      created_at: new Date(),
+      date_of_collection: date_of_collection || new Date().toISOString(),
+      date_of_reporting: new Date().toISOString(),
+      created_at: new Date().toISOString(),
       tests: testsArray,
       results: resultsArray
     };
-    
-    const reportResult = await reportsCollection.insertOne(report);
-    
-    // Send push notification to mobile devices
-    try { await sendPushNotification('New Quick Report', `${patient_name} - ${test_ids?.length || 0} test(s)`, { type: 'report', reportId: String(reportResult.insertedId) }); } catch(e) { console.error('Push error:', e); }
-    
-    // Return full report data so frontend doesn't need a second fetch
-    res.status(201).json({ 
-      reportId: reportResult.insertedId, 
-      patientId, 
+
+    await reportsCollection.insertOne(report);
+
+    try { await sendPushNotification('New Quick Report', `${patient_name} - ${test_ids?.length || 0} test(s)`, { type: 'report', reportId }); } catch(e) { console.error('Push error:', e); }
+
+    res.status(201).json({
+      reportId,
+      patientId,
       refNo,
       report: {
         ...report,
-        _id: reportResult.insertedId,
         patient_name: patient_name,
         age,
         gender,
@@ -385,7 +292,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const db = getDB();
     const reportsCollection = db.collection('reports');
-    await reportsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    await reportsCollection.deleteOne({ _id: req.params.id });
     res.json({ message: 'Report deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -401,24 +308,24 @@ router.post('/:id/tests', async (req, res) => {
     const testsCollection = db.collection('tests');
     const categoriesCollection = db.collection('test_categories');
 
-    const report = await reportsCollection.findOne({ _id: new ObjectId(req.params.id) });
+    const report = await reportsCollection.findOne({ _id: req.params.id });
     if (!report) return res.status(404).json({ error: 'Report not found' });
 
-    const test = await testsCollection.findOne({ _id: new ObjectId(test_id) });
+    const test = await testsCollection.findOne({ _id: test_id });
     if (!test) return res.status(404).json({ error: 'Test not found' });
 
     // Check if test already in report
-    const existing = (report.tests || []).find(t => t.test_id.toString() === test_id);
+    const existing = (report.tests || []).find(t => String(t.test_id) === String(test_id));
     if (existing) return res.status(400).json({ error: 'Test already in report' });
 
-    const category = await categoriesCollection.findOne({ _id: test.category_id });
+    const category = test.category_id ? await categoriesCollection.findOne({ _id: test.category_id }) : null;
 
-    // Add test entry
-    const newTest = { test_id: test._id, test_name: test.name, specimen: test.specimen };
+    const newTest = { test_id: test._id, test_name: test.name, specimen: test.specimen, category_name: category?.name || test.category_name || null };
 
-    // Add result entries for all parameters
     const newResults = (test.parameters || []).map(param => ({
       test_id: test._id,
+      test_name: test.name,
+      category_name: category?.name || test.category_name || null,
       param_name: param.param_name,
       result_value: '',
       is_abnormal: false,
@@ -430,7 +337,7 @@ router.post('/:id/tests', async (req, res) => {
     }));
 
     await reportsCollection.updateOne(
-      { _id: new ObjectId(req.params.id) },
+      { _id: req.params.id },
       {
         $push: {
           tests: newTest,
@@ -453,17 +360,16 @@ router.delete('/:id/tests/:testId', async (req, res) => {
   try {
     const db = getDB();
     const reportsCollection = db.collection('reports');
-    const report = await reportsCollection.findOne({ _id: new ObjectId(req.params.id) });
+    const report = await reportsCollection.findOne({ _id: req.params.id });
     if (!report) return res.status(404).json({ error: 'Report not found' });
 
-    const testId = new ObjectId(req.params.testId);
+    const testId = req.params.testId;
 
-    // Remove test and its results
-    const updatedTests = (report.tests || []).filter(t => t.test_id.toString() !== req.params.testId);
-    const updatedResults = (report.results || []).filter(r => r.test_id.toString() !== req.params.testId);
+    const updatedTests = (report.tests || []).filter(t => String(t.test_id) !== testId);
+    const updatedResults = (report.results || []).filter(r => String(r.test_id) !== testId);
 
     await reportsCollection.updateOne(
-      { _id: new ObjectId(req.params.id) },
+      { _id: req.params.id },
       {
         $set: {
           tests: updatedTests,

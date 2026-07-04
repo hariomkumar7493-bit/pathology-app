@@ -7,7 +7,7 @@
  * Run: node server/seedKFT.js
  */
 
-const { MongoClient, ObjectId } = require('mongodb');
+const { MongoClient } = require('mongodb');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://admin:admin8118@ac-yyrjnud-shard-00-00.sij25zs.mongodb.net:27017,ac-yyrjnud-shard-00-01.sij25zs.mongodb.net:27017,ac-yyrjnud-shard-00-02.sij25zs.mongodb.net:27017/PathoLabDB?ssl=true&replicaSet=atlas-brasg8-shard-0&authSource=admin&appName=PathLabPro';
 

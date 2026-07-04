@@ -8,7 +8,7 @@ function col(db, name) {
   return db.collection(name);
 }
 
-// Helper: upsert a document by _id (string, not ObjectId)
+// Helper: upsert a document by string _id
 // Returns { doc, isNew } — isNew is true if the document was created (not updated)
 async function upsertById(db, collectionName, _id, data) {
   const collection = col(db, collectionName);
@@ -35,14 +35,14 @@ async function deleteById(db, collectionName, _id) {
 router.get('/patients', async (req, res) => {
   try {
     const db = getDB();
-    const patients = await col(db, 'electron_patients').find({}).sort({ created_at: -1 }).toArray();
+    const patients = await col(db, 'patients').find({}).sort({ created_at: -1 }).toArray();
     res.json(patients);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// PUT upsert patient (local _id is the MongoDB _id — no ObjectId, no mismatch)
+// PUT upsert patient (local _id is the MongoDB _id)
 router.put('/patients/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -62,7 +62,7 @@ router.put('/patients/:id', async (req, res) => {
       updated_at: new Date()
     };
     
-    const { doc: result } = await upsertById(db, 'electron_patients', id, data);
+    const { doc: result } = await upsertById(db, 'patients', id, data);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -73,9 +73,9 @@ router.put('/patients/:id', async (req, res) => {
 router.delete('/patients/:id', async (req, res) => {
   try {
     const db = getDB();
-    await deleteById(db, 'electron_patients', req.params.id);
-    // Also delete electron reports for this patient
-    await col(db, 'electron_reports').deleteMany({ patient_id: req.params.id });
+    await deleteById(db, 'patients', req.params.id);
+    // Also delete reports for this patient
+    await col(db, 'reports').deleteMany({ patient_id: req.params.id });
     res.json({ message: 'Patient deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -88,7 +88,7 @@ router.delete('/patients/:id', async (req, res) => {
 router.get('/reports', async (req, res) => {
   try {
     const db = getDB();
-    const reports = await col(db, 'electron_reports').find({}).sort({ created_at: -1 }).toArray();
+    const reports = await col(db, 'reports').find({}).sort({ created_at: -1 }).toArray();
     res.json(reports);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -123,7 +123,7 @@ router.put('/reports/:id', async (req, res) => {
       updated_at: new Date()
     };
     
-    const { doc: result, isNew } = await upsertById(db, 'electron_reports', id, data);
+    const { doc: result, isNew } = await upsertById(db, 'reports', id, data);
 
     // Send push notification only for new reports (not updates)
     if (isNew) {
@@ -142,7 +142,7 @@ router.put('/reports/:id', async (req, res) => {
 router.delete('/reports/:id', async (req, res) => {
   try {
     const db = getDB();
-    await deleteById(db, 'electron_reports', req.params.id);
+    await deleteById(db, 'reports', req.params.id);
     res.json({ message: 'Report deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -155,7 +155,7 @@ router.delete('/reports/:id', async (req, res) => {
 router.get('/test-categories', async (req, res) => {
   try {
     const db = getDB();
-    const cats = await col(db, 'electron_test_categories').find({}).sort({ name: 1 }).toArray();
+    const cats = await col(db, 'test_categories').find({}).sort({ name: 1 }).toArray();
     res.json(cats);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -177,7 +177,7 @@ router.put('/test-categories/:id', async (req, res) => {
       updated_at: new Date()
     };
     
-    const { doc: result } = await upsertById(db, 'electron_test_categories', id, data);
+    const { doc: result } = await upsertById(db, 'test_categories', id, data);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -188,7 +188,7 @@ router.put('/test-categories/:id', async (req, res) => {
 router.delete('/test-categories/:id', async (req, res) => {
   try {
     const db = getDB();
-    await deleteById(db, 'electron_test_categories', req.params.id);
+    await deleteById(db, 'test_categories', req.params.id);
     res.json({ message: 'Category deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -201,7 +201,7 @@ router.delete('/test-categories/:id', async (req, res) => {
 router.get('/tests', async (req, res) => {
   try {
     const db = getDB();
-    const tests = await col(db, 'electron_tests').find({}).toArray();
+    const tests = await col(db, 'tests').find({}).toArray();
     res.json(tests);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -227,7 +227,7 @@ router.put('/tests/:id', async (req, res) => {
       updated_at: new Date()
     };
     
-    const { doc: result } = await upsertById(db, 'electron_tests', id, data);
+    const { doc: result } = await upsertById(db, 'tests', id, data);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -238,7 +238,7 @@ router.put('/tests/:id', async (req, res) => {
 router.delete('/tests/:id', async (req, res) => {
   try {
     const db = getDB();
-    await deleteById(db, 'electron_tests', req.params.id);
+    await deleteById(db, 'tests', req.params.id);
     res.json({ message: 'Test deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -251,7 +251,7 @@ router.delete('/tests/:id', async (req, res) => {
 router.get('/users', async (req, res) => {
   try {
     const db = getDB();
-    const users = await col(db, 'electron_users').find({}).toArray();
+    const users = await col(db, 'users').find({}).toArray();
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -275,7 +275,7 @@ router.put('/users/:id', async (req, res) => {
       updated_at: new Date()
     };
     
-    const { doc: result } = await upsertById(db, 'electron_users', id, data);
+    const { doc: result } = await upsertById(db, 'users', id, data);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -286,7 +286,7 @@ router.put('/users/:id', async (req, res) => {
 router.delete('/users/:id', async (req, res) => {
   try {
     const db = getDB();
-    await deleteById(db, 'electron_users', req.params.id);
+    await deleteById(db, 'users', req.params.id);
     res.json({ message: 'User deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });

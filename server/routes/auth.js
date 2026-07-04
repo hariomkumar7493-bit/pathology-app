@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db');
-const { ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -54,7 +53,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { userId: user._id, phone: user.phone, role: user.role },
+      { userId: String(user._id), phone: user.phone, role: user.role },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -105,16 +104,18 @@ router.post('/users', authenticate, requireAdmin, async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const _id = require('crypto').randomUUID();
     const newUser = {
+      _id,
       name,
       phone,
       password: hashedPassword,
       role: role || 'user',
-      created_at: new Date()
+      created_at: new Date().toISOString(),
     };
 
-    const result = await usersCollection.insertOne(newUser);
-    const { password: _, ...userWithoutPassword } = { ...newUser, _id: result.insertedId };
+    await usersCollection.insertOne(newUser);
+    const { password: _, ...userWithoutPassword } = newUser;
 
     res.status(201).json(userWithoutPassword);
   } catch (err) {
@@ -141,7 +142,7 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res) => {
     }
 
     const result = await usersCollection.findOneAndUpdate(
-      { _id: new ObjectId(req.params.id) },
+      { _id: req.params.id },
       { $set: update },
       { returnDocument: 'after', projection: { password: 0 } }
     );
@@ -163,11 +164,11 @@ router.delete('/users/:id', authenticate, requireAdmin, async (req, res) => {
     const usersCollection = db.collection('users');
 
     // Prevent admin from deleting themselves
-    if (req.params.id === req.user.userId) {
+    if (req.params.id === String(req.user.userId)) {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
 
-    const result = await usersCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    const result = await usersCollection.deleteOne({ _id: req.params.id });
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'User not found' });

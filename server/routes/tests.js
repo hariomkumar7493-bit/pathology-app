@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const { getDB } = require('../db');
-const { ObjectId } = require('mongodb');
 
 // GET all tests with categories
 router.get('/', async (req, res) => {
@@ -9,27 +8,27 @@ router.get('/', async (req, res) => {
     const db = getDB();
     const testsCollection = db.collection('tests');
     const categoriesCollection = db.collection('test_categories');
-    
+
     const tests = await testsCollection.find({}).toArray();
     const categories = await categoriesCollection.find({}).toArray();
-    
+
     const categoryMap = {};
     categories.forEach(cat => {
-      categoryMap[cat._id.toString()] = cat.name;
+      categoryMap[String(cat._id)] = cat.name;
     });
-    
+
     const testsWithCategory = tests.map(test => ({
       ...test,
-      category_name: categoryMap[test.category_id?.toString()] || null
+      category_name: categoryMap[String(test.category_id)] || test.category_name || null
     }));
-    
+
     testsWithCategory.sort((a, b) => {
       if (a.category_name !== b.category_name) {
         return (a.category_name || '').localeCompare(b.category_name || '');
       }
       return a.name.localeCompare(b.name);
     });
-    
+
     res.json(testsWithCategory);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -53,15 +52,15 @@ router.get('/:id/parameters', async (req, res) => {
   try {
     const db = getDB();
     const testsCollection = db.collection('tests');
-    const test = await testsCollection.findOne({ _id: new ObjectId(req.params.id) });
-    
+    const test = await testsCollection.findOne({ _id: req.params.id });
+
     if (!test) {
       return res.status(404).json({ error: 'Test not found' });
     }
-    
+
     const parameters = test.parameters || [];
     parameters.sort((a, b) => a.sort_order - b.sort_order);
-    
+
     res.json(parameters);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -73,20 +72,19 @@ router.post('/parameters/bulk', async (req, res) => {
   try {
     const { testIds } = req.body;
     if (!testIds || !testIds.length) return res.json([]);
-    
+
     const db = getDB();
     const testsCollection = db.collection('tests');
     const categoriesCollection = db.collection('test_categories');
-    
-    const objectIds = testIds.map(id => new ObjectId(id));
-    const tests = await testsCollection.find({ _id: { $in: objectIds } }).toArray();
+
+    const tests = await testsCollection.find({ _id: { $in: testIds } }).toArray();
     const categories = await categoriesCollection.find({}).toArray();
-    
+
     const categoryMap = {};
     categories.forEach(cat => {
-      categoryMap[cat._id.toString()] = cat.name;
+      categoryMap[String(cat._id)] = cat.name;
     });
-    
+
     let allParameters = [];
     tests.forEach(test => {
       const parameters = test.parameters || [];
@@ -94,18 +92,18 @@ router.post('/parameters/bulk', async (req, res) => {
         allParameters.push({
           ...param,
           test_name: test.name,
-          category_name: categoryMap[test.category_id?.toString()] || null
+          category_name: categoryMap[String(test.category_id)] || test.category_name || null
         });
       });
     });
-    
+
     allParameters.sort((a, b) => {
       if (a.test_name !== b.test_name) {
         return a.test_name.localeCompare(b.test_name);
       }
       return a.sort_order - b.sort_order;
     });
-    
+
     res.json(allParameters);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -122,12 +120,17 @@ router.post('/categories', async (req, res) => {
 
     const db = getDB();
     const categoriesCollection = db.collection('test_categories');
-    
+
     const existing = await categoriesCollection.findOne({ name: name.toUpperCase() });
     if (existing) return res.status(400).json({ error: 'Category already exists' });
 
-    const result = await categoriesCollection.insertOne({ name: name.toUpperCase() });
-    const newCat = await categoriesCollection.findOne({ _id: result.insertedId });
+    const _id = require('crypto').randomUUID();
+    const newCat = {
+      _id,
+      name: name.toUpperCase(),
+      created_at: new Date().toISOString(),
+    };
+    await categoriesCollection.insertOne(newCat);
     res.status(201).json(newCat);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -142,9 +145,9 @@ router.put('/categories/:id', async (req, res) => {
 
     const db = getDB();
     const categoriesCollection = db.collection('test_categories');
-    
+
     await categoriesCollection.updateOne(
-      { _id: new ObjectId(req.params.id) },
+      { _id: req.params.id },
       { $set: { name: name.toUpperCase() } }
     );
     res.json({ message: 'Category updated' });
@@ -160,13 +163,12 @@ router.delete('/categories/:id', async (req, res) => {
     const categoriesCollection = db.collection('test_categories');
     const testsCollection = db.collection('tests');
 
-    // Check if any tests use this category
-    const testsUsingCat = await testsCollection.countDocuments({ category_id: new ObjectId(req.params.id) });
+    const testsUsingCat = await testsCollection.countDocuments({ category_id: req.params.id });
     if (testsUsingCat > 0) {
       return res.status(400).json({ error: `Cannot delete: ${testsUsingCat} test(s) use this category` });
     }
 
-    await categoriesCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    await categoriesCollection.deleteOne({ _id: req.params.id });
     res.json({ message: 'Category deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -184,9 +186,11 @@ router.post('/', async (req, res) => {
     const db = getDB();
     const testsCollection = db.collection('tests');
 
+    const _id = require('crypto').randomUUID();
     const test = {
+      _id,
       name,
-      category_id: category_id ? new ObjectId(category_id) : null,
+      category_id: category_id || null,
       specimen: specimen || 'BLOOD',
       parameters: (parameters || []).map((p, idx) => ({
         id: p.id || idx + 1,
@@ -201,9 +205,8 @@ router.post('/', async (req, res) => {
       })),
     };
 
-    const result = await testsCollection.insertOne(test);
-    const newTest = await testsCollection.findOne({ _id: result.insertedId });
-    res.status(201).json(newTest);
+    await testsCollection.insertOne(test);
+    res.status(201).json(test);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -218,7 +221,7 @@ router.put('/:id', async (req, res) => {
 
     const updateData = {};
     if (name !== undefined) updateData.name = name;
-    if (category_id !== undefined) updateData.category_id = category_id ? new ObjectId(category_id) : null;
+    if (category_id !== undefined) updateData.category_id = category_id || null;
     if (specimen !== undefined) updateData.specimen = specimen;
     if (parameters !== undefined) {
       updateData.parameters = parameters.map((p, idx) => ({
@@ -235,11 +238,11 @@ router.put('/:id', async (req, res) => {
     }
 
     await testsCollection.updateOne(
-      { _id: new ObjectId(req.params.id) },
+      { _id: req.params.id },
       { $set: updateData }
     );
 
-    const updated = await testsCollection.findOne({ _id: new ObjectId(req.params.id) });
+    const updated = await testsCollection.findOne({ _id: req.params.id });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -251,7 +254,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const db = getDB();
     const testsCollection = db.collection('tests');
-    await testsCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+    await testsCollection.deleteOne({ _id: req.params.id });
     res.json({ message: 'Test deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
