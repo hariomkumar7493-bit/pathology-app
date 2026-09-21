@@ -11,7 +11,8 @@ import {
   FlaskConical,
   SlidersHorizontal,
   UserCog,
-  Activity
+  Activity,
+  Calculator
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -20,6 +21,7 @@ const navItems = [
   { path: '/patients', icon: Users, label: 'Patients' },
   { path: '/reports', icon: FileText, label: 'Reports' },
   { path: '/quick-report', icon: Zap, label: 'Quick Report' },
+  { path: '/egfr', icon: Calculator, label: 'eGFR Calculator' },
 ];
 
 const adminNavItems = [

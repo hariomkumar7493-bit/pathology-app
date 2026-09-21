@@ -14,6 +14,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Patients = lazy(() => import('./pages/Patients'));
 const Reports = lazy(() => import('./pages/Reports'));
 const QuickReport = lazy(() => import('./pages/QuickReport'));
+const Egfrcalculator = lazy(() => import('./pages/Egfrcalculator'));
 const Settings = lazy(() => import('./pages/Settings'));
 const TestManagement = lazy(() => import('./pages/TestManagement'));
 const ReportLayoutSettings = lazy(() => import('./pages/ReportLayoutSettings'));
@@ -53,6 +54,7 @@ function AppRoutes() {
           <Route path="patients" element={<Patients />} />
           <Route path="reports" element={<Reports />} />
           <Route path="quick-report" element={<QuickReport />} />
+          <Route path="egfr" element={<Egfrcalculator />} />
           <Route path="settings" element={<Settings />} />
           <Route path="test-management" element={<TestManagement />} />
           <Route path="report-layout" element={<ReportLayoutSettings />} />
