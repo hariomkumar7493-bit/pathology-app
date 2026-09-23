@@ -21,7 +21,7 @@ const navItems = [
   { path: '/patients', icon: Users, label: 'Patients', roles: ['admin', 'user'] },
   { path: '/reports', icon: FileText, label: 'Reports', roles: ['admin', 'user'] },
   { path: '/quick-report', icon: Zap, label: 'Quick Report', roles: ['admin', 'user'] },
-  { path: '/egfr', icon: Calculator, label: 'eGFR Calculator', roles: ['admin', 'user', 'doctor'] },
+  { path: '/egfr', icon: Calculator, label: 'eGFR Calculator', roles: ['admin', 'user'] },
 ];
 
 const adminNavItems = [

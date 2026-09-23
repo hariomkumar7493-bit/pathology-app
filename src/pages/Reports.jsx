@@ -1000,8 +1000,11 @@ export default function Reports() {
                     })}
                   </div>
                 ) : (
-                  /* Read-only preview */
-                  <PrintableReport ref={printRef} report={viewReport} layoutSettings={layoutSettings?.print} />
+                  /* Read-only preview — hide the fixed footer (it's for print only) */
+                  <div className="report-modal-preview">
+                    <style>{`.report-modal-preview .page-footer { display: none !important; }`}</style>
+                    <PrintableReport ref={printRef} report={viewReport} layoutSettings={layoutSettings?.print} />
+                  </div>
                 )}
               </>
             )}

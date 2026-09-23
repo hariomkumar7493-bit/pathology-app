@@ -576,8 +576,11 @@ export default function DoctorDashboard() {
                   <div><span className="text-gray-500">Status:</span> <span className={`font-medium ${viewReport.status === 'Completed' ? 'text-green-600' : 'text-yellow-600'}`}>{viewReport.status}</span></div>
                 </div>
 
-                {/* Report preview (same as technician view) */}
-                <PrintableReport ref={printRef} report={viewReport} layoutSettings={layoutSettings?.print} />
+                {/* Report preview — hide the fixed footer (it's for print only) */}
+                <div className="report-modal-preview">
+                  <style>{`.report-modal-preview .page-footer { display: none !important; }`}</style>
+                  <PrintableReport ref={printRef} report={viewReport} layoutSettings={layoutSettings?.print} />
+                </div>
               </>
             )}
           </div>
