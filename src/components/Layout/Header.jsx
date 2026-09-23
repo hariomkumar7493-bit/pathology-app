@@ -93,7 +93,9 @@ export default function Header({ onMenuToggle, sidebarCollapsed }) {
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{user?.name}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{user?.role === 'admin' ? 'Administrator' : 'Staff'}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {user?.role === 'admin' ? 'Administrator' : user?.role === 'doctor' ? 'Doctor' : 'Staff'}
+            </p>
           </div>
           <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center">
             <User className="w-5 h-5 text-primary-600" />

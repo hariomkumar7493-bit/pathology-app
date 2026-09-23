@@ -17,11 +17,11 @@ import {
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/patients', icon: Users, label: 'Patients' },
-  { path: '/reports', icon: FileText, label: 'Reports' },
-  { path: '/quick-report', icon: Zap, label: 'Quick Report' },
-  { path: '/egfr', icon: Calculator, label: 'eGFR Calculator' },
+  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'user', 'doctor'] },
+  { path: '/patients', icon: Users, label: 'Patients', roles: ['admin', 'user'] },
+  { path: '/reports', icon: FileText, label: 'Reports', roles: ['admin', 'user'] },
+  { path: '/quick-report', icon: Zap, label: 'Quick Report', roles: ['admin', 'user'] },
+  { path: '/egfr', icon: Calculator, label: 'eGFR Calculator', roles: ['admin', 'user', 'doctor'] },
 ];
 
 const adminNavItems = [
@@ -33,6 +33,7 @@ const adminNavItems = [
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
   const { logout, user } = useAuth();
+  const visibleNavItems = navItems.filter((item) => !item.roles || item.roles.includes(user?.role));
 
   return (
     <>
@@ -52,7 +53,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
 
         {/* Navigation */}
         <nav className="flex-1 px-2 py-6 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
@@ -131,7 +132,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
 
         {/* Navigation */}
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}

@@ -11,6 +11,7 @@ import { initPushNotifications } from './utils/mobileNotifications';
 
 // Lazy load heavy pages for faster initial load
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const DoctorDashboard = lazy(() => import('./pages/DoctorDashboard'));
 const Patients = lazy(() => import('./pages/Patients'));
 const Reports = lazy(() => import('./pages/Reports'));
 const QuickReport = lazy(() => import('./pages/QuickReport'));
@@ -43,6 +44,12 @@ function PublicRoute({ children }) {
   return children;
 }
 
+// Doctors see a report-focused dashboard; admins/staff see the lab overview
+function DashboardRoute() {
+  const { user } = useAuth();
+  return user?.role === 'doctor' ? <DoctorDashboard /> : <Dashboard />;
+}
+
 function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
@@ -50,7 +57,7 @@ function AppRoutes() {
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="dashboard" element={<DashboardRoute />} />
           <Route path="patients" element={<Patients />} />
           <Route path="reports" element={<Reports />} />
           <Route path="quick-report" element={<QuickReport />} />

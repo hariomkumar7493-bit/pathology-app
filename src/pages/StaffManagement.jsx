@@ -154,6 +154,7 @@ export default function StaffManagement() {
                     className="input-field pl-10"
                   >
                     <option value="user">Staff</option>
+                    <option value="doctor">Doctor</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>
@@ -204,10 +205,12 @@ export default function StaffManagement() {
                     <td className="px-4 py-3 text-sm text-gray-600">{u.phone}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                        u.role === 'admin' ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'
+                        u.role === 'admin' ? 'bg-primary-100 text-primary-700'
+                          : u.role === 'doctor' ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-600'
                       }`}>
                         {u.role === 'admin' && <Shield className="w-3 h-3" />}
-                        {u.role === 'admin' ? 'Admin' : 'Staff'}
+                        {u.role === 'admin' ? 'Admin' : u.role === 'doctor' ? 'Doctor' : 'Staff'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
