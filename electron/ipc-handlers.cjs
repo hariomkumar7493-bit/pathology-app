@@ -47,7 +47,7 @@ function registerIpcHandlers(log) {
       const valid = bcrypt.compareSync(password, user.password);
       if (valid) {
         const token = jwt.sign({ id: user._id, phone: user.phone, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-        return { token, user: { _id: user._id, name: user.name, phone: user.phone, role: user.role } };
+        return { token, user: { _id: user._id, name: user.name, phone: user.phone, role: user.role, referring_doctor_name: user.referring_doctor_name || '' } };
       }
       // Password mismatch — try remote in case it was changed
     }
@@ -64,10 +64,10 @@ function registerIpcHandlers(log) {
         const hashedPassword = bcrypt.hashSync(password, 10);
         const userData = res.data.user || {};
         const userId = userData._id || generateId();
-        db.prepare(`INSERT OR REPLACE INTO users (_id, name, phone, role, password, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, 'synced')`).run(
-          String(userId), userData.name || '', phone, userData.role || 'staff', hashedPassword, new Date().toISOString()
+        db.prepare(`INSERT OR REPLACE INTO users (_id, name, phone, role, referring_doctor_name, password, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, 'synced')`).run(
+          String(userId), userData.name || '', phone, userData.role || 'staff', userData.referring_doctor_name || '', hashedPassword, new Date().toISOString()
         );
-        return { token: res.data.token, user: { _id: userId, name: userData.name, phone, role: userData.role } };
+        return { token: res.data.token, user: { _id: userId, name: userData.name, phone, role: userData.role, referring_doctor_name: userData.referring_doctor_name || '' } };
       }
       return { error: (res.data && res.data.error) || 'Invalid phone or password' };
     } catch (err) {
@@ -79,27 +79,29 @@ function registerIpcHandlers(log) {
 
   ipcMain.handle('db:getUsers', async () => {
     const db = getDb();
-    const users = db.prepare('SELECT _id, name, phone, role, created_at FROM users').all();
+    const users = db.prepare('SELECT _id, name, phone, role, referring_doctor_name, created_at FROM users').all();
     return users;
   });
 
-  ipcMain.handle('db:createUser', async (event, { name, phone, password, role }) => {
+  ipcMain.handle('db:createUser', async (event, { name, phone, password, role, referring_doctor_name }) => {
     const db = getDb();
     const existing = db.prepare('SELECT _id FROM users WHERE phone = ?').get(phone);
     if (existing) return { error: 'Phone already registered' };
     const id = generateId();
     const hashed = bcrypt.hashSync(password, 10);
-    db.prepare('INSERT INTO users (_id, name, phone, role, password, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?)').run(id, name, phone, role, hashed, new Date().toISOString(), 'pending');
-    return { _id: id, name, phone, role };
+    const refDoc = role === 'doctor' ? (referring_doctor_name || '') : '';
+    db.prepare('INSERT INTO users (_id, name, phone, role, referring_doctor_name, password, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(id, name, phone, role, refDoc, hashed, new Date().toISOString(), 'pending');
+    return { _id: id, name, phone, role, referring_doctor_name: refDoc };
   });
 
-  ipcMain.handle('db:updateUser', async (event, { id, name, phone, role, password }) => {
+  ipcMain.handle('db:updateUser', async (event, { id, name, phone, role, password, referring_doctor_name }) => {
     const db = getDb();
+    const refDoc = role === 'doctor' ? (referring_doctor_name || '') : '';
     if (password) {
       const hashed = bcrypt.hashSync(password, 10);
-      db.prepare('UPDATE users SET name = ?, phone = ?, role = ?, password = ?, sync_status = ? WHERE _id = ?').run(name, phone, role, hashed, 'pending', id);
+      db.prepare('UPDATE users SET name = ?, phone = ?, role = ?, referring_doctor_name = ?, password = ?, sync_status = ? WHERE _id = ?').run(name, phone, role, refDoc, hashed, 'pending', id);
     } else {
-      db.prepare('UPDATE users SET name = ?, phone = ?, role = ?, sync_status = ? WHERE _id = ?').run(name, phone, role, 'pending', id);
+      db.prepare('UPDATE users SET name = ?, phone = ?, role = ?, referring_doctor_name = ?, sync_status = ? WHERE _id = ?').run(name, phone, role, refDoc, 'pending', id);
     }
     return { success: true };
   });

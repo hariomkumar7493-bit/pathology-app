@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserPlus, Trash2, Edit2, X, Phone, Lock, User, Shield, Save } from 'lucide-react';
+import { UserPlus, Trash2, Edit2, X, Phone, Lock, User, Shield, Save, Stethoscope } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -11,8 +11,9 @@ export default function StaffManagement() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ name: '', phone: '', password: '', role: 'user' });
+  const [form, setForm] = useState({ name: '', phone: '', password: '', role: 'user', referring_doctor_name: '' });
   const [saving, setSaving] = useState(false);
+  const [referringDoctors, setReferringDoctors] = useState([]);
 
   const fetchUsers = async () => {
     try {
@@ -26,10 +27,11 @@ export default function StaffManagement() {
 
   useEffect(() => {
     fetchUsers();
+    api.getReferringDoctors().then(data => setReferringDoctors((data.doctors || []).filter(d => d !== 'SELF'))).catch(() => {});
   }, []);
 
   const resetForm = () => {
-    setForm({ name: '', phone: '', password: '', role: 'user' });
+    setForm({ name: '', phone: '', password: '', role: 'user', referring_doctor_name: '' });
     setEditingId(null);
     setShowForm(false);
   };
@@ -39,12 +41,12 @@ export default function StaffManagement() {
     setSaving(true);
     try {
       if (editingId) {
-        const updateData = { name: form.name, phone: form.phone, role: form.role };
+        const updateData = { name: form.name, phone: form.phone, role: form.role, referring_doctor_name: form.role === 'doctor' ? form.referring_doctor_name : '' };
         if (form.password) updateData.password = form.password;
         await api.updateUser(editingId, updateData);
         addToast('Staff member updated', 'success');
       } else {
-        await api.createUser(form);
+        await api.createUser({ ...form, referring_doctor_name: form.role === 'doctor' ? form.referring_doctor_name : '' });
         addToast('Staff member added', 'success');
       }
       resetForm();
@@ -56,7 +58,7 @@ export default function StaffManagement() {
   };
 
   const handleEdit = (u) => {
-    setForm({ name: u.name, phone: u.phone, password: '', role: u.role });
+    setForm({ name: u.name, phone: u.phone, password: '', role: u.role, referring_doctor_name: u.referring_doctor_name || '' });
     setEditingId(u._id);
     setShowForm(true);
   };
@@ -159,6 +161,26 @@ export default function StaffManagement() {
                   </select>
                 </div>
               </div>
+              {form.role === 'doctor' && (
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Linked Referring Doctor</label>
+                  <div className="relative">
+                    <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <select
+                      value={form.referring_doctor_name}
+                      onChange={e => setForm({ ...form, referring_doctor_name: e.target.value })}
+                      className="input-field pl-10"
+                      required
+                    >
+                      <option value="">-- Select referring doctor --</option>
+                      {referringDoctors.map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">This doctor will only see reports referred by the selected name.</p>
+                </div>
+              )}
             </div>
             <div className="flex gap-3">
               <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2 disabled:opacity-50">
@@ -195,6 +217,7 @@ export default function StaffManagement() {
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Name</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Phone</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Role</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase px-4 py-3">Linked Doctor</th>
                   <th className="text-right text-xs font-semibold text-gray-500 uppercase px-4 py-3">Actions</th>
                 </tr>
               </thead>
@@ -212,6 +235,9 @@ export default function StaffManagement() {
                         {u.role === 'admin' && <Shield className="w-3 h-3" />}
                         {u.role === 'admin' ? 'Admin' : u.role === 'doctor' ? 'Doctor' : 'Staff'}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {u.role === 'doctor' && u.referring_doctor_name ? u.referring_doctor_name : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">

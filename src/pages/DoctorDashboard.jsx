@@ -6,11 +6,13 @@ import {
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { isElectron, getAssetUrl } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
 
 export default function DoctorDashboard() {
+  const { user } = useAuth();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('today'); // 'today' | 'history'
@@ -36,7 +38,10 @@ export default function DoctorDashboard() {
     setLoading(true);
     try {
       const data = await api.getReports();
-      setReports(data);
+      // Doctor sees only reports referred by their linked referring doctor name
+      const doctorName = user?.referring_doctor_name;
+      const filtered = doctorName ? data.filter(r => r.referred_by === doctorName) : data;
+      setReports(filtered);
     } catch (err) {
       console.error(err);
     }

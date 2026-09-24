@@ -85,7 +85,7 @@ router.get('/users', authenticate, requireAdmin, async (req, res) => {
 // Create a new staff member
 router.post('/users', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { name, phone, password, role } = req.body;
+    const { name, phone, password, role, referring_doctor_name } = req.body;
 
     if (!name || !phone || !password) {
       return res.status(400).json({ error: 'Name, phone and password are required' });
@@ -111,6 +111,7 @@ router.post('/users', authenticate, requireAdmin, async (req, res) => {
       phone,
       password: hashedPassword,
       role: role || 'user',
+      referring_doctor_name: role === 'doctor' ? (referring_doctor_name || '') : '',
       created_at: new Date().toISOString(),
     };
 
@@ -126,7 +127,7 @@ router.post('/users', authenticate, requireAdmin, async (req, res) => {
 // Update a staff member
 router.put('/users/:id', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { name, phone, password, role } = req.body;
+    const { name, phone, password, role, referring_doctor_name } = req.body;
     const db = getDB();
     const usersCollection = db.collection('users');
 
@@ -134,6 +135,7 @@ router.put('/users/:id', authenticate, requireAdmin, async (req, res) => {
     if (name) update.name = name;
     if (phone) update.phone = phone;
     if (role) update.role = role;
+    update.referring_doctor_name = role === 'doctor' ? (referring_doctor_name || '') : '';
     if (password) {
       if (password.length < 6) {
         return res.status(400).json({ error: 'Password must be at least 6 characters' });

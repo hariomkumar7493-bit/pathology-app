@@ -88,6 +88,7 @@ function initSchema(d) {
       name TEXT,
       phone TEXT,
       role TEXT,
+      referring_doctor_name TEXT DEFAULT '',
       password TEXT,
       created_at TEXT,
       sync_status TEXT DEFAULT 'synced'
@@ -114,6 +115,11 @@ function initSchema(d) {
   try {
     d.exec(`CREATE INDEX IF NOT EXISTS idx_reports_sample_id ON reports(sample_id)`);
   } catch (e) { /* ignore */ }
+
+  // Migration: add referring_doctor_name column to users (doctor role mapping)
+  try {
+    d.exec(`ALTER TABLE users ADD COLUMN referring_doctor_name TEXT DEFAULT ''`);
+  } catch (e) { /* column already exists */ }
 
   // Migration: add remote_id column to all tables (stores MongoDB _id from server)
   // local _id stays as primary key and never changes; remote_id is used for sync matching
