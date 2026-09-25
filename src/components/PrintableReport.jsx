@@ -1,4 +1,4 @@
-import { forwardRef, Fragment } from 'react';
+import { forwardRef, Fragment, useLayoutEffect, useState } from 'react';
 import { getAssetUrl } from '../utils/electron';
 
 /*
@@ -48,6 +48,16 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
   const footerH = l.footerHeight;
   const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
+  // In print/PDF the letterhead renders at 210mm (~794px) and is cropped to
+  // l.letterheadHeight. In preview the image scales with the container width,
+  // so scale the header spacer the same way to keep content below the letterhead.
+  const [headerSpacer, setHeaderSpacer] = useState(l.letterheadHeight);
+  useLayoutEffect(() => {
+    if (!isPreview) { setHeaderSpacer(l.letterheadHeight); return; }
+    const w = ref?.current?.clientWidth;
+    if (w) setHeaderSpacer(Math.round(l.letterheadHeight * w / 794));
+  }, [isPreview, l.letterheadHeight, ref, letterheadUrl]);
+
   const formatDate = (d) => {
     if (!d) return '';
     const dt = new Date(d);
@@ -84,7 +94,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
   // Shared header builder (rendered inside each table's thead)
   const renderHeader = (investigationText) => (
     <>
-      <tr><td style={{ height: `${l.letterheadHeight}px`, paddingTop: `${l.headerTopPadding}px`, padding: 0, border: 'none' }}></td></tr>
+      <tr><td style={{ height: `${headerSpacer}px`, paddingTop: `${l.headerTopPadding}px`, padding: 0, border: 'none' }}></td></tr>
       <tr>
         <td style={{ textAlign: 'center', fontSize: `${l.titleFontSize}px`, fontWeight: 'bold', paddingBottom: `${l.headerBottomPadding}px`, textDecoration: 'underline', letterSpacing: '1px' }}>
           LABORATORY INVESTIGATION REPORT
