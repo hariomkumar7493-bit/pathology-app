@@ -36,29 +36,21 @@ export default function DoctorDashboard() {
     api.getReportLayout().then(setLayoutSettings).catch((err) => console.error('Layout load failed:', err));
   }, []);
 
-  // Voice command handler for Doctor Dashboard
+  // Voice command handler for Doctor Dashboard (intent-based)
   useEffect(() => {
-    const handler = (lower) => {
-      const searchMatch = lower.match(/^(?:search|find|खोजो)\s+(.+)/);
-      if (searchMatch) {
-        setSearchTerm(searchMatch[1].trim());
-        addToast(`Searching: ${searchMatch[1].trim()}`, 'info');
-        return true;
+    const handler = (intent) => {
+      if (intent.intent === 'search') {
+        setSearchTerm(intent.query);
+        return `Searching for ${intent.query}`;
       }
-      if (lower === 'today' || lower === 'today reports' || lower === "today's reports" || lower === 'आज') {
-        setView('today');
-        addToast('Showing today\'s reports', 'info');
-        return true;
+      if (intent.intent === 'view_tab') {
+        setView(intent.value);
+        return intent.value === 'today' ? "Showing today's reports" : 'Showing report history';
       }
-      if (lower === 'history' || lower === 'all reports' || lower === 'all' || lower === 'पुराने') {
-        setView('history');
-        addToast('Showing report history', 'info');
-        return true;
-      }
-      return false;
+      return null;
     };
     return registerCommands('doctor-dashboard', handler);
-  }, [registerCommands, addToast]);
+  }, [registerCommands]);
 
   async function loadReports() {
     setLoading(true);

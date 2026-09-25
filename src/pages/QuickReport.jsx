@@ -51,86 +51,54 @@ export default function QuickReport() {
     api.getNextSampleId().then(data => setSampleId(data.sampleId || '')).catch(() => {});
   }, []);
 
-  // Voice command handler for Quick Report
+  // Voice command handler for Quick Report (intent-based)
   useEffect(() => {
-    const handler = (lower, raw) => {
-      // Patient name: "patient name <name>" or "name <name>"
-      const nameMatch = lower.match(/^(?:patient\s*name|name)\s+(.+)/);
-      if (nameMatch) {
-        const name = raw.slice(raw.indexOf(nameMatch[1])).trim();
-        setForm(f => ({ ...f, patient_name: name }));
-        addToast(`Patient name: ${name}`, 'info');
-        return true;
-      }
-
-      // Age: "age <number>" or "age <number> years"
-      const ageMatch = lower.match(/^(?:age|umra?)\s+(\d+)/i);
-      if (ageMatch) {
-        setForm(f => ({ ...f, age: ageMatch[1] }));
-        addToast(`Age: ${ageMatch[1]}`, 'info');
-        return true;
-      }
-
-      // Gender: "gender male/female" or "male"/"female"
-      if (lower.includes('female') || lower.includes('महिला')) {
-        setForm(f => ({ ...f, gender: 'Female' }));
-        addToast('Gender: Female', 'info');
-        return true;
-      }
-      if (lower.includes('male') || lower.includes('पुरुष')) {
-        setForm(f => ({ ...f, gender: 'Male' }));
-        addToast('Gender: Male', 'info');
-        return true;
-      }
-
-      // Specimen: "specimen blood/urine/serum"
-      const specMatch = lower.match(/^(?:specimen|sample)\s+(.+)/);
-      if (specMatch) {
-        const spec = specMatch[1].toUpperCase().trim();
-        setForm(f => ({ ...f, specimen: spec }));
-        addToast(`Specimen: ${spec}`, 'info');
-        return true;
-      }
-
-      // Referred by: "referred by <name>" or "doctor <name>"
-      const refMatch = lower.match(/^(?:referred?\s*by|doctor)\s+(.+)/);
-      if (refMatch) {
-        const refName = raw.slice(raw.toLowerCase().indexOf(refMatch[1])).trim();
-        // Find closest match in referringDoctors
-        const match = referringDoctors.find(d => d.toLowerCase().includes(refName.toLowerCase()));
-        if (match) {
-          setForm(f => ({ ...f, referred_by: match }));
-          addToast(`Referred by: ${match}`, 'info');
-        } else {
-          setForm(f => ({ ...f, referred_by: refName }));
-          addToast(`Referred by: ${refName}`, 'info');
+    const handler = (intent) => {
+      if (intent.intent === 'set_field') {
+        const { field, value } = intent;
+        if (field === 'patient_name') {
+          setForm(f => ({ ...f, patient_name: value }));
+          return `Patient name set to ${value}`;
         }
-        return true;
+        if (field === 'age') {
+          setForm(f => ({ ...f, age: value }));
+          return `Age set to ${value} years`;
+        }
+        if (field === 'gender') {
+          setForm(f => ({ ...f, gender: value }));
+          return `Gender set to ${value}`;
+        }
+        if (field === 'specimen') {
+          setForm(f => ({ ...f, specimen: value }));
+          return `Specimen set to ${value}`;
+        }
+        if (field === 'referred_by') {
+          const match = referringDoctors.find(d => d.toLowerCase().includes(value.toLowerCase()));
+          const finalVal = match || value;
+          setForm(f => ({ ...f, referred_by: finalVal }));
+          return `Referred by ${finalVal}`;
+        }
+        return null;
       }
 
-      // Save: "save" or "save report"
-      if (lower === 'save' || lower === 'save report' || lower === 'सेव') {
+      if (intent.intent === 'save') {
         document.querySelector('[data-voice-save]')?.click();
-        return true;
+        return 'Saving and downloading the report';
       }
-
-      // Print: "print" or "print report"
-      if (lower === 'print' || lower === 'print report' || lower === 'प्रिंट') {
+      if (intent.intent === 'print') {
         document.querySelector('[data-voice-print]')?.click();
-        return true;
+        return 'Saving and printing the report';
       }
-
-      // Clear / Reset: "clear" or "new report"
-      if (lower === 'clear' || lower === 'reset' || lower === 'new report' || lower === 'new') {
+      if (intent.intent === 'clear') {
         document.querySelector('[data-voice-clear]')?.click();
-        return true;
+        return 'Form cleared. Ready for a new report.';
       }
 
-      return false;
+      return null; // not handled
     };
 
     return registerCommands('quick-report', handler);
-  }, [registerCommands, addToast, referringDoctors]);
+  }, [registerCommands, referringDoctors]);
 
   // Get unique sub-groups for a test
   const getTestGroups = (test) => {

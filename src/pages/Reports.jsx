@@ -37,40 +37,26 @@ export default function Reports() {
   const { addToast } = useToast();
   const { registerCommands } = useVoice();
 
-  // Voice command handler for Reports page
+  // Voice command handler for Reports page (intent-based)
   useEffect(() => {
-    const handler = (lower) => {
-      // Search: "search <term>"
-      const searchMatch = lower.match(/^(?:search|find|खोजो|ढूंढो)\s+(.+)/);
-      if (searchMatch) {
-        setSearchTerm(searchMatch[1].trim());
-        addToast(`Searching: ${searchMatch[1].trim()}`, 'info');
-        return true;
+    const handler = (intent) => {
+      if (intent.intent === 'search') {
+        setSearchTerm(intent.query);
+        return `Searching for ${intent.query}`;
       }
-
-      // Filter: "show completed/pending/all"
-      if (lower.includes('completed') || lower.includes('complete')) {
-        setStatusFilter('Completed');
-        addToast('Filter: Completed', 'info');
-        return true;
+      if (intent.intent === 'filter') {
+        if (intent.value === 'All') {
+          setStatusFilter('All');
+          setSearchTerm('');
+          return 'Showing all reports';
+        }
+        setStatusFilter(intent.value);
+        return `Showing ${intent.value.toLowerCase()} reports`;
       }
-      if (lower.includes('pending')) {
-        setStatusFilter('Pending');
-        addToast('Filter: Pending', 'info');
-        return true;
-      }
-      if (lower === 'show all' || lower === 'all reports' || lower === 'clear filter') {
-        setStatusFilter('All');
-        setSearchTerm('');
-        addToast('Filter cleared', 'info');
-        return true;
-      }
-
-      return false;
+      return null;
     };
-
     return registerCommands('reports', handler);
-  }, [registerCommands, addToast]);
+  }, [registerCommands]);
 
   const handleSort = (field) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
