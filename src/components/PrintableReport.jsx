@@ -39,7 +39,7 @@ const DEFAULT_LAYOUT = {
   colRefWidth: 30,
 };
 
-const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, ref) => {
+const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, letterheadUrl }, ref) => {
   if (!report) return null;
 
   const l = { ...DEFAULT_LAYOUT, ...layoutSettings };
@@ -155,6 +155,16 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
 
   return (
     <div ref={ref} style={{ fontFamily: "'Times New Roman', serif", color: '#000', fontSize: `${l.bodyFontSize}px`, lineHeight: '1.5', width: '100%' }}>
+
+      {/* Letterhead image for preview mode */}
+      {isPreview && letterheadUrl && (
+        <img
+          src={letterheadUrl}
+          alt="Letterhead"
+          style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover', objectPosition: 'top' }}
+          onError={e => { e.target.style.display = 'none'; }}
+        />
+      )}
 
       {/* FOOTER - position:fixed for print/pdf; inline flow for preview; hidden on iOS */}
       {!isIOS && !isPreview && <div className="page-footer" style={{ height: `${footerH}px` }}>

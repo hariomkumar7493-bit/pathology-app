@@ -1023,8 +1023,8 @@ export default function Reports() {
                     })}
                   </div>
                 ) : (
-                  /* Read-only preview with inline header/footer */
-                  <PrintableReport ref={printRef} report={viewReport} mode="preview" layoutSettings={layoutSettings?.pdf || layoutSettings?.print} />
+                  /* Read-only preview with letterhead, inline header/footer */
+                  <PrintableReport ref={printRef} report={viewReport} mode="preview" layoutSettings={layoutSettings?.pdf || layoutSettings?.print} letterheadUrl={getAssetUrl('letterhead.png')} />
                 )}
               </>
             )}
