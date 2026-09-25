@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SyncProvider } from './context/SyncContext';
+import { VoiceProvider } from './context/VoiceContext';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
 import UpdateNotification from './components/UpdateNotification';
@@ -85,8 +86,10 @@ export default function App() {
         <AuthProvider>
           <SyncProvider>
             <ToastProvider>
-              <AppRoutes />
-              <UpdateNotification />
+              <VoiceProvider>
+                <AppRoutes />
+                <UpdateNotification />
+              </VoiceProvider>
             </ToastProvider>
           </SyncProvider>
         </AuthProvider>

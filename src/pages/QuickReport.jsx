@@ -4,6 +4,7 @@ import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronD
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
+import { useVoice } from '../context/VoiceContext';
 import { isElectron, getAssetUrl } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
@@ -41,12 +42,95 @@ export default function QuickReport() {
     date_of_collection: new Date().toISOString().split('T')[0],
   });
 
+  const { registerCommands } = useVoice();
+
   useEffect(() => {
     api.getTests().then(setTests).catch(console.error);
     api.getReportLayout().then(setLayoutSettings).catch(() => {});
     api.getReferringDoctors().then(data => setReferringDoctors(data.doctors || ['SELF'])).catch(() => {});
     api.getNextSampleId().then(data => setSampleId(data.sampleId || '')).catch(() => {});
   }, []);
+
+  // Voice command handler for Quick Report
+  useEffect(() => {
+    const handler = (lower, raw) => {
+      // Patient name: "patient name <name>" or "name <name>"
+      const nameMatch = lower.match(/^(?:patient\s*name|name)\s+(.+)/);
+      if (nameMatch) {
+        const name = raw.slice(raw.indexOf(nameMatch[1])).trim();
+        setForm(f => ({ ...f, patient_name: name }));
+        addToast(`Patient name: ${name}`, 'info');
+        return true;
+      }
+
+      // Age: "age <number>" or "age <number> years"
+      const ageMatch = lower.match(/^(?:age|umra?)\s+(\d+)/i);
+      if (ageMatch) {
+        setForm(f => ({ ...f, age: ageMatch[1] }));
+        addToast(`Age: ${ageMatch[1]}`, 'info');
+        return true;
+      }
+
+      // Gender: "gender male/female" or "male"/"female"
+      if (lower.includes('female') || lower.includes('महिला')) {
+        setForm(f => ({ ...f, gender: 'Female' }));
+        addToast('Gender: Female', 'info');
+        return true;
+      }
+      if (lower.includes('male') || lower.includes('पुरुष')) {
+        setForm(f => ({ ...f, gender: 'Male' }));
+        addToast('Gender: Male', 'info');
+        return true;
+      }
+
+      // Specimen: "specimen blood/urine/serum"
+      const specMatch = lower.match(/^(?:specimen|sample)\s+(.+)/);
+      if (specMatch) {
+        const spec = specMatch[1].toUpperCase().trim();
+        setForm(f => ({ ...f, specimen: spec }));
+        addToast(`Specimen: ${spec}`, 'info');
+        return true;
+      }
+
+      // Referred by: "referred by <name>" or "doctor <name>"
+      const refMatch = lower.match(/^(?:referred?\s*by|doctor)\s+(.+)/);
+      if (refMatch) {
+        const refName = raw.slice(raw.toLowerCase().indexOf(refMatch[1])).trim();
+        // Find closest match in referringDoctors
+        const match = referringDoctors.find(d => d.toLowerCase().includes(refName.toLowerCase()));
+        if (match) {
+          setForm(f => ({ ...f, referred_by: match }));
+          addToast(`Referred by: ${match}`, 'info');
+        } else {
+          setForm(f => ({ ...f, referred_by: refName }));
+          addToast(`Referred by: ${refName}`, 'info');
+        }
+        return true;
+      }
+
+      // Save: "save" or "save report"
+      if (lower === 'save' || lower === 'save report' || lower === 'सेव') {
+        document.querySelector('[data-voice-save]')?.click();
+        return true;
+      }
+
+      // Print: "print" or "print report"
+      if (lower === 'print' || lower === 'print report' || lower === 'प्रिंट') {
+        document.querySelector('[data-voice-print]')?.click();
+        return true;
+      }
+
+      // Clear / Reset: "clear" or "new report"
+      if (lower === 'clear' || lower === 'reset' || lower === 'new report' || lower === 'new') {
+        document.querySelector('[data-voice-clear]')?.click();
+        return true;
+      }
+
+      return false;
+    };
+
+    return registerCommands('quick-report', handler);
+  }, [registerCommands, addToast, referringDoctors]);
 
   // Get unique sub-groups for a test
   const getTestGroups = (test) => {
@@ -761,7 +845,7 @@ export default function QuickReport() {
           <p className="text-gray-400 text-xs mt-0.5">Enter patient details, fill results, and print immediately</p>
         </div>
         {savedReportId && (
-          <button onClick={handleReset} className="btn-secondary w-fit text-sm py-1.5">New Report</button>
+          <button data-voice-clear onClick={handleReset} className="btn-secondary w-fit text-sm py-1.5">New Report</button>
         )}
       </div>
 
@@ -997,7 +1081,7 @@ export default function QuickReport() {
 
               {/* Action Buttons */}
               <div className="flex gap-3">
-                <button onClick={handleSaveAndPrint} disabled={saving} className="btn-primary flex items-center gap-2 flex-1 justify-center py-3 disabled:opacity-50">
+                <button data-voice-print onClick={handleSaveAndPrint} disabled={saving} className="btn-primary flex items-center gap-2 flex-1 justify-center py-3 disabled:opacity-50">
                   {saving ? (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   ) : (
@@ -1007,7 +1091,7 @@ export default function QuickReport() {
                     </>
                   )}
                 </button>
-                <button onClick={handleSaveAndDownloadPdf} disabled={saving} className="btn-secondary flex items-center gap-2 flex-1 justify-center py-3 disabled:opacity-50">
+                <button data-voice-save onClick={handleSaveAndDownloadPdf} disabled={saving} className="btn-secondary flex items-center gap-2 flex-1 justify-center py-3 disabled:opacity-50">
                   <Download className="w-4 h-4" />
                   Save & Download PDF
                 </button>

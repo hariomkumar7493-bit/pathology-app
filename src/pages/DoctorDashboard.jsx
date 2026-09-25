@@ -7,6 +7,7 @@ import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import { useVoice } from '../context/VoiceContext';
 import { isElectron, getAssetUrl } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
@@ -28,11 +29,36 @@ export default function DoctorDashboard() {
   const printRef = useRef();
   const pdfRef = useRef();
   const { addToast } = useToast();
+  const { registerCommands } = useVoice();
 
   useEffect(() => {
     loadReports();
     api.getReportLayout().then(setLayoutSettings).catch((err) => console.error('Layout load failed:', err));
   }, []);
+
+  // Voice command handler for Doctor Dashboard
+  useEffect(() => {
+    const handler = (lower) => {
+      const searchMatch = lower.match(/^(?:search|find|खोजो)\s+(.+)/);
+      if (searchMatch) {
+        setSearchTerm(searchMatch[1].trim());
+        addToast(`Searching: ${searchMatch[1].trim()}`, 'info');
+        return true;
+      }
+      if (lower === 'today' || lower === 'today reports' || lower === "today's reports" || lower === 'आज') {
+        setView('today');
+        addToast('Showing today\'s reports', 'info');
+        return true;
+      }
+      if (lower === 'history' || lower === 'all reports' || lower === 'all' || lower === 'पुराने') {
+        setView('history');
+        addToast('Showing report history', 'info');
+        return true;
+      }
+      return false;
+    };
+    return registerCommands('doctor-dashboard', handler);
+  }, [registerCommands, addToast]);
 
   async function loadReports() {
     setLoading(true);

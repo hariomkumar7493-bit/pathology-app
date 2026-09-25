@@ -3,6 +3,7 @@ import { Search, Download, Eye, FileText, CheckCircle, Clock, AlertCircle, Print
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
+import { useVoice } from '../context/VoiceContext';
 import { isElectron, getAssetUrl } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
@@ -34,6 +35,42 @@ export default function Reports() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const { addToast } = useToast();
+  const { registerCommands } = useVoice();
+
+  // Voice command handler for Reports page
+  useEffect(() => {
+    const handler = (lower) => {
+      // Search: "search <term>"
+      const searchMatch = lower.match(/^(?:search|find|खोजो|ढूंढो)\s+(.+)/);
+      if (searchMatch) {
+        setSearchTerm(searchMatch[1].trim());
+        addToast(`Searching: ${searchMatch[1].trim()}`, 'info');
+        return true;
+      }
+
+      // Filter: "show completed/pending/all"
+      if (lower.includes('completed') || lower.includes('complete')) {
+        setStatusFilter('Completed');
+        addToast('Filter: Completed', 'info');
+        return true;
+      }
+      if (lower.includes('pending')) {
+        setStatusFilter('Pending');
+        addToast('Filter: Pending', 'info');
+        return true;
+      }
+      if (lower === 'show all' || lower === 'all reports' || lower === 'clear filter') {
+        setStatusFilter('All');
+        setSearchTerm('');
+        addToast('Filter cleared', 'info');
+        return true;
+      }
+
+      return false;
+    };
+
+    return registerCommands('reports', handler);
+  }, [registerCommands, addToast]);
 
   const handleSort = (field) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');

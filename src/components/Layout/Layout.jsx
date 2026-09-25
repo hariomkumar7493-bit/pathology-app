@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import VoiceAssistant from '../VoiceAssistant';
 
 export default function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
@@ -22,6 +23,7 @@ export default function Layout() {
       <main className={`pt-20 pb-4 px-4 sm:pt-24 sm:px-6 lg:px-8 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
         <Outlet />
       </main>
+      <VoiceAssistant />
     </div>
   );
 }
