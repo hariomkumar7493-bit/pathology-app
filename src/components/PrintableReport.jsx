@@ -55,7 +55,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
   useLayoutEffect(() => {
     if (!isPreview) { setHeaderSpacer(l.letterheadHeight); return; }
     const w = ref?.current?.clientWidth;
-    if (w) setHeaderSpacer(Math.round(l.letterheadHeight * w / 794));
+    if (w) setHeaderSpacer(Math.round(l.letterheadHeight * w / 794) + 20); // +20px buffer clears the blue header edge
   }, [isPreview, l.letterheadHeight, ref, letterheadUrl]);
 
   const formatDate = (d) => {
