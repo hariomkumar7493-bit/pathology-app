@@ -84,7 +84,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
   // Shared header builder (rendered inside each table's thead)
   const renderHeader = (investigationText) => (
     <>
-      {!isPreview && <tr><td style={{ height: `${l.letterheadHeight}px`, paddingTop: `${l.headerTopPadding}px`, padding: 0, border: 'none' }}></td></tr>}
+      <tr><td style={{ height: `${l.letterheadHeight}px`, paddingTop: `${l.headerTopPadding}px`, padding: 0, border: 'none' }}></td></tr>
       <tr>
         <td style={{ textAlign: 'center', fontSize: `${l.titleFontSize}px`, fontWeight: 'bold', paddingBottom: `${l.headerBottomPadding}px`, textDecoration: 'underline', letterSpacing: '1px' }}>
           LABORATORY INVESTIGATION REPORT
@@ -154,17 +154,20 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
   );
 
   return (
-    <div ref={ref} style={{ fontFamily: "'Times New Roman', serif", color: '#000', fontSize: `${l.bodyFontSize}px`, lineHeight: '1.5', width: '100%' }}>
-
-      {/* Letterhead image for preview mode */}
-      {isPreview && letterheadUrl && (
-        <img
-          src={letterheadUrl}
-          alt="Letterhead"
-          style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover', objectPosition: 'top' }}
-          onError={e => { e.target.style.display = 'none'; }}
-        />
-      )}
+    <div ref={ref} style={{
+      fontFamily: "'Times New Roman', serif",
+      color: '#000',
+      fontSize: `${l.bodyFontSize}px`,
+      lineHeight: '1.5',
+      width: '100%',
+      // Preview mode: letterhead as background — content overlaps on top, like the actual PDF
+      ...(isPreview && letterheadUrl ? {
+        backgroundImage: `url(${letterheadUrl})`,
+        backgroundSize: '100% auto',
+        backgroundPosition: 'top center',
+        backgroundRepeat: 'no-repeat',
+      } : {}),
+    }}>
 
       {/* FOOTER - position:fixed for print/pdf; inline flow for preview; hidden on iOS */}
       {!isIOS && !isPreview && <div className="page-footer" style={{ height: `${footerH}px` }}>
