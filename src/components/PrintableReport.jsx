@@ -58,6 +58,9 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
     if (w) setHeaderSpacer(Math.round(l.letterheadHeight * w / 794) + 20); // +20px buffer clears the blue header edge
   }, [isPreview, l.letterheadHeight, ref, letterheadUrl]);
 
+  // Preview pagination — each category is one "page" like the printed A4 output
+  const [page, setPage] = useState(0);
+
   const formatDate = (d) => {
     if (!d) return '';
     const dt = new Date(d);
@@ -76,6 +79,9 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
   const filledCategories = Object.entries(groupedByCategory).filter(([, groups]) =>
     Object.values(groups).some(params => params.some(p => p.result_value && p.result_value.toString().trim() !== ''))
   );
+
+  // Clamp page so a new report with fewer categories never shows a blank page
+  const safePage = Math.min(page, Math.max(0, filledCategories.length - 1));
 
   const specimens = [...new Set((report.results || []).map(r => r.specimen).filter(Boolean))];
 
@@ -198,9 +204,16 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
         )}
       </div>}
 
-      {/* One table per category — each has full header (with per-category investigation) in thead */}
+      {/* One table per category — preview shows one page at a time; all tables stay in DOM
+          so print (outerHTML) still includes every page. Hidden pages are restored by @media print. */}
+      {isPreview && filledCategories.length > 0 && (
+        <style>{`
+          .preview-hidden-page { display: none; }
+          @media print { .report-pager { display: none !important; } .preview-hidden-page { display: table !important; } }
+        `}</style>
+      )}
       {filledCategories.map(([catName, groups], catIdx) => (
-        <table key={catName} style={{ width: '100%', borderCollapse: 'collapse', pageBreakAfter: catIdx < filledCategories.length - 1 ? 'always' : 'auto' }}>
+        <table key={catName} className={isPreview && catIdx !== safePage ? 'preview-hidden-page' : undefined} style={{ width: '100%', borderCollapse: 'collapse', pageBreakAfter: catIdx < filledCategories.length - 1 ? 'always' : 'auto' }}>
           <thead>{renderHeader(getCatInvestigation(groups))}</thead>
           {!isPreview && <tfoot>{renderFooter()}</tfoot>}
           <tbody>
@@ -269,6 +282,37 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
               {l.hindiFooterText}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Page navigation — preview mode only, hidden when printing */}
+      {isPreview && filledCategories.length > 1 && (
+        <div className="report-pager" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginTop: '16px', padding: '10px 0', borderTop: '1px dashed #ccc' }}>
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={safePage === 0}
+            style={{
+              padding: '6px 16px', fontSize: '12px', fontFamily: 'sans-serif', borderRadius: '6px',
+              border: '1px solid #ccc', background: safePage === 0 ? '#f5f5f5' : '#fff',
+              color: safePage === 0 ? '#aaa' : '#333', cursor: safePage === 0 ? 'not-allowed' : 'pointer',
+            }}
+          >
+            ← Prev
+          </button>
+          <span style={{ fontSize: '12px', fontFamily: 'sans-serif', color: '#666' }}>
+            Page {safePage + 1} of {filledCategories.length}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(filledCategories.length - 1, p + 1))}
+            disabled={safePage >= filledCategories.length - 1}
+            style={{
+              padding: '6px 16px', fontSize: '12px', fontFamily: 'sans-serif', borderRadius: '6px',
+              border: '1px solid #ccc', background: safePage >= filledCategories.length - 1 ? '#f5f5f5' : '#fff',
+              color: safePage >= filledCategories.length - 1 ? '#aaa' : '#333', cursor: safePage >= filledCategories.length - 1 ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Next →
+          </button>
         </div>
       )}
     </div>
