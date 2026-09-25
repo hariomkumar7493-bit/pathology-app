@@ -1023,11 +1023,8 @@ export default function Reports() {
                     })}
                   </div>
                 ) : (
-                  /* Read-only preview — hide the fixed footer (it's for print only) */
-                  <div className="report-modal-preview">
-                    <style>{`.report-modal-preview .page-footer { display: none !important; }`}</style>
-                    <PrintableReport ref={printRef} report={viewReport} layoutSettings={layoutSettings?.print} />
-                  </div>
+                  /* Read-only preview with inline header/footer */
+                  <PrintableReport ref={printRef} report={viewReport} mode="preview" layoutSettings={layoutSettings?.pdf || layoutSettings?.print} />
                 )}
               </>
             )}

@@ -44,6 +44,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
 
   const l = { ...DEFAULT_LAYOUT, ...layoutSettings };
   const isPdf = mode === 'pdf';
+  const isPreview = mode === 'preview'; // in-browser PDF-style preview (no position:fixed)
   const footerH = l.footerHeight;
   const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
@@ -83,7 +84,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
   // Shared header builder (rendered inside each table's thead)
   const renderHeader = (investigationText) => (
     <>
-      <tr><td style={{ height: `${l.letterheadHeight}px`, paddingTop: `${l.headerTopPadding}px`, padding: 0, border: 'none' }}></td></tr>
+      {!isPreview && <tr><td style={{ height: `${l.letterheadHeight}px`, paddingTop: `${l.headerTopPadding}px`, padding: 0, border: 'none' }}></td></tr>}
       <tr>
         <td style={{ textAlign: 'center', fontSize: `${l.titleFontSize}px`, fontWeight: 'bold', paddingBottom: `${l.headerBottomPadding}px`, textDecoration: 'underline', letterSpacing: '1px' }}>
           LABORATORY INVESTIGATION REPORT
@@ -155,8 +156,8 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
   return (
     <div ref={ref} style={{ fontFamily: "'Times New Roman', serif", color: '#000', fontSize: `${l.bodyFontSize}px`, lineHeight: '1.5', width: '100%' }}>
 
-      {/* FOOTER - position:fixed pins to bottom on desktop; hidden on iOS */}
-      {!isIOS && <div className="page-footer" style={{ height: `${footerH}px` }}>
+      {/* FOOTER - position:fixed for print/pdf; inline flow for preview; hidden on iOS */}
+      {!isIOS && !isPreview && <div className="page-footer" style={{ height: `${footerH}px` }}>
         <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '8px' }}>
           {isPdf && l.showSignature && <img src={getAssetUrl('doctor-sign.png')} alt="signature" style={{ height: `${l.signatureHeight}px`, marginLeft: 'auto', display: 'block', objectFit: 'contain' }} />}
           <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{l.doctorName || report.doctor_name || 'DR. C. ASHOK'}</p>
@@ -178,7 +179,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
       {filledCategories.map(([catName, groups], catIdx) => (
         <table key={catName} style={{ width: '100%', borderCollapse: 'collapse', pageBreakAfter: catIdx < filledCategories.length - 1 ? 'always' : 'auto' }}>
           <thead>{renderHeader(getCatInvestigation(groups))}</thead>
-          <tfoot>{renderFooter()}</tfoot>
+          {!isPreview && <tfoot>{renderFooter()}</tfoot>}
           <tbody>
             <tr>
               <td style={{
@@ -226,6 +227,27 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings }, 
           </tbody>
         </table>
       ))}
+
+      {/* Inline footer for preview mode — renders at bottom of content, not position:fixed */}
+      {isPreview && (
+        <div style={{ marginTop: '20px', paddingTop: '10px' }}>
+          <div style={{ textAlign: 'right', paddingRight: '20px', marginBottom: '8px' }}>
+            {l.showSignature && <img src={getAssetUrl('doctor-sign.png')} alt="signature" style={{ height: `${l.signatureHeight}px`, marginLeft: 'auto', display: 'block', objectFit: 'contain' }} onError={e => { e.target.style.display = 'none'; }} />}
+            <p style={{ fontWeight: 'bold', fontSize: '13px', margin: 0, textDecoration: 'underline' }}>{l.doctorName || report.doctor_name || 'DR. C. ASHOK'}</p>
+            <p style={{ fontSize: '11px', margin: 0 }}>{l.doctorDesignation || report.doctor_designation || 'MBBS MD (PATH)'}</p>
+            <p style={{ fontSize: '11px', margin: 0 }}>(PATHOLOGIST)</p>
+          </div>
+          <div style={{ borderTop: '1px solid #999', paddingTop: '3px', fontSize: '9px', color: '#666' }}>
+            <p style={{ margin: '1px 0' }}>1. {l.footerNote1}</p>
+            <p style={{ margin: '1px 0' }}>2. {l.footerNote2}</p>
+          </div>
+          {l.showHindiFooter && (
+            <div style={{ marginTop: '6px', background: l.hindiFooterBgColor, color: '#fff', padding: '4px 10px', fontSize: '9px', textAlign: 'center', fontFamily: "'Noto Sans Devanagari', sans-serif", borderRadius: '4px' }}>
+              {l.hindiFooterText}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 });
