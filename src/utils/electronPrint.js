@@ -39,7 +39,6 @@ export function buildPrintHTML(reportElementOrHTML, { patientName = 'Report', mo
   const ls = layoutSettings || {};
   const padL = ls.bodyPaddingLeft ?? 10;
   const padR = ls.bodyPaddingRight ?? 10;
-  const lhHeight = ls.letterheadHeight ?? 140;
   const footerBottom = isPdf ? `${ls.footerBottomOffset ?? 5}mm` : '25px';
   const bodyFontSize = ls.bodyFontSize ?? 12;
   const letterheadImg = letterheadUrl
@@ -63,7 +62,7 @@ export function buildPrintHTML(reportElementOrHTML, { patientName = 'Report', mo
         thead td, tfoot td { padding: 0; }
         .page-footer { position: fixed; bottom: ${footerBottom}; left: 0; right: 0; z-index: 2; background: #fff; }
         .hindi-footer { font-family: 'Noto Sans Devanagari', sans-serif !important; }
-        ${letterheadUrl ? `.letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: ${lhHeight}px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }` : ''}
+        ${letterheadUrl ? `.letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 297mm; z-index: -1; object-fit: fill; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }` : ''}
       </style>
     </head>
     <body>${letterheadImg}${bodyContent}</body>

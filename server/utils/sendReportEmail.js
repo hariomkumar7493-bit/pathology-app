@@ -122,7 +122,7 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
   thead td, tfoot td { padding: 0; border: none; }
   .page-header { position: fixed; top: 0; left: 0; right: 0; z-index: 2; }
   .page-footer { position: fixed; bottom: ${l.footerBottomOffset}mm; left: 0; right: 0; z-index: 2; }
-  .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: ${l.letterheadHeight}px; z-index: -1; object-fit: cover; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 297mm; z-index: -1; object-fit: fill; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 </style>
 </head>
 <body>
