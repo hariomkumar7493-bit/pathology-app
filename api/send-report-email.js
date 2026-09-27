@@ -115,16 +115,16 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
   return `<!DOCTYPE html>
 <html>
 <head>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Liberation+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Sans+Devanagari:wght@400;700&display=swap" rel="stylesheet">
 <style>
   @page { margin: 0; size: A4; }
   html, body { height: 100%; margin: 0; box-sizing: border-box; }
-  body { font-family: 'Times New Roman', serif; padding: 0 ${l.bodyPaddingLeft}mm 0 ${l.bodyPaddingRight}mm; color: #000; font-size: ${l.bodyFontSize}px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: 'Liberation Serif', 'Times New Roman', serif; padding: 0 ${l.bodyPaddingLeft}mm 0 ${l.bodyPaddingRight}mm; color: #000; font-size: ${l.bodyFontSize}px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   table { border-collapse: collapse; width: 100%; }
   thead { display: table-header-group; }
   tfoot { display: table-footer-group; }
   thead td, tfoot td { padding: 0; border: none; }
-  .page-header { position: fixed; top: 0; left: 0; right: 0; z-index: 2; }
+  .page-header { position: fixed; top: 0; left: ${l.bodyPaddingLeft}mm; right: ${l.bodyPaddingRight}mm; z-index: 2; }
   .page-footer { position: fixed; bottom: ${l.footerBottomOffset}mm; left: 0; right: 0; z-index: 2; }
   .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 297mm; z-index: -1; object-fit: fill; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 </style>
@@ -132,7 +132,7 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
 <body>
 <img class="letterhead-bg" src="${letterheadUrl}" />
 
-<div style="font-family:'Times New Roman',serif;color:#000;font-size:${l.bodyFontSize}px;line-height:1.5;width:100%;">
+<div style="font-family:'Liberation Serif','Times New Roman',serif;color:#000;font-size:${l.bodyFontSize}px;line-height:1.5;width:100%;">
   <div class="page-header" style="height:${HEADER_H}px;">
     <div style="height:${LH_SPACER}px;padding-top:${l.headerTopPadding}px;"></div>
     <div style="text-align:center;font-size:${l.titleFontSize}px;font-weight:bold;margin-bottom:${l.headerBottomPadding}px;text-decoration:underline;letter-spacing:1px;">LABORATORY INVESTIGATION REPORT</div>
