@@ -61,8 +61,8 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
   }, [isPreview, l.letterheadHeight, ref, letterheadUrl]);
 
   // Print/PDF: letterhead is stretched to full A4 (297mm); the blue header ends at
-  // 297mm * (345/2400) = 42.7mm ≈ 161px @96dpi. +12px margin so the title clears it.
-  const printSpacer = Math.max(l.letterheadHeight, Math.round(297 * (345 / 2400) * 3.7795) + 12);
+  // 297mm * (345/2400) = 42.7mm ≈ 161px @96dpi. +24px margin so the title clears it.
+  const printSpacer = Math.max(l.letterheadHeight, Math.round(297 * (345 / 2400) * 3.7795) + 24);
   const effectiveSpacer = isPreview ? headerSpacer : printSpacer;
 
   // Preview pagination — each category is one "page" like the printed A4 output

@@ -61,7 +61,7 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
   const extraLines = Math.max(0, Math.ceil(invLen / 80) - 1);
   // Full-page letterhead (297mm): blue header band ends at ~14.4% of image
   // height (345px of 2400px) = 42.7mm ≈ 161px @96dpi. +12px clears the edge.
-  const LH_SPACER = Math.max(l.letterheadHeight, Math.round(297 * (345 / 2400) * 3.7795) + 12);
+  const LH_SPACER = Math.max(l.letterheadHeight, Math.round(297 * (345 / 2400) * 3.7795) + 24);
   const HEADER_H = LH_SPACER + 135 + (extraLines * 14);
   const FOOTER_H = l.footerHeight;
 
