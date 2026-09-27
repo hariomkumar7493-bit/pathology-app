@@ -55,8 +55,15 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
   useLayoutEffect(() => {
     if (!isPreview) { setHeaderSpacer(l.letterheadHeight); return; }
     const w = ref?.current?.clientWidth;
-    if (w) setHeaderSpacer(Math.round(l.letterheadHeight * w / 794) + 20); // +20px buffer clears the blue header edge
+    // Preview letterhead keeps natural aspect (2400/1792); blue header ends at
+    // y=345px of the image -> containerW * 345/1792. +12px margin below it.
+    if (w) setHeaderSpacer(Math.round(w * (345 / 1792)) + 12);
   }, [isPreview, l.letterheadHeight, ref, letterheadUrl]);
+
+  // Print/PDF: letterhead is stretched to full A4 (297mm); the blue header ends at
+  // 297mm * (345/2400) = 42.7mm ≈ 161px @96dpi. +12px margin so the title clears it.
+  const printSpacer = Math.max(l.letterheadHeight, Math.round(297 * (345 / 2400) * 3.7795) + 12);
+  const effectiveSpacer = isPreview ? headerSpacer : printSpacer;
 
   // Preview pagination — each category is one "page" like the printed A4 output
   const [page, setPage] = useState(0);
@@ -100,7 +107,7 @@ const PrintableReport = forwardRef(({ report, mode = 'print', layoutSettings, le
   // Shared header builder (rendered inside each table's thead)
   const renderHeader = (investigationText) => (
     <>
-      <tr><td style={{ height: `${headerSpacer}px`, paddingTop: `${l.headerTopPadding}px`, padding: 0, border: 'none' }}></td></tr>
+      <tr><td style={{ height: `${effectiveSpacer}px`, paddingTop: `${l.headerTopPadding}px`, padding: 0, border: 'none' }}></td></tr>
       <tr>
         <td style={{ textAlign: 'center', fontSize: `${l.titleFontSize}px`, fontWeight: 'bold', paddingBottom: `${l.headerBottomPadding}px`, textDecoration: 'underline', letterSpacing: '1px' }}>
           LABORATORY INVESTIGATION REPORT
