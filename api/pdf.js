@@ -55,18 +55,51 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
     return m || f || '';
   };
 
-  const invLen = (report.investigation || '').length;
-  const extraLines = Math.max(0, Math.ceil(invLen / 80) - 1);
   // Full-page letterhead (297mm): blue header band ends at ~14.4% of image
-  // height (345px of 2400px) = 42.7mm ≈ 161px @96dpi. +12px clears the edge.
+  // height (345px of 2400px) = 42.7mm ≈ 161px @96dpi. +24px clears the edge.
   const LH_SPACER = Math.max(l.letterheadHeight, Math.round(297 * (345 / 2400) * 3.7795) + 24);
-  const HEADER_H = LH_SPACER + 135 + (extraLines * 14);
   const FOOTER_H = l.footerHeight;
 
   // Build one table per category (each gets its own page via page-break-after)
   const filledCategories = Object.entries(groupedByCategory).filter(([, groups]) =>
     Object.values(groups).some(params => params.some(p => p.result_value && p.result_value.toString().trim() !== ''))
   );
+
+  // Per-category investigation list — same as PrintableReport.getCatInvestigation
+  const getCatInvestigation = (groups) =>
+    Object.values(groups).flat()
+      .filter(p => p.result_value && p.result_value.toString().trim() !== '')
+      .map(p => p.param_name).filter(Boolean).join(', ');
+
+  // Header lives in each table's thead (repeats per page, per-category) — same as PrintableReport
+  const headerHtml = (investigationText) => `
+    <tr><td style="height:${LH_SPACER}px;padding-top:${l.headerTopPadding}px;padding:0;border:none;"></td></tr>
+    <tr><td style="text-align:center;font-size:${l.titleFontSize}px;font-weight:bold;padding-bottom:${l.headerBottomPadding}px;text-decoration:underline;letter-spacing:1px;">LABORATORY INVESTIGATION REPORT</td></tr>
+    <tr><td style="font-size:${l.patientInfoFontSize}px;padding-bottom:${l.headerBottomPadding}px;padding-left:20px;padding-right:10px;">
+      <div style="display:flex;justify-content:space-between;">
+        <span style="width:${l.colTestWidth}%;"><strong>Patient Name</strong> : ${report.patient_name || ''}</span>
+        <span style="width:${l.colResultWidth}%;text-align:center;"><strong>Age/Sex</strong> : ${report.age || ''} Yrs/${(report.gender || '')[0] || ''}</span>
+        <span style="width:${l.colRefWidth}%;text-align:left;"><strong>Date of Collection</strong> : ${formatDate(report.date_of_collection)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="width:${l.colTestWidth}%;"><strong>Ref. by</strong> : ${report.referred_by || 'SELF'}</span>
+        <span style="width:${l.colResultWidth}%;"></span>
+        <span style="width:${l.colRefWidth}%;text-align:left;"><strong>Date of Reporting</strong> : ${formatDate(report.date_of_reporting || report.created_at)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="width:${l.colTestWidth}%;"><strong>Specimen</strong> : ${specimens.join(', ') || report.specimen || 'BLOOD'}</span>
+        <span style="width:${l.colResultWidth}%;"></span>
+        <span style="width:${l.colRefWidth}%;text-align:left;"><strong>Ref No</strong> : ${report.sample_id || report.ref_no || ''}</span>
+      </div>
+      ${investigationText ? `<div><strong>Investigation</strong> : ${investigationText}</div>` : ''}
+    </td></tr>
+    <tr><td style="padding:0;">
+      <div style="display:flex;border-top:2px solid #000;border-bottom:2px solid #000;font-weight:bold;font-size:${l.resultFontSize}px;padding-left:20px;padding-right:10px;">
+        <div style="width:${l.colTestWidth}%;padding:4px 6px;">Test Description</div>
+        <div style="width:${l.colResultWidth}%;padding:4px 6px;text-align:center;">RESULT/UNIT</div>
+        <div style="width:${l.colRefWidth}%;padding:4px 6px;text-align:center;">REF. RANGE</div>
+      </div>
+    </td></tr>`;
 
   let tablesHtml = '';
   filledCategories.forEach(([catName, groups], catIdx) => {
@@ -78,7 +111,7 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
       if (filledParams.length === 0) continue;
 
       if (groupName) {
-        rowsHtml += `<tr><td style="padding-top:6px;padding-left:6px;font-weight:bold;font-size:11px;color:#333;">${groupName}</td></tr>`;
+        rowsHtml += `<tr><td style="padding-top:6px;padding-left:20px;font-weight:bold;font-size:11px;color:#333;">${groupName}</td></tr>`;
       }
 
       for (const param of filledParams) {
@@ -88,7 +121,7 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
         const rowColor = isAbn ? '#c00' : '#000';
         const refColor = isAbn ? rowColor : '#555';
         rowsHtml += `<tr style="border-bottom:1px dotted #ccc;font-weight:${rowBold};color:${rowColor};font-size:${l.resultFontSize}px;">
-          <td style="padding:3px 6px 3px 12px;">
+          <td style="padding:3px 10px 3px 20px;">
             <div style="display:flex;">
               <span style="width:${l.colTestWidth}%;">${param.param_name}</span>
               <span style="width:${l.colResultWidth}%;text-align:center;">${resultUnit}</span>
@@ -103,7 +136,7 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
     const pageBreak = catIdx < filledCategories.length - 1 ? 'page-break-after:always;' : '';
     tablesHtml += `
   <table style="width:100%;border-collapse:collapse;${pageBreak}">
-    <thead><tr><td style="height:${HEADER_H + 5}px;padding:0;border:none;"></td></tr></thead>
+    <thead>${headerHtml(getCatInvestigation(groups))}</thead>
     <tfoot><tr><td style="height:${FOOTER_H}px;padding:0;border:none;"></td></tr></tfoot>
     <tbody>${rowsHtml}</tbody>
   </table>`;
@@ -123,7 +156,6 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
   thead { display: table-header-group; }
   tfoot { display: table-footer-group; }
   thead td, tfoot td { padding: 0; border: none; }
-  .page-header { position: fixed; top: 0; left: ${l.bodyPaddingLeft}mm; right: ${l.bodyPaddingRight}mm; z-index: 2; }
   .page-footer { position: fixed; bottom: ${l.footerBottomOffset}mm; left: 0; right: 0; z-index: 2; }
   .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 297mm; z-index: -1; object-fit: fill; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 </style>
@@ -132,35 +164,6 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
 <img class="letterhead-bg" src="${letterheadUrl}" />
 
 <div style="font-family:'Liberation Serif','Times New Roman',serif;color:#000;font-size:${l.bodyFontSize}px;line-height:1.5;width:100%;">
-  <!-- HEADER -->
-  <div class="page-header" style="height:${HEADER_H}px;">
-    <div style="height:${LH_SPACER}px;padding-top:${l.headerTopPadding}px;"></div>
-    <div style="text-align:center;font-size:${l.titleFontSize}px;font-weight:bold;margin-bottom:${l.headerBottomPadding}px;text-decoration:underline;letter-spacing:1px;">LABORATORY INVESTIGATION REPORT</div>
-    <div style="font-size:${l.patientInfoFontSize}px;margin-bottom:${l.headerBottomPadding}px;">
-      <div style="display:flex;justify-content:space-between;">
-        <span style="width:${l.colTestWidth}%;"><strong>Patient Name</strong> : ${report.patient_name || ''}</span>
-        <span style="width:${l.colResultWidth}%;text-align:center;"><strong>Age/Sex</strong> : ${report.age || ''} Yrs/${(report.gender || '')[0] || ''}</span>
-        <span style="width:${l.colRefWidth}%;text-align:left;"><strong>Date of Collection</strong> : ${formatDate(report.date_of_collection)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;">
-        <span style="width:${l.colTestWidth}%;"><strong>Ref. by</strong> : ${report.referred_by || 'SELF'}</span>
-        <span style="width:${l.colResultWidth}%;"></span>
-        <span style="width:${l.colRefWidth}%;text-align:left;"><strong>Date of Reporting</strong> : ${formatDate(report.date_of_reporting || report.created_at)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;">
-        <span style="width:${l.colTestWidth}%;"><strong>Specimen</strong> : ${specimens.join(', ') || report.specimen || 'BLOOD'}</span>
-        <span style="width:${l.colResultWidth}%;"></span>
-        <span style="width:${l.colRefWidth}%;text-align:left;"><strong>Ref No</strong> : ${report.ref_no || ''}</span>
-      </div>
-      ${report.investigation ? `<div><strong>Investigation</strong> : ${report.investigation}</div>` : ''}
-    </div>
-    <div style="display:flex;border-top:2px solid #000;border-bottom:2px solid #000;font-weight:bold;font-size:${l.resultFontSize}px;">
-      <div style="width:${l.colTestWidth}%;padding:4px 6px;">Test Description</div>
-      <div style="width:${l.colResultWidth}%;padding:4px 6px;text-align:center;">RESULT/UNIT</div>
-      <div style="width:${l.colRefWidth}%;padding:4px 6px;text-align:center;">REF. RANGE</div>
-    </div>
-  </div>
-
   <!-- FOOTER -->
   <div class="page-footer" style="height:${FOOTER_H}px;">
     <div style="text-align:right;padding-right:20px;margin-bottom:8px;">
