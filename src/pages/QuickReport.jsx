@@ -664,21 +664,24 @@ export default function QuickReport() {
     if (sid) setSampleId(sid);
 
     // Find which tests contain parameters that match the analyzer codes
+    // Use strict exact-alias matching only (no substring fallback) to avoid false positives
     const analyzerCodes = (analyzerResult.results || []).map(r => r.testCode || r.testName).filter(Boolean);
+    const analyzerNormSet = new Set(analyzerCodes.map(c => normalizeCode(c)));
     const matchingTestIds = [];
     const matchingGroups = {};
     for (const test of tests) {
       const testParams = test.parameters || [];
-      // Check if any param in this test matches an analyzer code
-      const hasMatch = testParams.some(tp => {
+      // Count how many params in this test have an exact alias match to an analyzer code
+      let matchCount = 0;
+      for (const tp of testParams) {
         const paramNorm = normalizeCode(tp.param_name);
-        return analyzerCodes.some(code => {
-          const codeNorm = normalizeCode(code);
+        for (const codeNorm of analyzerNormSet) {
           const aliases = PARAM_ALIASES_LOOKUP[codeNorm] || [codeNorm];
-          return aliases.includes(paramNorm) || aliases.some(a => a.length >= 3 && (paramNorm.includes(a) || a.includes(paramNorm)));
-        });
-      });
-      if (hasMatch) {
+          if (aliases.includes(paramNorm)) { matchCount++; break; }
+        }
+      }
+      // Require at least 3 matching params to auto-select a test (avoids false positives)
+      if (matchCount >= 3) {
         matchingTestIds.push(test._id);
         matchingGroups[test._id] = getTestGroups(test);
       }
