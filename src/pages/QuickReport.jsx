@@ -6,7 +6,7 @@ import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
 import { useVoice } from '../context/VoiceContext';
 import { useAnalyzer } from '../context/AnalyzerContext';
-import { matchResultsToParams, getAnalyzerSampleId } from '../utils/analyzerParamMap';
+import { matchResultsToParams, getAnalyzerSampleId, normalizeCode, PARAM_ALIASES_LOOKUP } from '../utils/analyzerParamMap';
 import { isElectron, getAssetUrl } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
@@ -31,6 +31,7 @@ export default function QuickReport() {
   const [referringDoctors, setReferringDoctors] = useState(['SELF']);
   const printRef = useRef();
   const pdfRef = useRef();
+  const pendingApplyRef = useRef(null); // holds analyzer results waiting for params to load
   const { addToast } = useToast();
 
   const [form, setForm] = useState({
@@ -139,6 +140,13 @@ export default function QuickReport() {
         if (!results[p.uid]) init[p.uid] = { result_value: '', is_abnormal: false };
       });
       setResults(prev => ({ ...prev, ...init }));
+
+      // If there's a pending analyzer apply, execute it now that params are loaded
+      if (pendingApplyRef.current && filtered.length > 0) {
+        const pending = pendingApplyRef.current;
+        pendingApplyRef.current = null;
+        setTimeout(() => fillFromAnalyzer(pending, filtered), 100);
+      }
     }).catch(console.error);
   }, [selectedTests, selectedGroups]);
 
@@ -615,17 +623,14 @@ export default function QuickReport() {
     api.getNextSampleId().then(data => setSampleId(data.sampleId || '')).catch(() => {});
   };
 
-  // Apply received analyzer results to the current parameter rows
-  const applyAnalyzerResults = (analyzerResult) => {
-    if (parameters.length === 0) {
-      addToast('Select the test(s) first so parameters load, then click Apply again', 'warning');
-      return;
-    }
-    const { mapped, unmatched } = matchResultsToParams(analyzerResult.results || [], parameters);
+  // Fill parameter values from analyzer result (called when params are loaded)
+  const fillFromAnalyzer = (analyzerResult, loadedParams) => {
+    const paramList = loadedParams || parameters;
+    const { mapped, unmatched } = matchResultsToParams(analyzerResult.results || [], paramList);
     const newResults = { ...results };
     let applied = 0;
     for (const [uid, val] of Object.entries(mapped)) {
-      const param = parameters.find(p => p.uid === uid);
+      const param = paramList.find(p => p.uid === uid);
       const refRange = form.gender === 'Female' ? param?.ref_range_female : param?.ref_range_male;
       newResults[uid] = {
         result_value: val.result_value,
@@ -633,7 +638,7 @@ export default function QuickReport() {
       };
       applied++;
     }
-    const calcResults = autoCalculate(parameters, newResults, form.gender, checkAbnormal, form.age);
+    const calcResults = autoCalculate(paramList, newResults, form.gender, checkAbnormal, form.age);
     setResults(calcResults);
     removeAnalyzerResult(analyzerResult._key);
     if (applied === 0) {
@@ -641,6 +646,67 @@ export default function QuickReport() {
     } else {
       addToast(`Applied ${applied} analyzer result${applied !== 1 ? 's' : ''}${unmatched.length ? ` — ${unmatched.length} unmatched` : ''}`, 'success');
     }
+  };
+
+  // Apply received analyzer results — auto-selects matching tests first
+  const applyAnalyzerResults = (analyzerResult) => {
+    // Auto-fill patient info from analyzer if form is empty
+    const p = analyzerResult.patient;
+    if (p) {
+      setForm(f => ({
+        ...f,
+        patient_name: f.patient_name || p.patientName || '',
+        age: f.age || p.age || '',
+        gender: f.gender || (p.sex === 'M' ? 'Male' : p.sex === 'F' ? 'Female' : ''),
+      }));
+    }
+    const sid = getAnalyzerSampleId(analyzerResult);
+    if (sid) setSampleId(sid);
+
+    // Find which tests contain parameters that match the analyzer codes
+    const analyzerCodes = (analyzerResult.results || []).map(r => r.testCode || r.testName).filter(Boolean);
+    const matchingTestIds = [];
+    const matchingGroups = {};
+    for (const test of tests) {
+      const testParams = test.parameters || [];
+      // Check if any param in this test matches an analyzer code
+      const hasMatch = testParams.some(tp => {
+        const paramNorm = normalizeCode(tp.param_name);
+        return analyzerCodes.some(code => {
+          const codeNorm = normalizeCode(code);
+          const aliases = PARAM_ALIASES_LOOKUP[codeNorm] || [codeNorm];
+          return aliases.includes(paramNorm) || aliases.some(a => a.length >= 3 && (paramNorm.includes(a) || a.includes(paramNorm)));
+        });
+      });
+      if (hasMatch) {
+        matchingTestIds.push(test._id);
+        matchingGroups[test._id] = getTestGroups(test);
+      }
+    }
+
+    if (matchingTestIds.length === 0) {
+      addToast('No matching tests found in your test list for these analyzer results', 'error');
+      return;
+    }
+
+    // If the right tests are already selected and params loaded, fill immediately
+    const alreadySelected = matchingTestIds.every(id => selectedTests.includes(id));
+    if (alreadySelected && parameters.length > 0) {
+      fillFromAnalyzer(analyzerResult);
+      return;
+    }
+
+    // Auto-select the matching tests and store pending apply
+    pendingApplyRef.current = analyzerResult;
+    setSelectedTests(prev => [...new Set([...prev, ...matchingTestIds])]);
+    setSelectedGroups(prev => {
+      const next = { ...prev };
+      for (const [tid, groups] of Object.entries(matchingGroups)) {
+        if (!next[tid]) next[tid] = groups;
+      }
+      return next;
+    });
+    addToast(`Auto-selected ${matchingTestIds.length} test(s) — applying results...`, 'info');
   };
 
   const handleShareWhatsApp = async () => {

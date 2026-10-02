@@ -104,6 +104,11 @@ const PARAM_ALIASES = {
 };
 
 /**
+ * Export the aliases map for direct lookup (used by auto-test-selection).
+ */
+export const PARAM_ALIASES_LOOKUP = PARAM_ALIASES;
+
+/**
  * Normalize a code or param name for matching.
  * % → pct, # → abs, non-alphanumeric stripped, lowercased.
  */
