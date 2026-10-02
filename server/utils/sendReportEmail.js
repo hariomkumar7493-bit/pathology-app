@@ -72,8 +72,11 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
       .map(p => p.param_name).filter(Boolean).join(', ');
 
   // Header lives in each table's thead (repeats per page, per-category) — same as PrintableReport
+  // Letterhead is inside the spacer row so it doesn't cover data on page 2+
   const headerHtml = (investigationText) => `
-    <tr><td style="height:${LH_SPACER}px;padding-top:${l.headerTopPadding}px;padding:0;border:none;"></td></tr>
+    <tr><td style="height:${LH_SPACER}px;padding:0;border:none;position:relative;">
+      <img src="${letterheadUrl}" style="position:absolute;top:0;left:-${l.bodyPaddingLeft}mm;width:210mm;height:297mm;object-fit:fill;object-position:top;z-index:-1;-webkit-print-color-adjust:exact;print-color-adjust:exact;" />
+    </td></tr>
     <tr><td style="text-align:center;font-size:${l.titleFontSize}px;font-weight:bold;padding-bottom:${l.headerBottomPadding}px;text-decoration:underline;letter-spacing:1px;">LABORATORY INVESTIGATION REPORT</td></tr>
     <tr><td style="font-size:${l.patientInfoFontSize}px;padding-bottom:${l.headerBottomPadding}px;padding-left:20px;padding-right:10px;">
       <div style="display:flex;justify-content:space-between;">
@@ -157,11 +160,10 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
   tfoot { display: table-footer-group; }
   thead td, tfoot td { padding: 0; border: none; }
   .page-footer { position: fixed; bottom: ${l.footerBottomOffset}mm; left: 0; right: 0; z-index: 2; }
-  .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 297mm; z-index: -1; object-fit: fill; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
 </style>
 </head>
 <body>
-<img class="letterhead-bg" src="${letterheadUrl}" />
 
 <div style="font-family:'Liberation Serif','Times New Roman',serif;color:#000;font-size:${l.bodyFontSize}px;line-height:1.5;width:100%;">
   <div class="page-footer" style="height:${FOOTER_H}px;">
