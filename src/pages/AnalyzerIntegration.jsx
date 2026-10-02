@@ -296,7 +296,11 @@ export default function AnalyzerIntegration() {
                 </div>
               </div>
 
-              {selectedAnalyzer.transport !== 'file' && (
+              {selectedAnalyzer.transport === 'demo' ? (
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-xs text-purple-700 dark:text-purple-300">
+                  Virtual analyzer — sends a realistic CBC result ~8s after connecting, then every 25s. Results appear in the panel below and in Quick Report. Use it to demo the integration without hardware.
+                </div>
+              ) : (
                 <div>
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Connection Type</label>
                   <div className="flex gap-2">
@@ -316,7 +320,7 @@ export default function AnalyzerIntegration() {
                 </div>
               )}
 
-              {connectConfig.transport === 'serial' && selectedAnalyzer.transport !== 'file' && (
+              {connectConfig.transport === 'serial' && selectedAnalyzer.transport !== 'file' && selectedAnalyzer.transport !== 'demo' && (
                 <>
                   <div>
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Serial Port</label>
@@ -345,7 +349,7 @@ export default function AnalyzerIntegration() {
                 </>
               )}
 
-              {connectConfig.transport === 'tcp' && selectedAnalyzer.transport !== 'file' && (
+              {connectConfig.transport === 'tcp' && selectedAnalyzer.transport !== 'file' && selectedAnalyzer.transport !== 'demo' && (
                 <>
                   <div>
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Analyzer IP Address</label>

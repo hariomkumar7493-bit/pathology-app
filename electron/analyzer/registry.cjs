@@ -14,6 +14,16 @@
  */
 
 const ANALYZERS = [
+  {
+    id: 'demo-analyzer',
+    brand: 'Demo',
+    model: 'Virtual Analyzer (No Hardware Needed)',
+    category: 'Demo',
+    protocol: 'demo',
+    transport: 'demo',
+    direction: 'uni',
+    tests: ['WBC', 'RBC', 'HGB', 'HCT', 'MCV', 'MCH', 'MCHC', 'PLT', 'NEU%', 'NEU#', 'LYM%', 'LYM#', 'MON%', 'MON#', 'EOS%', 'EOS#', 'BAS%', 'BAS#', 'RDW-SD', 'RDW-CV', 'PDW', 'MPV', 'PCT', 'P-LCR'],
+  },
   // ========================== HEMATOLOGY ==========================
   {
     id: 'mindray-bc5150',

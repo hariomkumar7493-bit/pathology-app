@@ -52,6 +52,8 @@ class AnalyzerConnection extends EventEmitter {
         await this.connectSerial();
       } else if (this.transport === 'tcp') {
         this.connectTCP();
+      } else if (this.transport === 'demo') {
+        this.connectDemo();
       }
     } catch (err) {
       this.status = 'error';
@@ -113,6 +115,30 @@ class AnalyzerConnection extends EventEmitter {
     this.connection.on('error', (err) => this.handleError(err));
     this.connection.on('close', () => this.handleDisconnect());
     this.connection.on('timeout', () => this.handleError(new Error('TCP timeout')));
+  }
+
+  /**
+   * Demo mode — no hardware. Emits a fake CBC result ~8s after connect,
+   * then one every ~25s to simulate samples completing on the analyzer.
+   */
+  connectDemo() {
+    this.status = 'connected';
+    this.lastError = null;
+    this.emit('status', this.status);
+    this.emit('connected', { demo: true });
+
+    const emitDemo = () => {
+      if (this.status !== 'connected') return;
+      const demoData = require('./demo-data.cjs');
+      const result = demoData.nextResult();
+      this.lastResult = result;
+      this.emit('result', result);
+    };
+
+    this.demoTimer = setTimeout(() => {
+      emitDemo();
+      this.demoTimer = setInterval(emitDemo, 25000);
+    }, 8000);
   }
 
   handleData(data) {
@@ -187,6 +213,11 @@ class AnalyzerConnection extends EventEmitter {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    if (this.demoTimer) {
+      clearTimeout(this.demoTimer);
+      clearInterval(this.demoTimer);
+      this.demoTimer = null;
     }
     if (this.connection) {
       if (this.transport === 'serial') {
