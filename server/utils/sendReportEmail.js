@@ -74,7 +74,7 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
   // Header lives in each table's thead (repeats per page, per-category) — same as PrintableReport
   // Letterhead is inside the spacer row so it doesn't cover data on page 2+
   const headerHtml = (investigationText) => `
-    <tr><td style="height:${LH_SPACER}px;padding:0;border:none;position:relative;">
+    <tr><td style="height:${LH_SPACER}px;padding:0;border:none;position:relative;overflow:hidden;">
       <img src="${letterheadUrl}" style="position:absolute;top:0;left:-${l.bodyPaddingLeft}mm;width:210mm;height:297mm;object-fit:fill;object-position:top;z-index:-1;-webkit-print-color-adjust:exact;print-color-adjust:exact;" />
     </td></tr>
     <tr><td style="text-align:center;font-size:${l.titleFontSize}px;font-weight:bold;padding-bottom:${l.headerBottomPadding}px;text-decoration:underline;letter-spacing:1px;">LABORATORY INVESTIGATION REPORT</td></tr>
