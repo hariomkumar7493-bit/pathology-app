@@ -5,6 +5,7 @@ import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SyncProvider } from './context/SyncContext';
 import { VoiceProvider } from './context/VoiceContext';
+import { AnalyzerProvider } from './context/AnalyzerContext';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
 import UpdateNotification from './components/UpdateNotification';
@@ -86,10 +87,12 @@ export default function App() {
         <AuthProvider>
           <SyncProvider>
             <ToastProvider>
-              <VoiceProvider>
-                <AppRoutes />
-                <UpdateNotification />
-              </VoiceProvider>
+              <AnalyzerProvider>
+                <VoiceProvider>
+                  <AppRoutes />
+                  <UpdateNotification />
+                </VoiceProvider>
+              </AnalyzerProvider>
             </ToastProvider>
           </SyncProvider>
         </AuthProvider>

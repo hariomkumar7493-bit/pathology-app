@@ -1,13 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Activity, Usb, Wifi, Plug, Unplug, FileUp, Search,
   CheckCircle, XCircle, AlertCircle, Loader2, Cpu, ChevronDown, ChevronRight, Trash2, Download
 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { useAnalyzer } from '../context/AnalyzerContext';
 import { isElectron } from '../utils/electron';
+import { getAnalyzerSampleId } from '../utils/analyzerParamMap';
 
 export default function AnalyzerIntegration() {
   const { addToast } = useToast();
+  const navigate = useNavigate();
+  const analyzerCtx = useAnalyzer();
   const [analyzers, setAnalyzers] = useState([]);
   const [analyzersByCategory, setAnalyzersByCategory] = useState({});
   const [ports, setPorts] = useState([]);
@@ -15,7 +20,7 @@ export default function AnalyzerIntegration() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCategory, setExpandedCategory] = useState(null);
   const [selectedAnalyzer, setSelectedAnalyzer] = useState(null);
-  const [connectConfig, setConnectConfig] = useState({ serialPort: 'COM1', tcpHost: '127.0.0.1', tcpPort: 5000 });
+  const [connectConfig, setConnectConfig] = useState({ transport: 'serial', serialPort: 'COM1', tcpHost: '192.168.1.50', tcpPort: 5000 });
   const [connecting, setConnecting] = useState(false);
   const [receivedResults, setReceivedResults] = useState([]);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
@@ -84,7 +89,7 @@ export default function AnalyzerIntegration() {
     try {
       const config = {
         analyzerId: selectedAnalyzer.id,
-        transport: selectedAnalyzer.transport,
+        transport: connectConfig.transport || selectedAnalyzer.transport,
         serialPort: connectConfig.serialPort,
         tcpHost: connectConfig.tcpHost,
         tcpPort: connectConfig.tcpPort,
@@ -248,7 +253,7 @@ export default function AnalyzerIntegration() {
                     {items.map(a => (
                       <button
                         key={a.id}
-                        onClick={() => setSelectedAnalyzer(a)}
+                        onClick={() => { setSelectedAnalyzer(a); setConnectConfig(prev => ({ ...prev, transport: a.transport || 'serial' })); }}
                         className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
                           selectedAnalyzer?.id === a.id
                             ? 'bg-primary-50 text-primary-700 font-medium'
@@ -291,7 +296,27 @@ export default function AnalyzerIntegration() {
                 </div>
               </div>
 
-              {selectedAnalyzer.transport === 'serial' && (
+              {selectedAnalyzer.transport !== 'file' && (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Connection Type</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setConnectConfig(prev => ({ ...prev, transport: 'serial' }))}
+                      className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs border transition-colors ${connectConfig.transport === 'serial' ? 'bg-primary-600 text-white border-primary-600' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400'}`}
+                    >
+                      <Usb className="w-3 h-3" /> Serial (RS-232)
+                    </button>
+                    <button
+                      onClick={() => setConnectConfig(prev => ({ ...prev, transport: 'tcp' }))}
+                      className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs border transition-colors ${connectConfig.transport === 'tcp' ? 'bg-primary-600 text-white border-primary-600' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400'}`}
+                    >
+                      <Wifi className="w-3 h-3" /> LAN (TCP)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {connectConfig.transport === 'serial' && selectedAnalyzer.transport !== 'file' && (
                 <>
                   <div>
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Serial Port</label>
@@ -320,7 +345,7 @@ export default function AnalyzerIntegration() {
                 </>
               )}
 
-              {selectedAnalyzer.transport === 'tcp' && (
+              {connectConfig.transport === 'tcp' && selectedAnalyzer.transport !== 'file' && (
                 <>
                   <div>
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">Analyzer IP Address</label>
@@ -399,9 +424,17 @@ export default function AnalyzerIntegration() {
                   <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                     {r.brand} {r.model}
                     {r.patient?.patientName ? ` · ${r.patient.patientName}` : ''}
-                    {r.patient?.patientId ? ` (ID: ${r.patient.patientId})` : ''}
+                    {getAnalyzerSampleId(r) ? ` (Sample ${getAnalyzerSampleId(r)})` : r.patient?.patientId ? ` (ID: ${r.patient.patientId})` : ''}
                   </span>
-                  <span className="text-[10px] text-gray-400">{new Date(r.receivedAt).toLocaleTimeString()}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => navigate('/quick-report')}
+                      className="btn-primary text-[10px] py-0.5 px-2"
+                    >
+                      Fill in Quick Report
+                    </button>
+                    <span className="text-[10px] text-gray-400">{new Date(r.receivedAt).toLocaleTimeString()}</span>
+                  </div>
                 </div>
                 {r.results && r.results.length > 0 ? (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-1">

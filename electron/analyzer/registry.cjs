@@ -16,6 +16,17 @@
 const ANALYZERS = [
   // ========================== HEMATOLOGY ==========================
   {
+    id: 'mindray-bc5150',
+    brand: 'Mindray',
+    model: 'BC-5150',
+    category: 'Hematology',
+    protocol: 'astm',
+    transport: 'serial',
+    direction: 'uni',
+    serialSettings: { baudRate: 9600, dataBits: 8, parity: 'none', stopBits: 1 },
+    tests: ['WBC', 'RBC', 'HGB', 'HCT', 'MCV', 'MCH', 'MCHC', 'PLT', 'NEU%', 'NEU#', 'LYM%', 'LYM#', 'MON%', 'MON#', 'EOS%', 'EOS#', 'BAS%', 'BAS#', 'RDW-SD', 'RDW-CV', 'PDW', 'MPV', 'PCT', 'P-LCR'],
+  },
+  {
     id: 'mindray-bc5300',
     brand: 'Mindray',
     model: 'BC-5300',

@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronDown, ChevronUp, ChevronRight, Share2, Mail } from 'lucide-react';
+import { Check, Minus, Printer, Save, Zap, TestTubes, Search, Download, ChevronDown, ChevronUp, ChevronRight, Share2, Mail, Activity } from 'lucide-react';
 import { api } from '../api';
 import PrintableReport from '../components/PrintableReport';
 import { useToast } from '../context/ToastContext';
 import { useVoice } from '../context/VoiceContext';
+import { useAnalyzer } from '../context/AnalyzerContext';
+import { matchResultsToParams, getAnalyzerSampleId } from '../utils/analyzerParamMap';
 import { isElectron, getAssetUrl } from '../utils/electron';
 import { electronPrint, electronShareWhatsApp, electronSavePDF, renderReportToHTML } from '../utils/electronPrint';
 import { isMobileApp, mobileSharePDF, mobileOpenPDF } from '../utils/mobileShare';
@@ -43,6 +45,9 @@ export default function QuickReport() {
   });
 
   const { registerCommands } = useVoice();
+  const analyzerCtx = useAnalyzer();
+  const pendingAnalyzerResults = analyzerCtx?.pendingResults || [];
+  const removeAnalyzerResult = analyzerCtx?.removeResult || (() => {});
 
   useEffect(() => {
     api.getTests().then(setTests).catch(console.error);
@@ -610,6 +615,34 @@ export default function QuickReport() {
     api.getNextSampleId().then(data => setSampleId(data.sampleId || '')).catch(() => {});
   };
 
+  // Apply received analyzer results to the current parameter rows
+  const applyAnalyzerResults = (analyzerResult) => {
+    if (parameters.length === 0) {
+      addToast('Select the test(s) first so parameters load, then click Apply again', 'warning');
+      return;
+    }
+    const { mapped, unmatched } = matchResultsToParams(analyzerResult.results || [], parameters);
+    const newResults = { ...results };
+    let applied = 0;
+    for (const [uid, val] of Object.entries(mapped)) {
+      const param = parameters.find(p => p.uid === uid);
+      const refRange = form.gender === 'Female' ? param?.ref_range_female : param?.ref_range_male;
+      newResults[uid] = {
+        result_value: val.result_value,
+        is_abnormal: val.is_abnormal || checkAbnormal(val.result_value, refRange),
+      };
+      applied++;
+    }
+    const calcResults = autoCalculate(parameters, newResults, form.gender, checkAbnormal, form.age);
+    setResults(calcResults);
+    removeAnalyzerResult(analyzerResult._key);
+    if (applied === 0) {
+      addToast(`No parameters matched — analyzer codes didn't map to selected test params`, 'error');
+    } else {
+      addToast(`Applied ${applied} analyzer result${applied !== 1 ? 's' : ''}${unmatched.length ? ` — ${unmatched.length} unmatched` : ''}`, 'success');
+    }
+  };
+
   const handleShareWhatsApp = async () => {
     if (!form.patient_name) { addToast('Patient name is required', 'warning'); return; }
     if (!form.age) { addToast('Age is required', 'warning'); return; }
@@ -865,6 +898,55 @@ export default function QuickReport() {
           </div>
         </div>
       </div>
+
+      {/* Pending analyzer results banner */}
+      {pendingAnalyzerResults.length > 0 && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5" />
+              Analyzer Results ({pendingAnalyzerResults.length} pending)
+            </h3>
+            <button
+              onClick={() => analyzerCtx?.clearAll?.()}
+              className="text-[10px] text-amber-600 hover:text-amber-800 dark:text-amber-400"
+            >
+              Clear all
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            {pendingAnalyzerResults.slice(0, 5).map(res => {
+              const sid = getAnalyzerSampleId(res);
+              const matchesSample = sid && String(sid) === String(sampleId);
+              return (
+                <div key={res._key} className="flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-medium text-amber-900 dark:text-amber-200">
+                      {res.brand} {res.model}
+                    </span>
+                    <span className="text-amber-700 dark:text-amber-400">
+                      {res.results?.length || 0} params
+                      {sid ? ` · Sample ${sid}` : ''}
+                    </span>
+                    {matchesSample && (
+                      <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-medium">Matches Sample ID</span>
+                    )}
+                    {res.patient?.patientName && (
+                      <span className="text-amber-600 truncate">· {res.patient.patientName}</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => applyAnalyzerResults(res)}
+                    className="btn-primary text-[10px] py-0.5 px-2 whitespace-nowrap"
+                  >
+                    Apply to Report
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Test Selection */}
