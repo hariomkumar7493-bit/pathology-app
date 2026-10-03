@@ -56,29 +56,24 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
     return m || f || '';
   };
 
-  // Full-page letterhead (297mm): blue header band ends at ~14.4% of image
-  // height (345px of 2400px) = 42.7mm ≈ 161px @96dpi. +24px clears the edge.
   const LH_SPACER = Math.max(l.letterheadHeight, Math.round(297 * (345 / 2400) * 3.7795) + 24);
   const FOOTER_H = l.footerHeight;
+  const topMarginMm = Math.ceil(LH_SPACER * 25.4 / 96) + 2;
+  const bottomMarginMm = Math.ceil(FOOTER_H * 25.4 / 96) + (l.footerBottomOffset || 5) + 2;
 
   const filledCategories = Object.entries(groupedByCategory).filter(([, groups]) =>
     Object.values(groups).some(params => params.some(p => p.result_value && p.result_value.toString().trim() !== ''))
   );
 
-  // Per-category investigation list — same as PrintableReport.getCatInvestigation
   const getCatInvestigation = (groups) =>
     Object.values(groups).flat()
       .filter(p => p.result_value && p.result_value.toString().trim() !== '')
       .map(p => p.param_name).filter(Boolean).join(', ');
 
-  // Header lives in each table's thead (repeats per page, per-category) — same as PrintableReport
-  // Letterhead is inside the spacer row so it doesn't cover data on page 2+
-  const headerHtml = (investigationText) => `
-    <tr><td style="height:${LH_SPACER}px;padding:0;border:none;position:relative;overflow:hidden;">
-      <img src="${letterheadUrl}" style="position:absolute;top:0;left:-${l.bodyPaddingLeft}mm;width:210mm;height:297mm;object-fit:fill;object-position:top;z-index:-1;-webkit-print-color-adjust:exact;print-color-adjust:exact;" />
-    </td></tr>
-    <tr><td style="text-align:center;font-size:${l.titleFontSize}px;font-weight:bold;padding-bottom:${l.headerBottomPadding}px;text-decoration:underline;letter-spacing:1px;">LABORATORY INVESTIGATION REPORT</td></tr>
-    <tr><td style="font-size:${l.patientInfoFontSize}px;padding-bottom:${l.headerBottomPadding}px;padding-left:20px;padding-right:10px;">
+  // Patient info block — rendered once per category (NOT in thead)
+  const patientInfoHtml = (investigationText) => `
+    <div style="text-align:center;font-size:${l.titleFontSize}px;font-weight:bold;padding-bottom:${l.headerBottomPadding}px;text-decoration:underline;letter-spacing:1px;">LABORATORY INVESTIGATION REPORT</div>
+    <div style="font-size:${l.patientInfoFontSize}px;padding-bottom:${l.headerBottomPadding}px;padding-left:20px;padding-right:10px;">
       <div style="display:flex;justify-content:space-between;">
         <span style="width:${l.colTestWidth}%;"><strong>Patient Name</strong> : ${report.patient_name || ''}</span>
         <span style="width:${l.colResultWidth}%;text-align:center;"><strong>Age/Sex</strong> : ${report.age || ''} Yrs/${(report.gender || '')[0] || ''}</span>
@@ -95,7 +90,10 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
         <span style="width:${l.colRefWidth}%;text-align:left;"><strong>Ref No</strong> : ${report.sample_id || report.ref_no || ''}</span>
       </div>
       ${investigationText ? `<div><strong>Investigation</strong> : ${investigationText}</div>` : ''}
-    </td></tr>
+    </div>`;
+
+  // Column headers — in <thead> so they repeat on overflow pages
+  const columnHeaderHtml = `
     <tr><td style="padding:0;">
       <div style="display:flex;border-top:2px solid #000;border-bottom:2px solid #000;font-weight:bold;font-size:${l.resultFontSize}px;padding-left:20px;padding-right:10px;">
         <div style="width:${l.colTestWidth}%;padding:4px 6px;">Test Description</div>
@@ -138,11 +136,13 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
 
     const pageBreak = catIdx < filledCategories.length - 1 ? 'page-break-after:always;' : '';
     tablesHtml += `
-  <table style="width:100%;border-collapse:collapse;${pageBreak}">
-    <thead>${headerHtml(getCatInvestigation(groups))}</thead>
-    <tfoot><tr><td style="height:${FOOTER_H}px;padding:0;border:none;"></td></tr></tfoot>
-    <tbody>${rowsHtml}</tbody>
-  </table>`;
+  <div style="${pageBreak}">
+    ${patientInfoHtml(getCatInvestigation(groups))}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>${columnHeaderHtml}</thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  </div>`;
   });
 
   const signatureUrl = letterheadUrl.replace('/letterhead.png', '/doctor-sign.png');
@@ -152,18 +152,18 @@ function buildReportHtml(report, letterheadUrl, layoutSettings = null) {
 <head>
 <link href="https://fonts.googleapis.com/css2?family=Liberation+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Sans+Devanagari:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  @page { margin: 0; size: A4; }
+  @page { size: A4; margin: ${topMarginMm}mm 0 ${bottomMarginMm}mm 0; }
   html, body { height: 100%; margin: 0; box-sizing: border-box; }
   body { font-family: 'Liberation Serif', 'Times New Roman', serif; padding: 0 ${l.bodyPaddingLeft}mm 0 ${l.bodyPaddingRight}mm; color: #000; font-size: ${l.bodyFontSize}px; width: 210mm; min-width: 210mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   table { border-collapse: collapse; width: 100%; }
   thead { display: table-header-group; }
-  tfoot { display: table-footer-group; }
-  thead td, tfoot td { padding: 0; border: none; }
+  thead td { padding: 0; border: none; }
   .page-footer { position: fixed; bottom: ${l.footerBottomOffset}mm; left: 0; right: 0; z-index: 2; }
-
+  .letterhead-bg { position: fixed; top: 0; left: 0; width: 210mm; height: 297mm; z-index: -1; object-fit: fill; object-position: top; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 </style>
 </head>
 <body>
+<img class="letterhead-bg" src="${letterheadUrl}" />
 
 <div style="font-family:'Liberation Serif','Times New Roman',serif;color:#000;font-size:${l.bodyFontSize}px;line-height:1.5;width:100%;">
   <div class="page-footer" style="height:${FOOTER_H}px;">
@@ -210,11 +210,10 @@ async function generatePdfBuffer(report, letterheadUrl, layoutSettings) {
     const html = buildReportHtml(report, letterheadUrl || 'https://placeholder.com/letterhead.png', layoutSettings);
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
-    const lsReq = layoutSettings || {};
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: 0, right: 0, bottom: `${lsReq.footerBottomOffset ?? 5}mm`, left: 0 },
+      preferCSSPageSize: true,
     });
 
     return Buffer.from(pdfBuffer);
